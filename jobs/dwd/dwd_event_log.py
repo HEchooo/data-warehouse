@@ -57,6 +57,7 @@ def get_dataset_for_table(table_name, original_dataset="decom"):
 
 
 # 初始化：查询v3_decom表名
+logging.info(f"开始处理: dwd_event_log")
 logging.info("正在初始化数据集选择机制...")
 V3_DECOM_TABLES = get_v3_decom_tables()
 logging.info(f"v3_decom数据集包含 {len(V3_DECOM_TABLES)} 个表")
