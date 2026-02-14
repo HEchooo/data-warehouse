@@ -125,15 +125,21 @@ def run_dws_device_daily(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
-    (dt, prop_device_id, first_active_date, is_new_device,
+    (dt, prop_device_id, platform, first_active_date, is_new_device,
      content_consume_count, session_duration_sec, update_time)
     WITH
-    -- 每天每个设备每个 session 的持续时间
+    -- 每天每个设备每个 session 的持续时间，一个 session 整体归属一个端
     session_duration AS (
         SELECT
             DATE(logAt_timestamp, 'America/Toronto') AS dt,
             prop_device_id,
             session_id,
+            CASE
+                WHEN LOGICAL_OR(prop_url IS NOT NULL AND prop_url != '') THEN 'h5'
+                WHEN LOGICAL_OR(LOWER(prop_os) = 'ios') THEN 'iOS'
+                WHEN LOGICAL_OR(LOWER(prop_os) IN ('android', 'harmony')) THEN 'Android'
+                ELSE 'unknown'
+            END AS platform,
             TIMESTAMP_DIFF(MAX(logAt_timestamp), MIN(logAt_timestamp), SECOND) AS duration_sec
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE(logAt_timestamp, 'America/Toronto') IN ({dates_str})
@@ -141,26 +147,33 @@ def run_dws_device_daily(dates):
             AND session_id IS NOT NULL AND session_id != ''
         GROUP BY DATE(logAt_timestamp, 'America/Toronto'), prop_device_id, session_id
     ),
-    -- 每天每个设备的内容消费事件计数
+    -- 每天每个设备每个端的内容消费事件计数
     device_daily_agg AS (
         SELECT
             DATE(e.logAt_timestamp, 'America/Toronto') AS dt,
             e.prop_device_id,
+            CASE
+                WHEN e.prop_url IS NOT NULL AND e.prop_url != '' THEN 'h5'
+                WHEN LOWER(e.prop_os) = 'ios' THEN 'iOS'
+                WHEN LOWER(e.prop_os) IN ('android', 'harmony') THEN 'Android'
+                ELSE 'unknown'
+            END AS platform,
             COUNTIF(e.event_name IN ({CONTENT_EVENTS})) AS content_consume_count
             -- dwd 中相同 session 的 list 拆分的 code 是去重的
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log` e
         WHERE DATE(e.logAt_timestamp, 'America/Toronto') IN ({dates_str})
             AND e.prop_device_id IS NOT NULL AND e.prop_device_id != ''
-        GROUP BY DATE(e.logAt_timestamp, 'America/Toronto'), e.prop_device_id
+        GROUP BY DATE(e.logAt_timestamp, 'America/Toronto'), e.prop_device_id, platform
     ),
     device_duration_agg AS (
-        SELECT dt, prop_device_id, SUM(duration_sec) AS total_duration_sec
+        SELECT dt, prop_device_id, platform, SUM(duration_sec) AS total_duration_sec
         FROM session_duration
-        GROUP BY dt, prop_device_id
+        GROUP BY dt, prop_device_id, platform
     )
     SELECT
         a.dt,
         a.prop_device_id,
+        a.platform,
         f.first_active_date,
         (f.first_active_date = a.dt) AS is_new_device,
         a.content_consume_count,
@@ -170,7 +183,7 @@ def run_dws_device_daily(dates):
     LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dim_device_first_active` f
         ON a.prop_device_id = f.prop_device_id
     LEFT JOIN device_duration_agg d
-        ON a.dt = d.dt AND a.prop_device_id = d.prop_device_id;
+        ON a.dt = d.dt AND a.prop_device_id = d.prop_device_id AND a.platform = d.platform;
     """
     logging.info(f"开始处理: dws_device_daily")
     job = client.query(query)
@@ -192,23 +205,30 @@ def run_dws_user_daily(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
-    (dt, prop_user_id, first_active_date, is_new_user,
+    (dt, prop_user_id, platform, first_active_date, is_new_user,
      content_consume_count, update_time)
     WITH
     user_daily_agg AS (
         SELECT
             DATE(e.logAt_timestamp, 'America/Toronto') AS dt,
             e.prop_user_id,
+            CASE
+                WHEN e.prop_url IS NOT NULL AND e.prop_url != '' THEN 'h5'
+                WHEN LOWER(e.prop_os) = 'ios' THEN 'iOS'
+                WHEN LOWER(e.prop_os) IN ('android', 'harmony') THEN 'Android'
+                ELSE 'unknown'
+            END AS platform,
             COUNTIF(e.event_name IN ({CONTENT_EVENTS})) AS content_consume_count
             -- dwd 中相同 session 的 list 拆分的 code 是去重的
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log` e
         WHERE DATE(e.logAt_timestamp, 'America/Toronto') IN ({dates_str})
             AND e.prop_user_id IS NOT NULL AND e.prop_user_id != ''
-        GROUP BY DATE(e.logAt_timestamp, 'America/Toronto'), e.prop_user_id
+        GROUP BY DATE(e.logAt_timestamp, 'America/Toronto'), e.prop_user_id, platform
     )
     SELECT
         a.dt,
         a.prop_user_id,
+        a.platform,
         f.first_active_date,
         (f.first_active_date = a.dt) AS is_new_user,
         a.content_consume_count,

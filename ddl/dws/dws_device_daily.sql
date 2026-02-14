@@ -1,6 +1,7 @@
 CREATE TABLE `my-project-8584-jetonai.decom.dws_device_daily` (
     dt DATE,
     prop_device_id STRING,
+    platform STRING,
     first_active_date DATE,
     is_new_device BOOL,
     content_consume_count INT64,

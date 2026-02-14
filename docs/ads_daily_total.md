@@ -9,6 +9,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | dt | DATE | 日期（多伦多时间） |
+| platform | STRING | 端标识（iOS / Android / h5） |
 | device_count | INT64 | 活跃设备数 |
 | user_count | INT64 | 活跃注册用户数 |
 | avg_duration_sec | NUMERIC | 活跃设备平均停留时长（秒） |
@@ -49,9 +50,9 @@
 
 ```
 ads_daily_total
-    └── dws_device_daily (全量设备)
-    └── dws_user_daily (全量用户)
-            └── dwd_event_log
+    └── dws_device_daily (全量设备, 按 platform 分组)
+    └── dws_user_daily (全量用户, 按 platform 分组)
+            └── dwd_event_log (prop_url 判断 platform)
 ```
 
 ## 时区说明
