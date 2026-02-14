@@ -1,5 +1,6 @@
 CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_new` (
     dt DATE,
+    platform STRING,
     device_count INT64,
     user_count INT64,
     avg_duration_sec NUMERIC,

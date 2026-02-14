@@ -1,6 +1,7 @@
 CREATE TABLE `my-project-8584-jetonai.decom.dws_user_daily` (
     dt DATE,
     prop_user_id STRING,
+    platform STRING,
     first_active_date DATE,
     is_new_user BOOL,
     content_consume_count INT64,

@@ -9,6 +9,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | dt | DATE | 日期（多伦多时间） |
+| platform | STRING | 端标识（iOS / Android / h5） |
 | device_count | INT64 | 新增设备数 |
 | user_count | INT64 | 新增注册用户数 |
 | avg_duration_sec | NUMERIC | 新增设备平均停留时长（秒） |
@@ -49,11 +50,11 @@
 
 ```
 ads_daily_new
-    └── dws_device_daily (dt, is_new_device = TRUE)
-    └── dws_user_daily (dt, is_new_user = TRUE)
+    └── dws_device_daily (dt, platform, is_new_device = TRUE)
+    └── dws_user_daily (dt, platform, is_new_user = TRUE)
             └── dim_device_first_active
             └── dim_user_first_active
-                    └── dwd_event_log
+                    └── dwd_event_log (prop_url 判断 platform)
 ```
 
 ## 时区说明

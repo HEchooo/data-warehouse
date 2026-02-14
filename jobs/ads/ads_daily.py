@@ -63,45 +63,50 @@ def run_ads_daily_new(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_new`
-    (dt, device_count, user_count,
+    (dt, platform, device_count, user_count,
      avg_duration_sec, avg_content_consume_count, next_day_retention_rate,
      update_time)
     WITH
     new_device_metrics AS (
         SELECT
             dt,
+            platform,
             COUNT(DISTINCT prop_device_id) AS device_count,
             CAST(SUM(session_duration_sec) / COUNT(DISTINCT prop_device_id) AS NUMERIC) AS avg_duration_sec,
             CAST(SUM(content_consume_count) / COUNT(DISTINCT prop_device_id) AS NUMERIC) AS avg_content_consume_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
         WHERE dt IN ({dates_str})
             AND is_new_device = TRUE
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     new_user_metrics AS (
         SELECT
             dt,
+            platform,
             COUNT(DISTINCT prop_user_id) AS user_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
         WHERE dt IN ({dates_str})
             AND is_new_user = TRUE
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     new_device_retention AS (
         SELECT
             t.dt,
+            t.platform,
             COUNT(DISTINCT t.prop_device_id) AS new_count,
             COUNT(DISTINCT n.prop_device_id) AS retained_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily` t
         LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dws_device_daily` n
             ON t.prop_device_id = n.prop_device_id
             AND n.dt = DATE_ADD(t.dt, INTERVAL 1 DAY)
+            AND n.platform = t.platform
         WHERE t.dt IN ({dates_str})
             AND t.is_new_device = TRUE
-        GROUP BY t.dt
+        GROUP BY t.dt, t.platform
     )
     SELECT
         COALESCE(d.dt, u.dt, r.dt) AS dt,
+        COALESCE(d.platform, u.platform, r.platform) AS platform,
         COALESCE(d.device_count, 0),
         COALESCE(u.user_count, 0),
         COALESCE(d.avg_duration_sec, 0),
@@ -113,9 +118,9 @@ def run_ads_daily_new(dates):
         CURRENT_TIMESTAMP()
     FROM new_device_metrics d
     FULL OUTER JOIN new_user_metrics u
-        ON d.dt = u.dt
+        ON d.dt = u.dt AND d.platform = u.platform
     FULL OUTER JOIN new_device_retention r
-        ON COALESCE(d.dt, u.dt) = r.dt;
+        ON COALESCE(d.dt, u.dt) = r.dt AND COALESCE(d.platform, u.platform) = r.platform;
     """
     logging.info(f"开始处理: ads_daily_new")
     job = client.query(query)
@@ -140,42 +145,47 @@ def run_ads_daily_total(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_total`
-    (dt, device_count, user_count,
+    (dt, platform, device_count, user_count,
      avg_duration_sec, avg_content_consume_count, next_day_retention_rate,
      update_time)
     WITH
     device_metrics AS (
         SELECT
             dt,
+            platform,
             COUNT(DISTINCT prop_device_id) AS device_count,
             CAST(SUM(session_duration_sec) / COUNT(DISTINCT prop_device_id) AS NUMERIC) AS avg_duration_sec,
             CAST(SUM(content_consume_count) / COUNT(DISTINCT prop_device_id) AS NUMERIC) AS avg_content_consume_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
         WHERE dt IN ({dates_str})
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     user_metrics AS (
         SELECT
             dt,
+            platform,
             COUNT(DISTINCT prop_user_id) AS user_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
         WHERE dt IN ({dates_str})
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     device_retention AS (
         SELECT
             t.dt,
+            t.platform,
             COUNT(DISTINCT t.prop_device_id) AS active_count,
             COUNT(DISTINCT n.prop_device_id) AS retained_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily` t
         LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dws_device_daily` n
             ON t.prop_device_id = n.prop_device_id
             AND n.dt = DATE_ADD(t.dt, INTERVAL 1 DAY)
+            AND n.platform = t.platform
         WHERE t.dt IN ({dates_str})
-        GROUP BY t.dt
+        GROUP BY t.dt, t.platform
     )
     SELECT
         COALESCE(d.dt, u.dt, r.dt) AS dt,
+        COALESCE(d.platform, u.platform, r.platform) AS platform,
         COALESCE(d.device_count, 0),
         COALESCE(u.user_count, 0),
         COALESCE(d.avg_duration_sec, 0),
@@ -187,9 +197,9 @@ def run_ads_daily_total(dates):
         CURRENT_TIMESTAMP()
     FROM device_metrics d
     FULL OUTER JOIN user_metrics u
-        ON d.dt = u.dt
+        ON d.dt = u.dt AND d.platform = u.platform
     FULL OUTER JOIN device_retention r
-        ON COALESCE(d.dt, u.dt) = r.dt;
+        ON COALESCE(d.dt, u.dt) = r.dt AND COALESCE(d.platform, u.platform) = r.platform;
     """
     logging.info(f"开始处理: ads_daily_total")
     job = client.query(query)
