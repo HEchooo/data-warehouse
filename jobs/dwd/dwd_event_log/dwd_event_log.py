@@ -312,6 +312,7 @@ def transform_data(query: str) -> pd.DataFrame:
                     "post_code": post_code,  # 来自 args_post
                     "args": cached_args,  # 使用缓存的JSON字段
                     "args_page_key": row.args_page_key,
+                    "args_session_duration": row.args_session_duration,
                     "args_title": row.args_title,
                     "args_href": row.args_href,
                     "args_from": row.args_from,
@@ -369,6 +370,7 @@ def transform_data(query: str) -> pd.DataFrame:
                 "post_code": None,
                 "args": safe_json_stringify(row.args),
                 "args_page_key": row.args_page_key,
+                "args_session_duration": row.args_session_duration,
                 "args_title": row.args_title,
                 "args_href": row.args_href,
                 "args_from": row.args_from,
@@ -610,7 +612,7 @@ try:
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.{target_table}`
     (hash_id, event_name, logAt_timestamp, session_id, prop_device_id, prop_user_id,
      prop_os, prop_url, prop_params, prop_app_type, prop_ua, ext, ext_productCode,
-     product_code, post_code, args, args_title, args_page_key, args_href, args_from, args_module, args_spu,
+     product_code, post_code, args, args_title, args_page_key, args_session_duration, args_href, args_from, args_module, args_spu,
      oss_create_at, oss_key, tenant_code, prop_share_code, invite_user_id, country, update_time,
      prop_version_type, args_star, args_magazine, args_brand, args_post, args_topic,
      ext_recommend, args_sku, args_blogger, args_progress)
@@ -622,7 +624,7 @@ try:
         product_code,
         post_code,
         PARSE_JSON(args) as args,
-        args_title, args_page_key, args_href, args_from, args_module, args_spu,
+        args_title, args_page_key, args_session_duration, args_href, args_from, args_module, args_spu,
         oss_create_at, oss_key, tenant_code, prop_share_code,
         invite_user_id, country, update_time,
         prop_version_type, args_star, args_magazine, args_brand, args_post, args_topic,
