@@ -41,3 +41,6 @@ PARTITION BY
 CLUSTER BY
     oss_key,
     logAt_timestamp;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ods_event_log`
+ADD COLUMN args_session_duration NUMERIC;

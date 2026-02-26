@@ -46,3 +46,6 @@ CLUSTER BY
     prop_device_id,
     prop_user_id,
     hash_id;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dwd_event_log`
+ADD COLUMN args_session_duration NUMERIC;
