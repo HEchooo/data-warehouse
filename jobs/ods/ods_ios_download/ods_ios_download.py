@@ -69,6 +69,46 @@ def query_table(dataset_id, query):
     return client.query(query, job_config=job_config).result()
 
 
+def create_temp_table(target_table_id, temp_table_id):
+    create_query = f"""
+        CREATE TABLE `{temp_table_id}` AS
+        SELECT * FROM `{target_table_id}`
+        WHERE 1 = 0
+    """
+    client.query(create_query).result()
+    logger.info(f"已创建临时表: {temp_table_id}")
+
+
+def drop_table_if_exists(table_id):
+    drop_query = f"DROP TABLE IF EXISTS `{table_id}`"
+    client.query(drop_query).result()
+    logger.info(f"已删除表: {table_id}")
+
+
+def build_ios_changed_table(
+    target_table_id, temp_table_id, changed_table_id, begin_date_str
+):
+    changed_query = f"""
+        CREATE TABLE `{changed_table_id}`
+        PARTITION BY begin_date AS
+        SELECT * FROM `{target_table_id}`
+        WHERE begin_date != '{begin_date_str}'
+        UNION ALL
+        SELECT * FROM `{temp_table_id}`
+        WHERE begin_date = '{begin_date_str}'
+    """
+    client.query(changed_query).result()
+    logger.info(f"已构建变更临时表: {changed_table_id}")
+
+
+def drop_and_rename_table(source_table_id, target_table_id):
+    target_table_name = target_table_id.split(".")[-1]
+    drop_table_if_exists(target_table_id)
+    rename_query = f"ALTER TABLE `{source_table_id}` RENAME TO {target_table_name}"
+    client.query(rename_query).result()
+    logger.info(f"已将 {source_table_id} 重命名为 {target_table_id}")
+
+
 def ios_download(start_timestamp, end_timestamp):
     start_date = datetime.strptime(start_timestamp, "%Y-%m-%d")
     end_date = datetime.strptime(end_timestamp, "%Y-%m-%d")
@@ -162,25 +202,37 @@ def ios_download(start_timestamp, end_timestamp):
 
             logger.info(f"准备插入 {len(rows_to_insert)} 条记录")
 
-            # 使用 delete + insert 模式导入数据
+            if not rows_to_insert:
+                logger.warning(f"{report_date} 没有可写入数据，跳过")
+                continue
+
             table_id = f"{PROJECT_ID}.{DECOM_DATASET}.ods_ios_download"
             begin_date_str = report_date.strftime("%Y-%m-%d")
+            staging_table_id = (
+                f"{table_id}_tmp_{report_date.strftime('%Y%m%d')}_{int(time.time())}"
+            )
+            changed_table_id = f"{table_id}_changed_{report_date.strftime('%Y%m%d')}_{int(time.time())}"
+            swapped = False
 
-            # 先删除该日期的旧数据
-            delete_query = f"""
-                DELETE FROM `{table_id}`
-                WHERE begin_date = '{begin_date_str}'
-            """
-            client.query(delete_query).result()
-            logger.info(f"已删除 {begin_date_str} 的旧数据")
+            try:
+                create_temp_table(table_id, staging_table_id)
 
-            # 插入新数据
-            if rows_to_insert:
-                errors = client.insert_rows_json(table_id, rows_to_insert)
-                if errors == []:
-                    logger.info(f"{len(rows_to_insert)} 条记录成功插入 {table_id}")
-                else:
-                    logger.error(f"插入数据时遇到错误: {errors}")
+                errors = client.insert_rows_json(staging_table_id, rows_to_insert)
+                if errors != []:
+                    logger.error(f"写入临时表时遇到错误: {errors}")
+                    continue
+                logger.info(f"{len(rows_to_insert)} 条记录成功写入临时表")
+
+                build_ios_changed_table(
+                    table_id, staging_table_id, changed_table_id, begin_date_str
+                )
+                drop_and_rename_table(changed_table_id, table_id)
+                swapped = True
+                logger.info(f"已替换 {begin_date_str} 分区数据（drop + rename）")
+            finally:
+                drop_table_if_exists(staging_table_id)
+                if not swapped:
+                    logger.warning(f"保留变更临时表用于排查: {changed_table_id}")
 
         except Exception as e:
             logger.error(f"{report_date} - {e}")
