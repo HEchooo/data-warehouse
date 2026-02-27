@@ -1,0 +1,32 @@
+CREATE TABLE IF NOT EXISTS `my-project-8584-jetonai.decom.ods_ios_download` (
+    begin_date DATE,
+    end_date DATE,
+    provider STRING,
+    provider_country STRING,
+    sku STRING,
+    developer STRING,
+    title STRING,
+    version STRING,
+    product_type_identifier INT64,
+    units INT64,
+    developer_proceeds FLOAT64,
+    customer_currency STRING,
+    country_code STRING,
+    currency_of_proceeds STRING,
+    apple_identifier STRING,
+    customer_price FLOAT64,
+    promo_code STRING,
+    parent_identifier STRING,
+    subscription STRING,
+    period STRING,
+    category STRING,
+    cmb STRING,
+    device STRING,
+    supported_platforms STRING,
+    proceeds_reason STRING,
+    preserved_pricing STRING,
+    client STRING,
+    order_type STRING
+)
+PARTITION BY
+    begin_date
