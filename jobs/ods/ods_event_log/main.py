@@ -142,6 +142,7 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
                 "prop_app_type": log.properties.app_type,
                 "prop_ua": log.properties.ua,
                 "prop_share_code": log.properties.share_code,
+                "prop_timezone": log.properties.timezone,
                 "ext": json.dumps(log.ext),
                 "ext_productCode": json.dumps(log.ext.get("productCode", None)),
                 "args": json.dumps(log.args) if isinstance(log.args, dict) else "{}",
