@@ -42,6 +42,25 @@ def get_dates_to_process():
     return [row.dt for row in results]
 
 
+def get_download_dates_to_process():
+    """
+    找出下载 DWD 层有新数据但 DWS 下载层尚未处理的日期。
+    使用多伦多时间（America/Toronto），按 T+1 处理。
+    """
+    query = f"""
+    SELECT DISTINCT dt
+    FROM `{PROJECT_ID}.{DATASET_ID}.dwd_download`
+    WHERE update_time > (
+        SELECT COALESCE(MAX(update_time), TIMESTAMP('1970-01-01'))
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+    )
+    AND dt <= DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
 def merge_dim_device_first_active(dates):
     """
     增量维护 dim_device_first_active 维度表。
@@ -243,27 +262,63 @@ def run_dws_user_daily(dates):
     logging.info(f"dws_user_daily 刷新完成, 处理日期: {dates}")
 
 
+def run_dws_download_daily(dates):
+    """
+    纯 SQL 计算 dws_download_daily，DELETE + INSERT 保证幂等。
+    指标: 每日每端新增下载量。
+    """
+    dates_str = ", ".join([f"'{d}'" for d in dates])
+
+    query = f"""
+    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+    WHERE dt IN ({dates_str});
+
+    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+    (dt, platform, new_download_count, update_time)
+    SELECT
+        dt,
+        platform,
+        CAST(SUM(new_download_count) AS INT64) AS new_download_count,
+        CURRENT_TIMESTAMP() AS update_time
+    FROM `{PROJECT_ID}.{DATASET_ID}.dwd_download`
+    WHERE dt IN ({dates_str})
+    GROUP BY dt, platform;
+    """
+    logging.info("开始处理: dws_download_daily")
+    job = client.query(query)
+    job.result()
+    logging.info(f"dws_download_daily 刷新完成, 处理日期: {dates}")
+
+
 if __name__ == "__main__":
     start_time = datetime.now(timezone.utc)
 
-    dates = get_dates_to_process()
-    if not dates:
+    event_dates = get_dates_to_process()
+    download_dates = get_download_dates_to_process()
+
+    if not event_dates and not download_dates:
         logging.info("没有新数据需要处理")
         exit(0)
 
-    logging.info(f"待处理日期: {dates}")
+    if event_dates:
+        logging.info(f"事件待处理日期: {event_dates}")
 
-    # 先增量更新维度表，再计算 DWS
-    merge_dim_device_first_active(dates)
-    logging.info("-" * 50)
+        # 先增量更新维度表，再计算事件相关 DWS
+        merge_dim_device_first_active(event_dates)
+        logging.info("-" * 50)
 
-    merge_dim_user_first_active(dates)
-    logging.info("-" * 50)
+        merge_dim_user_first_active(event_dates)
+        logging.info("-" * 50)
 
-    run_dws_device_daily(dates)
-    logging.info("-" * 50)
+        run_dws_device_daily(event_dates)
+        logging.info("-" * 50)
 
-    run_dws_user_daily(dates)
+        run_dws_user_daily(event_dates)
+        logging.info("-" * 50)
+
+    if download_dates:
+        logging.info(f"下载待处理日期: {download_dates}")
+        run_dws_download_daily(download_dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"DWS ETL 完成, 耗时: {elapsed:.1f} 秒")

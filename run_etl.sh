@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # AI Fashion ETL 定时任务脚本
-# 执行顺序: DWD -> DWS -> ADS
+# 执行顺序: ODS -> DWD -> DWS -> ADS
 
 # 配置
 PROJECT_DIR="/home/echooo/sinn_project/ai-fashion"
@@ -24,6 +24,30 @@ echo "" >> "$LOG_FILE"
 cd "$PROJECT_DIR" || exit 1
 
 # ========================================
+# ODS 层 ETL
+# ========================================
+echo "========================================" >> "$LOG_FILE"
+echo "[$(date '+%H:%M:%S')] 开始执行 ODS ETL" >> "$LOG_FILE"
+echo "========================================" >> "$LOG_FILE"
+
+if "$VENV_PYTHON" "$PROJECT_DIR/ods_ios_download.py" >> "$LOG_FILE" 2>&1; then
+    echo "[$(date '+%H:%M:%S')] ODS iOS 下载 ETL 成功" >> "$LOG_FILE"
+else
+    echo "[$(date '+%H:%M:%S')] ODS iOS 下载 ETL 失败，退出" >> "$LOG_FILE"
+    echo "ETL 结束: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+    exit 1
+fi
+
+if "$VENV_PYTHON" "$PROJECT_DIR/ods_android_download.py" >> "$LOG_FILE" 2>&1; then
+    echo "[$(date '+%H:%M:%S')] ODS Android 下载 ETL 成功" >> "$LOG_FILE"
+    echo "" >> "$LOG_FILE"
+else
+    echo "[$(date '+%H:%M:%S')] ODS Android 下载 ETL 失败，退出" >> "$LOG_FILE"
+    echo "ETL 结束: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+    exit 1
+fi
+
+# ========================================
 # DWD 层 ETL
 # ========================================
 echo "========================================" >> "$LOG_FILE"
@@ -36,6 +60,17 @@ if "$VENV_PYTHON" "$PROJECT_DIR/dwd_event_log.py" >> "$LOG_FILE" 2>&1; then
 else
     echo "" >> "$LOG_FILE"
     echo "[$(date '+%H:%M:%S')] DWD ETL 失败，退出" >> "$LOG_FILE"
+    echo "ETL 结束: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+    exit 1
+fi
+
+if "$VENV_PYTHON" "$PROJECT_DIR/dwd_download.py" >> "$LOG_FILE" 2>&1; then
+    echo "" >> "$LOG_FILE"
+    echo "[$(date '+%H:%M:%S')] DWD 下载 ETL 成功" >> "$LOG_FILE"
+    echo "" >> "$LOG_FILE"
+else
+    echo "" >> "$LOG_FILE"
+    echo "[$(date '+%H:%M:%S')] DWD 下载 ETL 失败，退出" >> "$LOG_FILE"
     echo "ETL 结束: $(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
     exit 1
 fi

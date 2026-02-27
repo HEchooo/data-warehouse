@@ -17,10 +17,11 @@ def get_dates_to_process():
     """
     找出 DWS 层有新数据但 ADS 层尚未处理的日期。
     同时包含前一天用于回刷次日留存率。
+    同时纳入下载 DWS 的增量日期。
     使用多伦多时间（America/Toronto）。
     """
     query = f"""
-    -- 新日期：DWS 有更新但 ADS 尚未处理
+    -- 事件新日期：DWS 有更新但 ADS 尚未处理
     SELECT DISTINCT dt
     FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
     WHERE update_time > (
@@ -40,6 +41,17 @@ def get_dates_to_process():
     )
     AND dt <= DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)
 
+    UNION DISTINCT
+
+    -- 下载新日期：下载 DWS 有更新但 ads_daily_new 尚未处理
+    SELECT DISTINCT dt
+    FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+    WHERE update_time > (
+        SELECT COALESCE(MAX(update_time), TIMESTAMP('1970-01-01'))
+        FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_new`
+    )
+    AND dt <= DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)
+
     ORDER BY dt
     """
     results = client.query(query).result()
@@ -54,6 +66,7 @@ def run_ads_daily_new(dates):
     - avg_duration_sec: 新增设备的平均停留时长
     - avg_content_consume_count: 新增设备的人均内容消费数
     - next_day_retention_rate: 新增设备的次日留存率
+    - new_download_count: 新增下载量（来自 dws_download_daily）
     使用多伦多时间（America/Toronto）。
     """
     dates_str = ", ".join([f"'{d}'" for d in dates])
@@ -64,7 +77,7 @@ def run_ads_daily_new(dates):
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_new`
     (dt, platform, device_count, user_count,
-     avg_duration_sec, avg_content_consume_count, next_day_retention_rate,
+     avg_duration_sec, avg_content_consume_count, next_day_retention_rate, new_download_count,
      update_time)
     WITH
     new_device_metrics AS (
@@ -103,10 +116,28 @@ def run_ads_daily_new(dates):
         WHERE t.dt IN ({dates_str})
             AND t.is_new_device = TRUE
         GROUP BY t.dt, t.platform
+    ),
+    download_metrics AS (
+        SELECT
+            dt,
+            platform,
+            CAST(SUM(new_download_count) AS INT64) AS new_download_count
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+        WHERE dt IN ({dates_str})
+        GROUP BY dt, platform
+    ),
+    metric_keys AS (
+        SELECT dt, platform FROM new_device_metrics
+        UNION DISTINCT
+        SELECT dt, platform FROM new_user_metrics
+        UNION DISTINCT
+        SELECT dt, platform FROM new_device_retention
+        UNION DISTINCT
+        SELECT dt, platform FROM download_metrics
     )
     SELECT
-        COALESCE(d.dt, u.dt, r.dt) AS dt,
-        COALESCE(d.platform, u.platform, r.platform) AS platform,
+        k.dt,
+        k.platform,
         COALESCE(d.device_count, 0),
         COALESCE(u.user_count, 0),
         COALESCE(d.avg_duration_sec, 0),
@@ -115,12 +146,17 @@ def run_ads_daily_new(dates):
             WHEN COALESCE(r.new_count, 0) = 0 THEN 0
             ELSE ROUND(r.retained_count / r.new_count, 4)
         END AS NUMERIC),
+        COALESCE(dl.new_download_count, 0),
         CURRENT_TIMESTAMP()
-    FROM new_device_metrics d
-    FULL OUTER JOIN new_user_metrics u
-        ON d.dt = u.dt AND d.platform = u.platform
-    FULL OUTER JOIN new_device_retention r
-        ON COALESCE(d.dt, u.dt) = r.dt AND COALESCE(d.platform, u.platform) = r.platform;
+    FROM metric_keys k
+    LEFT JOIN new_device_metrics d
+        ON k.dt = d.dt AND k.platform = d.platform
+    LEFT JOIN new_user_metrics u
+        ON k.dt = u.dt AND k.platform = u.platform
+    LEFT JOIN new_device_retention r
+        ON k.dt = r.dt AND k.platform = r.platform
+    LEFT JOIN download_metrics dl
+        ON k.dt = dl.dt AND k.platform = dl.platform;
     """
     logging.info(f"开始处理: ads_daily_new")
     job = client.query(query)

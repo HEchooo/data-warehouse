@@ -8,4 +8,8 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_new` (
     next_day_retention_rate NUMERIC,
     update_time TIMESTAMP
 )
-PARTITION BY dt;
+PARTITION BY
+    dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_new`
+ADD COLUMN new_download_count INT64;
