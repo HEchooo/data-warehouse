@@ -79,10 +79,45 @@ WITH domain_tenant_mapping AS (
         AND domain IS NOT NULL
         AND domain != ''
 )
-SELECT dtl.*,
-    domain_tenant_mapping.tenant_code
+SELECT
+    dtl.event_name,
+    dtl.logAt_timestamp,
+    dtl.session_id,
+    CAST(dtl.prop_device_id AS STRING) AS prop_device_id,
+    CAST(dtl.prop_user_id AS STRING) AS prop_user_id,
+    CAST(dtl.prop_os AS STRING) AS prop_os,
+    CAST(dtl.prop_url AS STRING) AS prop_url,
+    CAST(dtl.prop_params AS STRING) AS prop_params,
+    CAST(dtl.prop_app_type AS STRING) AS prop_app_type,
+    CAST(dtl.prop_ua AS STRING) AS prop_ua,
+    CAST(dtl.prop_timezone AS STRING) AS prop_timezone,
+    dtl.ext,
+    TO_JSON_STRING(dtl.ext_productCode) AS ext_productCode,
+    dtl.args,
+    CAST(dtl.args_page_key AS STRING) AS args_page_key,
+    SAFE_CAST(dtl.args_session_duration AS NUMERIC) AS args_session_duration,
+    CAST(dtl.args_title AS STRING) AS args_title,
+    CAST(dtl.args_href AS STRING) AS args_href,
+    CAST(dtl.args_from AS STRING) AS args_from,
+    CAST(dtl.args_module AS STRING) AS args_module,
+    CAST(dtl.args_spu AS STRING) AS args_spu,
+    SAFE_CAST(dtl.oss_create_at AS INT64) AS oss_create_at,
+    CAST(dtl.oss_key AS STRING) AS oss_key,
+    CAST(dtl.prop_share_code AS STRING) AS prop_share_code,
+    CAST(dtl.country AS STRING) AS country,
+    CAST(dtl.prop_version_type AS STRING) AS prop_version_type,
+    CAST(dtl.args_star AS STRING) AS args_star,
+    CAST(dtl.args_magazine AS STRING) AS args_magazine,
+    CAST(dtl.args_brand AS STRING) AS args_brand,
+    CAST(dtl.args_post AS STRING) AS args_post,
+    CAST(dtl.args_topic AS STRING) AS args_topic,
+    CAST(dtl.ext_recommend AS STRING) AS ext_recommend,
+    CAST(dtl.args_sku AS STRING) AS args_sku,
+    CAST(dtl.args_blogger AS STRING) AS args_blogger,
+    CAST(dtl.args_progress AS STRING) AS args_progress,
+    CAST(domain_tenant_mapping.tenant_code AS STRING) AS tenant_code
 FROM `{PROJECT_ID}.{ds_ods_event_log}.ods_event_log` dtl
-    LEFT JOIN domain_tenant_mapping ON NET.HOST(dtl.prop_url) = domain_tenant_mapping.domain
+    LEFT JOIN domain_tenant_mapping ON NET.HOST(CAST(dtl.prop_url AS STRING)) = domain_tenant_mapping.domain
 WHERE dtl.oss_key IN (
         SELECT oss_key
         FROM `{PROJECT_ID}.{ds_oss_key_process_log}.oss_key_process_log`
@@ -309,8 +344,8 @@ def transform_data(query: str) -> pd.DataFrame:
                     "prop_timezone": row.prop_timezone,
                     "ext": cached_ext,  # 使用缓存的JSON字段
                     "ext_productCode": row.ext_productCode,
-                    "product_code": product_code,  # 来自 args_spu
-                    "post_code": post_code,  # 来自 args_post
+                    "product_code": str(product_code) if product_code is not None else None,  # 来自 args_spu
+                    "post_code": str(post_code) if post_code is not None else None,  # 来自 args_post
                     "args": cached_args,  # 使用缓存的JSON字段
                     "args_page_key": row.args_page_key,
                     "args_session_duration": row.args_session_duration,
@@ -620,7 +655,12 @@ try:
      ext_recommend, args_sku, args_blogger, args_progress)
     SELECT
         hash_id, event_name, logAt_timestamp, session_id, prop_device_id, prop_user_id,
-        prop_os, prop_url, prop_params, prop_app_type, prop_ua, prop_timezone,
+        prop_os, prop_url, prop_params, prop_app_type, prop_ua,
+        CASE
+            WHEN prop_timezone IS NULL THEN NULL
+            WHEN CAST(prop_timezone AS STRING) IN ('NaN', 'nan') THEN NULL
+            ELSE CAST(prop_timezone AS STRING)
+        END AS prop_timezone,
         PARSE_JSON(ext) as ext,
         ext_productCode,
         product_code,
