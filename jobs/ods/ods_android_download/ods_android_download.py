@@ -2,6 +2,7 @@
 # encoding: utf8
 import pandas as pd
 import logging
+import time
 from io import StringIO
 from google.cloud import storage
 from google.cloud import bigquery
@@ -43,6 +44,45 @@ storage_client = storage.Client.from_service_account_json(GCS_SERVICE_ACCOUNT)
 bigquery_client = bigquery.Client.from_service_account_json(
     BQ_SERVICE_ACCOUNT, project=PROJECT_ID
 )
+
+
+def create_temp_table(target_table_id, temp_table_id):
+    create_query = f"""
+        CREATE TABLE `{temp_table_id}` AS
+        SELECT * FROM `{target_table_id}`
+        WHERE 1 = 0
+    """
+    bigquery_client.query(create_query).result()
+    logger.info(f"已创建临时表: {temp_table_id}")
+
+
+def drop_table_if_exists(table_id):
+    drop_query = f"DROP TABLE IF EXISTS `{table_id}`"
+    bigquery_client.query(drop_query).result()
+    logger.info(f"已删除表: {table_id}")
+
+
+def build_android_changed_table(
+    target_table_id, temp_table_id, changed_table_id, min_date, max_date
+):
+    changed_query = f"""
+        CREATE TABLE `{changed_table_id}`
+        PARTITION BY date AS
+        SELECT * FROM `{target_table_id}`
+        WHERE date < '{min_date}' OR date > '{max_date}'
+        UNION ALL
+        SELECT * FROM `{temp_table_id}`
+    """
+    bigquery_client.query(changed_query).result()
+    logger.info(f"已构建变更临时表: {changed_table_id}")
+
+
+def drop_and_rename_table(source_table_id, target_table_id):
+    target_table_name = target_table_id.split(".")[-1]
+    drop_table_if_exists(target_table_id)
+    rename_query = f"ALTER TABLE `{source_table_id}` RENAME TO {target_table_name}"
+    bigquery_client.query(rename_query).result()
+    logger.info(f"已将 {source_table_id} 重命名为 {target_table_id}")
 
 
 def list_available_months():
@@ -129,25 +169,31 @@ def android_download(year_month: str):
     logger.info(f"准备插入 {len(rows_to_insert)} 条记录")
 
     table_id = f"{PROJECT_ID}.{DECOM_DATASET}.ods_android_download"
-
-    # 获取数据的日期范围
+    staging_table_id = f"{table_id}_tmp_{year_month}_{int(time.time())}"
+    changed_table_id = f"{table_id}_changed_{year_month}_{int(time.time())}"
     dates = [r["date"] for r in rows_to_insert]
     min_date, max_date = min(dates), max(dates)
+    swapped = False
 
-    # 删除该日期范围内的旧数据
-    delete_query = f"""
-        DELETE FROM `{table_id}`
-        WHERE date BETWEEN '{min_date}' AND '{max_date}'
-    """
-    bigquery_client.query(delete_query).result()
-    logger.info(f"已删除 {min_date} 到 {max_date} 的旧数据")
+    try:
+        create_temp_table(table_id, staging_table_id)
 
-    # 插入新数据
-    errors = bigquery_client.insert_rows_json(table_id, rows_to_insert)
-    if errors == []:
-        logger.info(f"{len(rows_to_insert)} 条记录成功插入 {table_id}")
-    else:
-        logger.error(f"插入数据时遇到错误: {errors}")
+        errors = bigquery_client.insert_rows_json(staging_table_id, rows_to_insert)
+        if errors != []:
+            logger.error(f"写入临时表时遇到错误: {errors}")
+            return
+        logger.info(f"{len(rows_to_insert)} 条记录成功写入临时表")
+
+        build_android_changed_table(
+            table_id, staging_table_id, changed_table_id, min_date, max_date
+        )
+        drop_and_rename_table(changed_table_id, table_id)
+        swapped = True
+        logger.info(f"已替换 {min_date} 到 {max_date} 的分区数据（drop + rename）")
+    finally:
+        drop_table_if_exists(staging_table_id)
+        if not swapped:
+            logger.warning(f"保留变更临时表用于排查: {changed_table_id}")
 
 
 if __name__ == "__main__":
