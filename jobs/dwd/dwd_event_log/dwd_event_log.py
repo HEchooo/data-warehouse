@@ -306,6 +306,7 @@ def transform_data(query: str) -> pd.DataFrame:
                     "prop_params": row.prop_params,
                     "prop_app_type": row.prop_app_type,
                     "prop_ua": row.prop_ua,
+                    "prop_timezone": row.prop_timezone,
                     "ext": cached_ext,  # 使用缓存的JSON字段
                     "ext_productCode": row.ext_productCode,
                     "product_code": product_code,  # 来自 args_spu
@@ -364,6 +365,7 @@ def transform_data(query: str) -> pd.DataFrame:
                 "prop_params": row.prop_params,
                 "prop_app_type": row.prop_app_type,
                 "prop_ua": row.prop_ua,
+                "prop_timezone": row.prop_timezone,
                 "ext": safe_json_stringify(row.ext),
                 "ext_productCode": row.ext_productCode,
                 "product_code": None,
@@ -611,14 +613,14 @@ try:
     insert_query = f"""
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.{target_table}`
     (hash_id, event_name, logAt_timestamp, session_id, prop_device_id, prop_user_id,
-     prop_os, prop_url, prop_params, prop_app_type, prop_ua, ext, ext_productCode,
+     prop_os, prop_url, prop_params, prop_app_type, prop_ua, prop_timezone, ext, ext_productCode,
      product_code, post_code, args, args_title, args_page_key, args_session_duration, args_href, args_from, args_module, args_spu,
      oss_create_at, oss_key, tenant_code, prop_share_code, invite_user_id, country, update_time,
      prop_version_type, args_star, args_magazine, args_brand, args_post, args_topic,
      ext_recommend, args_sku, args_blogger, args_progress)
     SELECT
         hash_id, event_name, logAt_timestamp, session_id, prop_device_id, prop_user_id,
-        prop_os, prop_url, prop_params, prop_app_type, prop_ua,
+        prop_os, prop_url, prop_params, prop_app_type, prop_ua, prop_timezone,
         PARSE_JSON(ext) as ext,
         ext_productCode,
         product_code,

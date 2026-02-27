@@ -20,6 +20,20 @@ CONTENT_EVENTS = (
     "'v_brand_post_detail',"
     "'v_kol_post_detail'"
 )
+TORONTO_TZ = "America/Toronto"
+
+
+def event_ts_expr():
+    """
+    将 logAt_timestamp 先按 prop_timezone 解释为真实时间，再转成 UTC TIMESTAMP。
+    logAt_timestamp 存的是“本地时间字面值”，不能直接当 UTC 使用。
+    """
+    return (
+        "TIMESTAMP("
+        "DATETIME(logAt_timestamp, 'UTC'), "
+        "COALESCE(NULLIF(prop_timezone, ''), 'UTC')"
+        ")"
+    )
 
 
 def get_dates_to_process():
@@ -29,9 +43,16 @@ def get_dates_to_process():
     首次运行时 dws_device_daily 为空，处理 dwd_event_log 全部日期。
     使用多伦多时间（America/Toronto）。
     """
+    event_ts = event_ts_expr()
     query = f"""
-    SELECT DISTINCT DATE(logAt_timestamp, 'America/Toronto') AS dt
-    FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+    WITH base AS (
+        SELECT
+            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            update_time
+        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+    )
+    SELECT DISTINCT dt
+    FROM base
     WHERE update_time > (
         SELECT COALESCE(MAX(update_time), TIMESTAMP('1970-01-01'))
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
@@ -69,15 +90,22 @@ def merge_dim_device_first_active(dates):
     """
     dates_str = ", ".join([f"'{d}'" for d in dates])
 
+    event_ts = event_ts_expr()
     query = f"""
     MERGE `{PROJECT_ID}.{DATASET_ID}.dim_device_first_active` AS dim
     USING (
+        WITH base AS (
+            SELECT
+                prop_device_id,
+                DATE({event_ts}, '{TORONTO_TZ}') AS dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+            WHERE prop_device_id IS NOT NULL AND prop_device_id != ''
+        )
         SELECT
             prop_device_id,
-            MIN(DATE(logAt_timestamp, 'America/Toronto')) AS first_active_date
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE(logAt_timestamp, 'America/Toronto') IN ({dates_str})
-            AND prop_device_id IS NOT NULL AND prop_device_id != ''
+            MIN(dt) AS first_active_date
+        FROM base
+        WHERE dt IN ({dates_str})
         GROUP BY prop_device_id
     ) AS src
     ON dim.prop_device_id = src.prop_device_id
@@ -103,15 +131,22 @@ def merge_dim_user_first_active(dates):
     """
     dates_str = ", ".join([f"'{d}'" for d in dates])
 
+    event_ts = event_ts_expr()
     query = f"""
     MERGE `{PROJECT_ID}.{DATASET_ID}.dim_user_first_active` AS dim
     USING (
+        WITH base AS (
+            SELECT
+                prop_user_id,
+                DATE({event_ts}, '{TORONTO_TZ}') AS dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+            WHERE prop_user_id IS NOT NULL AND prop_user_id != ''
+        )
         SELECT
             prop_user_id,
-            MIN(DATE(logAt_timestamp, 'America/Toronto')) AS first_active_date
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE(logAt_timestamp, 'America/Toronto') IN ({dates_str})
-            AND prop_user_id IS NOT NULL AND prop_user_id != ''
+            MIN(dt) AS first_active_date
+        FROM base
+        WHERE dt IN ({dates_str})
         GROUP BY prop_user_id
     ) AS src
     ON dim.prop_user_id = src.prop_user_id
@@ -139,6 +174,7 @@ def run_dws_device_daily(dates):
     """
     dates_str = ", ".join([f"'{d}'" for d in dates])
 
+    event_ts = event_ts_expr()
     query = f"""
     DELETE FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
     WHERE dt IN ({dates_str});
@@ -147,10 +183,32 @@ def run_dws_device_daily(dates):
     (dt, prop_device_id, platform, first_active_date, is_new_device,
      content_consume_count, session_duration_sec, update_time)
     WITH
+    normalized AS (
+        SELECT
+            {event_ts} AS event_ts_utc,
+            event_name,
+            session_id,
+            prop_device_id,
+            prop_os,
+            prop_url
+        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+    ),
+    base AS (
+        SELECT
+            event_ts_utc,
+            DATE(event_ts_utc, '{TORONTO_TZ}') AS dt,
+            event_name,
+            session_id,
+            prop_device_id,
+            prop_os,
+            prop_url
+        FROM normalized
+        WHERE DATE(event_ts_utc, '{TORONTO_TZ}') IN ({dates_str})
+    ),
     -- 每天每个设备每个 session 的持续时间，一个 session 整体归属一个端
     session_duration AS (
         SELECT
-            DATE(logAt_timestamp, 'America/Toronto') AS dt,
+            dt,
             prop_device_id,
             session_id,
             CASE
@@ -159,30 +217,28 @@ def run_dws_device_daily(dates):
                 WHEN LOGICAL_OR(LOWER(prop_os) IN ('android', 'harmony')) THEN 'Android'
                 ELSE 'unknown'
             END AS platform,
-            TIMESTAMP_DIFF(MAX(logAt_timestamp), MIN(logAt_timestamp), SECOND) AS duration_sec
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE(logAt_timestamp, 'America/Toronto') IN ({dates_str})
-            AND prop_device_id IS NOT NULL AND prop_device_id != ''
+            TIMESTAMP_DIFF(MAX(event_ts_utc), MIN(event_ts_utc), SECOND) AS duration_sec
+        FROM base
+        WHERE prop_device_id IS NOT NULL AND prop_device_id != ''
             AND session_id IS NOT NULL AND session_id != ''
-        GROUP BY DATE(logAt_timestamp, 'America/Toronto'), prop_device_id, session_id
+        GROUP BY dt, prop_device_id, session_id
     ),
     -- 每天每个设备每个端的内容消费事件计数
     device_daily_agg AS (
         SELECT
-            DATE(e.logAt_timestamp, 'America/Toronto') AS dt,
-            e.prop_device_id,
+            dt,
+            prop_device_id,
             CASE
-                WHEN e.prop_url IS NOT NULL AND e.prop_url != '' THEN 'h5'
-                WHEN LOWER(e.prop_os) = 'ios' THEN 'iOS'
-                WHEN LOWER(e.prop_os) IN ('android', 'harmony') THEN 'Android'
+                WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'h5'
+                WHEN LOWER(prop_os) = 'ios' THEN 'iOS'
+                WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android'
                 ELSE 'unknown'
             END AS platform,
-            COUNTIF(e.event_name IN ({CONTENT_EVENTS})) AS content_consume_count
+            COUNTIF(event_name IN ({CONTENT_EVENTS})) AS content_consume_count
             -- dwd 中相同 session 的 list 拆分的 code 是去重的
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log` e
-        WHERE DATE(e.logAt_timestamp, 'America/Toronto') IN ({dates_str})
-            AND e.prop_device_id IS NOT NULL AND e.prop_device_id != ''
-        GROUP BY DATE(e.logAt_timestamp, 'America/Toronto'), e.prop_device_id, platform
+        FROM base
+        WHERE prop_device_id IS NOT NULL AND prop_device_id != ''
+        GROUP BY dt, prop_device_id, platform
     ),
     device_duration_agg AS (
         SELECT dt, prop_device_id, platform, SUM(duration_sec) AS total_duration_sec
@@ -219,6 +275,7 @@ def run_dws_user_daily(dates):
     """
     dates_str = ", ".join([f"'{d}'" for d in dates])
 
+    event_ts = event_ts_expr()
     query = f"""
     DELETE FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
     WHERE dt IN ({dates_str});
@@ -227,22 +284,40 @@ def run_dws_user_daily(dates):
     (dt, prop_user_id, platform, first_active_date, is_new_user,
      content_consume_count, update_time)
     WITH
+    normalized AS (
+        SELECT
+            {event_ts} AS event_ts_utc,
+            event_name,
+            prop_user_id,
+            prop_os,
+            prop_url
+        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+    ),
+    base AS (
+        SELECT
+            DATE(event_ts_utc, '{TORONTO_TZ}') AS dt,
+            event_name,
+            prop_user_id,
+            prop_os,
+            prop_url
+        FROM normalized
+        WHERE DATE(event_ts_utc, '{TORONTO_TZ}') IN ({dates_str})
+    ),
     user_daily_agg AS (
         SELECT
-            DATE(e.logAt_timestamp, 'America/Toronto') AS dt,
-            e.prop_user_id,
+            dt,
+            prop_user_id,
             CASE
-                WHEN e.prop_url IS NOT NULL AND e.prop_url != '' THEN 'h5'
-                WHEN LOWER(e.prop_os) = 'ios' THEN 'iOS'
-                WHEN LOWER(e.prop_os) IN ('android', 'harmony') THEN 'Android'
+                WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'h5'
+                WHEN LOWER(prop_os) = 'ios' THEN 'iOS'
+                WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android'
                 ELSE 'unknown'
             END AS platform,
-            COUNTIF(e.event_name IN ({CONTENT_EVENTS})) AS content_consume_count
+            COUNTIF(event_name IN ({CONTENT_EVENTS})) AS content_consume_count
             -- dwd 中相同 session 的 list 拆分的 code 是去重的
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log` e
-        WHERE DATE(e.logAt_timestamp, 'America/Toronto') IN ({dates_str})
-            AND e.prop_user_id IS NOT NULL AND e.prop_user_id != ''
-        GROUP BY DATE(e.logAt_timestamp, 'America/Toronto'), e.prop_user_id, platform
+        FROM base
+        WHERE prop_user_id IS NOT NULL AND prop_user_id != ''
+        GROUP BY dt, prop_user_id, platform
     )
     SELECT
         a.dt,
