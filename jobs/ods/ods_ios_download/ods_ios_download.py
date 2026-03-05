@@ -1,6 +1,7 @@
 # ios下载数据自动化
 # encoding: utf8
 import time
+import os
 import requests
 import jwt
 import gzip
@@ -18,11 +19,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# # apple key 路径（本地测试路径）
-# KEY_FILE = "/Users/sinn/Documents/Work/ai-fashion/jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8"
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(
+            f"缺少环境变量 {name}，请在 etl_config.json 的 paths.<mode>.env 中配置"
+        )
+    return value
 
-# apple key 路径（服务器生产路径）
-KEY_FILE = "/home/echooo/sinn_project/AuthKey_ZPUB8KVQ8R.p8"
+
+KEY_FILE = require_env("IOS_KEY_FILE")
 
 KEY_ID = "ZPUB8KVQ8R"
 ISSUER_ID = "fd1b6046-57d3-43d7-a95a-b87a74360441"
