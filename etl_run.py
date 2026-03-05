@@ -30,16 +30,22 @@ def now_clock() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
 
-def log_line(log_file, message: str) -> None:
-    log_file.write(f"[{now_clock()}] {message}\n")
+def write_both(log_file, text: str) -> None:
+    log_file.write(text)
     log_file.flush()
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
+
+def log_line(log_file, message: str) -> None:
+    write_both(log_file, f"[{now_clock()}] {message}\n")
 
 
 def log_section(log_file, title: str) -> None:
-    log_file.write("========================================\n")
-    log_file.write(f"{title}\n")
-    log_file.write("========================================\n")
-    log_file.flush()
+    text = "========================================\n"
+    text += f"{title}\n"
+    text += "========================================\n"
+    write_both(log_file, text)
 
 
 def must_non_empty_str(value, field: str) -> str:
@@ -146,13 +152,13 @@ def run_etl(config: dict, config_path: Path) -> int:
         log_section(log_file, f"ETL 开始: {now_text()}")
         log_line(log_file, f"使用配置文件: {config_path}")
         log_line(log_file, f"运行模式: {config['mode']}")
-        log_file.write("\n")
+        write_both(log_file, "\n")
 
         current_stage = ""
         for task in tasks:
             if task["stage"] != current_stage:
                 current_stage = task["stage"]
-                log_file.write("\n")
+                write_both(log_file, "\n")
                 log_section(log_file, f"开始执行 {current_stage} ETL")
 
             if not task["enabled"]:
@@ -165,24 +171,34 @@ def run_etl(config: dict, config_path: Path) -> int:
                 log_line(log_file, f"ETL 结束: {now_text()}")
                 return 1
 
-            result = subprocess.run(
+            process = subprocess.Popen(
                 [python_bin, str(script_path)],
                 cwd=str(project_dir),
-                env={**os.environ, **runtime_env},
-                stdout=log_file,
+                env={**os.environ, "PYTHONUNBUFFERED": "1", **runtime_env},
+                stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                check=False,
+                text=True,
+                bufsize=1,
             )
-            if result.returncode == 0:
+            if process.stdout is None:
+                log_line(log_file, f"{task['name']} 失败，无法读取输出")
+                log_line(log_file, f"ETL 结束: {now_text()}")
+                return 1
+
+            for line in process.stdout:
+                write_both(log_file, line)
+
+            result_code = process.wait()
+            if result_code == 0:
                 log_line(log_file, f"{task['name']} 成功")
             else:
                 log_line(log_file, f"{task['name']} 失败，退出")
                 log_line(log_file, f"ETL 结束: {now_text()}")
-                return result.returncode
+                return result_code
 
-        log_file.write("\n")
+        write_both(log_file, "\n")
         log_section(log_file, f"ETL 全部完成: {now_text()}")
-        log_file.write("\n")
+        write_both(log_file, "\n")
 
     return 0
 
