@@ -2,13 +2,13 @@
   "path_mode": "remote",
   "paths": {
     "remote": {
-      "project_dir": "/home/echooo/sinn_project/ai-fashion",
+      "project_dir": "/home/echooo/sinn_project/data-warehouse",
       "python": "/usr/local/bin/python3.12",
-      "log_dir": "/home/echooo/sinn_project/ai-fashion/logs",
+      "log_dir": "/home/echooo/sinn_project/data-warehouse/logs",
       "env": {
-        "IOS_KEY_FILE": "/home/echooo/sinn_project/AuthKey_ZPUB8KVQ8R.p8",
-        "ANDROID_GCS_SERVICE_ACCOUNT": "/home/echooo/sinn_project/tidy-access-396909-b58d1fb35fce.json",
-        "ANDROID_BQ_SERVICE_ACCOUNT": "/home/echooo/sinn_project/my-project-8584-jetonai-2bafc5bf74da.json"
+        "IOS_KEY_FILE": "/home/echooo/sinn_project/data-warehouse/jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8",
+        "ANDROID_GCS_SERVICE_ACCOUNT": "/home/echooo/sinn_project/data-warehouse/jobs/ods/ods_android_download/tidy-access-396909-b58d1fb35fce.json",
+        "ANDROID_BQ_SERVICE_ACCOUNT": "/home/echooo/sinn_project/data-warehouse/jobs/ods/ods_android_download/my-project-8584-jetonai-2bafc5bf74da.json"
       }
     },
     "local": {
@@ -18,7 +18,7 @@
       "env": {
         "IOS_KEY_FILE": "/Users/sinn/Documents/Work/data-warehouse/jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8",
         "ANDROID_GCS_SERVICE_ACCOUNT": "/Users/sinn/Documents/Work/data-warehouse/jobs/ods/ods_android_download/tidy-access-396909-b58d1fb35fce.json",
-        "ANDROID_BQ_SERVICE_ACCOUNT": "/Users/sinn/Documents/BigQuerykey/my-project-8584-jetonai-2bafc5bf74da.json"
+        "ANDROID_BQ_SERVICE_ACCOUNT": "/Users/sinn/Documents/Work/data-warehouse/jobs/ods/ods_android_download/my-project-8584-jetonai-2bafc5bf74da.json"
       }
     }
   },
