@@ -16,6 +16,7 @@ class Properties:
         ua,
         share_code,
         version_type,
+        timezone,
     ):
         self.device_id = device_id
         self.user_id = user_id
@@ -26,9 +27,10 @@ class Properties:
         self.ua = ua
         self.share_code = share_code
         self.version_type = version_type
+        self.timezone = timezone
 
     def __str__(self):
-        return f"device_id={self.device_id}, user_id={self.user_id}, os={self.os}, url = {self.url}, params = {self.params}, app_type = {self.app_type}, ua = {self.ua}, share_code = {self.share_code}"
+        return f"device_id={self.device_id}, user_id={self.user_id}, os={self.os}, url = {self.url}, params = {self.params}, app_type = {self.app_type}, ua = {self.ua}, share_code = {self.share_code}, timezone = {self.timezone}"
 
 
 class AppTrackLogEntity:
@@ -83,6 +85,7 @@ def decode_json(json_str, file_path):
     ua = prop_dict.get("ua")
     share_code = prop_dict.get("share_code")
     version_type = prop_dict.get("version_type")
+    timezone = prop_dict.get("timezone")
 
     # 处理share_code长度限制
     if share_code and len(share_code) > 32:
@@ -92,7 +95,16 @@ def decode_json(json_str, file_path):
         share_code = share_code[:32]
 
     properties = Properties(
-        device_id, user_id, os, url, params, app_type, ua, share_code, version_type
+        device_id,
+        user_id,
+        os,
+        url,
+        params,
+        app_type,
+        ua,
+        share_code,
+        version_type,
+        timezone,
     )
 
     # 解析ext
