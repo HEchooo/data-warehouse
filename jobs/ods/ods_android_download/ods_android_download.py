@@ -3,6 +3,7 @@
 import pandas as pd
 import logging
 import time
+import os
 from io import StringIO
 from google.cloud import storage
 from google.cloud import bigquery
@@ -19,25 +20,21 @@ logger = logging.getLogger(__name__)
 BUCKET_NAME = "pubsite_prod_5101881267809973114"
 PACKAGE_NAME = "com.alvinclub.app.mall"
 
-# # gcs 桶服务账号（本地测试路径）
-# GCS_SERVICE_ACCOUNT = "/Users/sinn/Documents/Work/ai-fashion/jobs/ods/ods_android_download/tidy-access-396909-b58d1fb35fce.json"
-
-# gcs 桶服务账号（服务器生产路径）
-GCS_SERVICE_ACCOUNT = "/home/echooo/sinn_project/tidy-access-396909-b58d1fb35fce.json"
-
 # BigQuery 配置
 PROJECT_ID = "my-project-8584-jetonai"
 DECOM_DATASET = "decom"
 
-# # bigquery 服务账号（本地测试路径）
-# BQ_SERVICE_ACCOUNT = (
-#     "/Users/sinn/Documents/BigQuerykey/my-project-8584-jetonai-2bafc5bf74da.json"
-# )
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(
+            f"缺少环境变量 {name}，请在 etl_config.json 的 paths.<mode>.env 中配置"
+        )
+    return value
 
-# bigquery 服务账号（服务器生产路径）
-BQ_SERVICE_ACCOUNT = (
-    "/home/echooo/sinn_project/my-project-8584-jetonai-2bafc5bf74da.json"
-)
+
+GCS_SERVICE_ACCOUNT = require_env("ANDROID_GCS_SERVICE_ACCOUNT")
+BQ_SERVICE_ACCOUNT = require_env("ANDROID_BQ_SERVICE_ACCOUNT")
 
 # 初始化客户端
 storage_client = storage.Client.from_service_account_json(GCS_SERVICE_ACCOUNT)
