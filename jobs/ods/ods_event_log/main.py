@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from google.cloud import storage
 from google.cloud import bigquery
 import functions_framework
@@ -9,6 +10,25 @@ import applog
 # 初始化客户端
 storage_client = storage.Client()
 bigquery_client = bigquery.Client()
+
+
+def normalize_numeric_for_bigquery(value):
+    """将输入值规范化为BigQuery NUMERIC可接受的字符串（最多9位小数）"""
+    if value is None or value == "":
+        return None
+
+    try:
+        numeric_value = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+    if not numeric_value.is_finite():
+        return None
+
+    normalized_value = numeric_value.quantize(
+        Decimal("0.000000001"), rounding=ROUND_HALF_UP
+    )
+    return format(normalized_value, "f")
 
 
 @functions_framework.http
@@ -147,7 +167,7 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
                 "ext_productCode": json.dumps(log.ext.get("productCode", None)),
                 "args": json.dumps(log.args) if isinstance(log.args, dict) else "{}",
                 "args_session_duration": (
-                    log.args.get("session_duration", None)
+                    normalize_numeric_for_bigquery(log.args.get("session_duration", None))
                     if isinstance(log.args, dict)
                     else None
                 ),
@@ -191,7 +211,9 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
             if len(rows_to_insert) >= 1000:
                 try:
 
-                    errors = bigquery_client.insert_rows_json(table_ref, rows_to_insert)
+                    errors = bigquery_client.insert_rows_json(
+                        table_ref, rows_to_insert, skip_invalid_rows=True
+                    )
                     if errors:
                         print(f"❌ 插入数据时出现错误: {errors} gcs_key={gcs_key}")
                     else:
@@ -210,7 +232,9 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
     # 插入剩余的数据
     if rows_to_insert:
         try:
-            errors = bigquery_client.insert_rows_json(table_ref, rows_to_insert)
+            errors = bigquery_client.insert_rows_json(
+                table_ref, rows_to_insert, skip_invalid_rows=True
+            )
             if errors:
                 print(f"❌ 插入剩余数据时出现错误: {errors} gcs_key={gcs_key}")
             else:
