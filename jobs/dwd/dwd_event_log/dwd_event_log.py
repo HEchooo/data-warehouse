@@ -69,6 +69,55 @@ ds_ods_event_log = get_dataset_for_table("ods_event_log", "decom")
 ds_oss_key_process_log = get_dataset_for_table("oss_key_process_log", "decom")
 ds_user_info = get_dataset_for_table("user_info", "decom")
 
+TEMP_DWD_EVENT_LOG_SCHEMA = [
+    bigquery.SchemaField("hash_id", "STRING"),
+    bigquery.SchemaField("event_name", "STRING"),
+    bigquery.SchemaField("logAt_timestamp", "TIMESTAMP"),
+    bigquery.SchemaField("session_id", "STRING"),
+    bigquery.SchemaField("prop_device_id", "STRING"),
+    bigquery.SchemaField("prop_user_id", "STRING"),
+    bigquery.SchemaField("prop_os", "STRING"),
+    bigquery.SchemaField("prop_url", "STRING"),
+    bigquery.SchemaField("prop_params", "STRING"),
+    bigquery.SchemaField("prop_app_type", "STRING"),
+    bigquery.SchemaField("prop_ua", "STRING"),
+    bigquery.SchemaField("prop_timezone", "STRING"),
+    bigquery.SchemaField("ext", "STRING"),
+    bigquery.SchemaField("ext_productCode", "STRING"),
+    bigquery.SchemaField("product_code", "STRING"),
+    bigquery.SchemaField("post_code", "STRING"),
+    bigquery.SchemaField("args", "STRING"),
+    bigquery.SchemaField("args_page_key", "STRING"),
+    bigquery.SchemaField("args_session_duration", "NUMERIC"),
+    bigquery.SchemaField("args_title", "STRING"),
+    bigquery.SchemaField("args_href", "STRING"),
+    bigquery.SchemaField("args_from", "STRING"),
+    bigquery.SchemaField("args_module", "STRING"),
+    bigquery.SchemaField("args_spu", "STRING"),
+    bigquery.SchemaField("oss_create_at", "INT64"),
+    bigquery.SchemaField("oss_key", "STRING"),
+    bigquery.SchemaField("tenant_code", "STRING"),
+    bigquery.SchemaField("prop_share_code", "STRING"),
+    bigquery.SchemaField("invite_user_id", "STRING"),
+    bigquery.SchemaField("country", "STRING"),
+    bigquery.SchemaField("prop_version_type", "STRING"),
+    bigquery.SchemaField("args_star", "STRING"),
+    bigquery.SchemaField("args_magazine", "STRING"),
+    bigquery.SchemaField("args_brand", "STRING"),
+    bigquery.SchemaField("args_post", "STRING"),
+    bigquery.SchemaField("args_topic", "STRING"),
+    bigquery.SchemaField("ext_recommend", "STRING"),
+    bigquery.SchemaField("args_sku", "STRING"),
+    bigquery.SchemaField("args_blogger", "STRING"),
+    bigquery.SchemaField("args_progress", "STRING"),
+    bigquery.SchemaField("update_time", "TIMESTAMP"),
+]
+
+TEMP_DWD_EVENT_LOG_COLUMNS = [field.name for field in TEMP_DWD_EVENT_LOG_SCHEMA]
+TEMP_DWD_EVENT_LOG_STRING_COLUMNS = [
+    field.name for field in TEMP_DWD_EVENT_LOG_SCHEMA if field.field_type == "STRING"
+]
+
 # 修改查询语句,只处理未分析的数据
 decom_initial_query = f"""
 WITH domain_tenant_mapping AS (
@@ -161,6 +210,27 @@ def safe_json_stringify(value):
         return json.dumps(value, ensure_ascii=False)
     # 其他类型转换为字符串
     return str(value)
+
+
+def normalize_nullable_string(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def normalize_dataframe_for_bigquery(df: pd.DataFrame) -> pd.DataFrame:
+    normalized = df.copy()
+    for column in TEMP_DWD_EVENT_LOG_STRING_COLUMNS:
+        if column in normalized.columns:
+            normalized[column] = normalized[column].map(normalize_nullable_string)
+    return normalized
 
 
 INVITE_CODE_CODE_MASK = 873645731
@@ -344,8 +414,12 @@ def transform_data(query: str) -> pd.DataFrame:
                     "prop_timezone": row.prop_timezone,
                     "ext": cached_ext,  # 使用缓存的JSON字段
                     "ext_productCode": row.ext_productCode,
-                    "product_code": str(product_code) if product_code is not None else None,  # 来自 args_spu
-                    "post_code": str(post_code) if post_code is not None else None,  # 来自 args_post
+                    "product_code": (
+                        str(product_code) if product_code is not None else None
+                    ),  # 来自 args_spu
+                    "post_code": (
+                        str(post_code) if post_code is not None else None
+                    ),  # 来自 args_post
                     "args": cached_args,  # 使用缓存的JSON字段
                     "args_page_key": row.args_page_key,
                     "args_session_duration": row.args_session_duration,
@@ -619,7 +693,11 @@ try:
     )
 
     # 将结果上传到临时表
-    job_config = bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+    result = normalize_dataframe_for_bigquery(result)
+    result = result[TEMP_DWD_EVENT_LOG_COLUMNS]
+    job_config = bigquery.LoadJobConfig(
+        write_disposition="WRITE_TRUNCATE", schema=TEMP_DWD_EVENT_LOG_SCHEMA
+    )
 
     load_job = client.load_table_from_dataframe(
         result, temp_table_id, job_config=job_config
@@ -669,7 +747,11 @@ try:
         args_title,
         args_page_key,
         SAFE_CAST(args_session_duration AS NUMERIC) AS args_session_duration,
-        args_href,
+        CASE
+            WHEN args_href IS NULL THEN NULL
+            WHEN CAST(args_href AS STRING) IN ('NaN', 'nan') THEN NULL
+            ELSE CAST(args_href AS STRING)
+        END AS args_href,
         args_from,
         args_module,
         args_spu,
