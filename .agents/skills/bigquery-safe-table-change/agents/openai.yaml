@@ -1,4 +1,0 @@
-interface:
-  display_name: "BigQuery Safe Table Change"
-  short_description: "Safe BigQuery schema and data swap workflow"
-  default_prompt: "Use $bigquery-safe-table-change to apply a staging-rebuild-drop-rename workflow for table field changes and data updates."

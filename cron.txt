@@ -1,1 +1,0 @@
-10,40 * * * * /usr/local/bin/python3.12 /home/echooo/sinn_project/data-warehouse/etl_run.py
