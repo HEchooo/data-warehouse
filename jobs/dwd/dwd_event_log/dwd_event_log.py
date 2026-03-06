@@ -82,6 +82,7 @@ TEMP_DWD_EVENT_LOG_SCHEMA = [
     bigquery.SchemaField("prop_app_type", "STRING"),
     bigquery.SchemaField("prop_ua", "STRING"),
     bigquery.SchemaField("prop_timezone", "STRING"),
+    bigquery.SchemaField("raw_event_id", "STRING"),
     bigquery.SchemaField("ext", "STRING"),
     bigquery.SchemaField("ext_productCode", "STRING"),
     bigquery.SchemaField("product_code", "STRING"),
@@ -233,6 +234,35 @@ def normalize_dataframe_for_bigquery(df: pd.DataFrame) -> pd.DataFrame:
     return normalized
 
 
+def normalize_value_for_hash(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (dict, list)):
+        return json.dumps(
+            value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        )
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def generate_raw_event_id(row) -> str:
+    raw_event_payload = {
+        key: normalize_value_for_hash(value) for key, value in row._asdict().items()
+    }
+    normalized_payload = json.dumps(
+        raw_event_payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    )
+    return hashlib.md5(normalized_payload.encode("utf-8")).hexdigest()
+
+
 INVITE_CODE_CODE_MASK = 873645731
 _BASE62_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 _BASE62_INDEX = {ch: i for i, ch in enumerate(_BASE62_ALPHABET)}
@@ -314,7 +344,7 @@ def transform_data(query: str) -> pd.DataFrame:
 
     # 逐行处理数据，使用itertuples提高性能
     total_rows = len(df)
-    for index, row in enumerate(df.itertuples(), 1):
+    for index, row in enumerate(df.itertuples(index=False), 1):
         if index % 1000 == 0:
             logging.info(f"正在处理数据 {index}/{total_rows}...")
         try:
@@ -391,6 +421,7 @@ def transform_data(query: str) -> pd.DataFrame:
             # 缓存JSON字段的处理结果，避免重复计算
             cached_ext = safe_json_stringify(row.ext)
             cached_args = safe_json_stringify(row.args)
+            cached_raw_event_id = generate_raw_event_id(row)
             cached_invite_user_id = (
                 invite_code_to_user_id(row.prop_share_code)
                 if row.prop_share_code
@@ -412,6 +443,7 @@ def transform_data(query: str) -> pd.DataFrame:
                     "prop_app_type": row.prop_app_type,
                     "prop_ua": row.prop_ua,
                     "prop_timezone": row.prop_timezone,
+                    "raw_event_id": cached_raw_event_id,
                     "ext": cached_ext,  # 使用缓存的JSON字段
                     "ext_productCode": row.ext_productCode,
                     "product_code": (
@@ -475,6 +507,7 @@ def transform_data(query: str) -> pd.DataFrame:
                 "prop_app_type": row.prop_app_type,
                 "prop_ua": row.prop_ua,
                 "prop_timezone": row.prop_timezone,
+                "raw_event_id": generate_raw_event_id(row),
                 "ext": safe_json_stringify(row.ext),
                 "ext_productCode": row.ext_productCode,
                 "product_code": None,
@@ -726,7 +759,7 @@ try:
     insert_query = f"""
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.{target_table}`
     (hash_id, event_name, logAt_timestamp, session_id, prop_device_id, prop_user_id,
-     prop_os, prop_url, prop_params, prop_app_type, prop_ua, prop_timezone, ext, ext_productCode,
+     prop_os, prop_url, prop_params, prop_app_type, prop_ua, prop_timezone, raw_event_id, ext, ext_productCode,
      product_code, post_code, args, args_title, args_page_key, args_session_duration, args_href, args_from, args_module, args_spu,
      oss_create_at, oss_key, tenant_code, prop_share_code, invite_user_id, country, update_time,
      prop_version_type, args_star, args_magazine, args_brand, args_post, args_topic,
@@ -739,6 +772,7 @@ try:
             WHEN CAST(prop_timezone AS STRING) IN ('NaN', 'nan') THEN NULL
             ELSE CAST(prop_timezone AS STRING)
         END AS prop_timezone,
+        raw_event_id,
         PARSE_JSON(ext) as ext,
         ext_productCode,
         product_code,
