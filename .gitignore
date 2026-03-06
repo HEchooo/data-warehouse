@@ -6,9 +6,9 @@ jobs/ods/ods_android_download/tidy-access-396909-b58d1fb35fce.json
 jobs/ods/ods_android_download/my-project-8584-jetonai-2bafc5bf74da.json
 jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8
 superset.json
-.agent/
+.agents/
 cron.txt
 AGENTS.md
-.claude
+.claude/
 CLAUDE.md
 .DS_Store
