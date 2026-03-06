@@ -76,7 +76,8 @@ def run_ads_daily_content_performance(dates):
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
             event_name,
             prop_user_id,
-            prop_device_id
+            prop_device_id,
+            raw_event_id
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
     ),
@@ -84,24 +85,75 @@ def run_ads_daily_content_performance(dates):
         SELECT
             dt,
             event_name,
-            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id
+            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
+            raw_event_id
         FROM base
+    ),
+    date_list AS (
+        SELECT DISTINCT dt
+        FROM base
+    ),
+    platform_daily AS (
+        SELECT
+            dt,
+            COUNT(DISTINCT IF(event_name IN ({HOME_EXPOSURE_EVENTS}), visitor_id, NULL)) AS platform_exposure_uv
+        FROM events
+        GROUP BY dt
+    ),
+    raw_events AS (
+        SELECT
+            dt,
+            event_name,
+            raw_event_id,
+            ANY_VALUE(visitor_id) AS visitor_id
+        FROM events
+        WHERE raw_event_id IS NOT NULL
+            AND event_name IN (
+                {CONTENT_READ_EVENTS},
+                'c_like',
+                'c_follow',
+                'c_tryon'
+            )
+        GROUP BY dt, event_name, raw_event_id
+    ),
+    uv_daily AS (
+        SELECT
+            dt,
+            COUNT(DISTINCT IF(event_name IN ({CONTENT_READ_EVENTS}), visitor_id, NULL)) AS content_read_uv,
+            COUNT(DISTINCT IF(event_name = 'c_like', visitor_id, NULL)) AS like_uv,
+            COUNT(DISTINCT IF(event_name = 'c_follow', visitor_id, NULL)) AS follow_uv,
+            COUNT(DISTINCT IF(event_name IN ({COLUMN_READ_EVENTS}), visitor_id, NULL)) AS column_read_uv
+        FROM events
+        GROUP BY dt
+    ),
+    raw_daily AS (
+        SELECT
+            dt,
+            COUNTIF(event_name IN ({CONTENT_READ_EVENTS})) AS content_read_pv,
+            COUNTIF(event_name = 'c_like') AS like_total_count,
+            COUNTIF(event_name = 'c_follow') AS follow_total_count,
+            COUNTIF(event_name = 'c_tryon') AS tryon_total_count,
+            COUNTIF(event_name IN ({COLUMN_READ_EVENTS})) AS column_read_pv
+        FROM raw_events
+        GROUP BY dt
     ),
     daily AS (
         SELECT
-            dt,
-            COUNT(DISTINCT IF(event_name IN ({HOME_EXPOSURE_EVENTS}), visitor_id, NULL)) AS platform_exposure_uv,
-            COUNTIF(event_name IN ({CONTENT_READ_EVENTS})) AS content_read_pv,
-            COUNT(DISTINCT IF(event_name IN ({CONTENT_READ_EVENTS}), visitor_id, NULL)) AS content_read_uv,
-            COUNTIF(event_name = 'c_like') AS like_total_count,
-            COUNT(DISTINCT IF(event_name = 'c_like', visitor_id, NULL)) AS like_uv,
-            COUNTIF(event_name = 'c_follow') AS follow_total_count,
-            COUNT(DISTINCT IF(event_name = 'c_follow', visitor_id, NULL)) AS follow_uv,
-            COUNTIF(event_name = 'c_tryon') AS tryon_total_count,
-            COUNT(DISTINCT IF(event_name IN ({COLUMN_READ_EVENTS}), visitor_id, NULL)) AS column_read_uv,
-            COUNTIF(event_name IN ({COLUMN_READ_EVENTS})) AS column_read_pv
-        FROM events
-        GROUP BY dt
+            d.dt,
+            COALESCE(p.platform_exposure_uv, 0) AS platform_exposure_uv,
+            COALESCE(r.content_read_pv, 0) AS content_read_pv,
+            COALESCE(u.content_read_uv, 0) AS content_read_uv,
+            COALESCE(r.like_total_count, 0) AS like_total_count,
+            COALESCE(u.like_uv, 0) AS like_uv,
+            COALESCE(r.follow_total_count, 0) AS follow_total_count,
+            COALESCE(u.follow_uv, 0) AS follow_uv,
+            COALESCE(r.tryon_total_count, 0) AS tryon_total_count,
+            COALESCE(u.column_read_uv, 0) AS column_read_uv,
+            COALESCE(r.column_read_pv, 0) AS column_read_pv
+        FROM date_list d
+        LEFT JOIN platform_daily p USING (dt)
+        LEFT JOIN uv_daily u USING (dt)
+        LEFT JOIN raw_daily r USING (dt)
     )
     SELECT
         dt,
