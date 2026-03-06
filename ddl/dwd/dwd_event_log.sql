@@ -52,3 +52,6 @@ ADD COLUMN args_session_duration NUMERIC;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dwd_event_log`
 ADD COLUMN prop_timezone STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dwd_event_log`
+ADD COLUMN raw_event_id STRING;
