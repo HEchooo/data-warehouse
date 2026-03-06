@@ -9,3 +9,6 @@ superset.json
 .agent/
 cron.txt
 AGENTS.md
+.claude
+CLAUDE.md
+.DS_Store
