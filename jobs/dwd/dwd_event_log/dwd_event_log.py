@@ -805,6 +805,7 @@ except Exception as err:
             client.delete_table(temp_table_id)
         except Exception:
             pass
+    raise
 finally:
     logging.info("BigQuery操作完成")
 
