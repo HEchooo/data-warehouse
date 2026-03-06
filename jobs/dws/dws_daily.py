@@ -190,7 +190,8 @@ def run_dws_device_daily(dates):
             session_id,
             prop_device_id,
             prop_os,
-            prop_url
+            prop_url,
+            raw_event_id
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
     ),
     base AS (
@@ -201,7 +202,8 @@ def run_dws_device_daily(dates):
             session_id,
             prop_device_id,
             prop_os,
-            prop_url
+            prop_url,
+            raw_event_id
         FROM normalized
         WHERE DATE(event_ts_utc, '{TORONTO_TZ}') IN ({dates_str})
     ),
@@ -223,8 +225,21 @@ def run_dws_device_daily(dates):
             AND session_id IS NOT NULL AND session_id != ''
         GROUP BY dt, prop_device_id, session_id
     ),
-    -- 每天每个设备每个端的内容消费事件计数
-    device_daily_agg AS (
+    active_devices AS (
+        SELECT
+            dt,
+            prop_device_id,
+            CASE
+                WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'h5'
+                WHEN LOWER(prop_os) = 'ios' THEN 'iOS'
+                WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android'
+                ELSE 'unknown'
+            END AS platform
+        FROM base
+        WHERE prop_device_id IS NOT NULL AND prop_device_id != ''
+        GROUP BY dt, prop_device_id, platform
+    ),
+    content_events AS (
         SELECT
             dt,
             prop_device_id,
@@ -234,10 +249,20 @@ def run_dws_device_daily(dates):
                 WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android'
                 ELSE 'unknown'
             END AS platform,
-            COUNTIF(event_name IN ({CONTENT_EVENTS})) AS content_consume_count
-            -- dwd 中相同 session 的 list 拆分的 code 是去重的
+            raw_event_id
         FROM base
         WHERE prop_device_id IS NOT NULL AND prop_device_id != ''
+            AND event_name IN ({CONTENT_EVENTS})
+            AND raw_event_id IS NOT NULL
+        GROUP BY dt, prop_device_id, platform, raw_event_id
+    ),
+    device_content_agg AS (
+        SELECT
+            dt,
+            prop_device_id,
+            platform,
+            COUNT(*) AS content_consume_count
+        FROM content_events
         GROUP BY dt, prop_device_id, platform
     ),
     device_duration_agg AS (
@@ -251,12 +276,14 @@ def run_dws_device_daily(dates):
         a.platform,
         f.first_active_date,
         (f.first_active_date = a.dt) AS is_new_device,
-        a.content_consume_count,
+        COALESCE(c.content_consume_count, 0) AS content_consume_count,
         COALESCE(d.total_duration_sec, 0) AS session_duration_sec,
         CURRENT_TIMESTAMP() AS update_time
-    FROM device_daily_agg a
+    FROM active_devices a
     LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dim_device_first_active` f
         ON a.prop_device_id = f.prop_device_id
+    LEFT JOIN device_content_agg c
+        ON a.dt = c.dt AND a.prop_device_id = c.prop_device_id AND a.platform = c.platform
     LEFT JOIN device_duration_agg d
         ON a.dt = d.dt AND a.prop_device_id = d.prop_device_id AND a.platform = d.platform;
     """
@@ -290,7 +317,8 @@ def run_dws_user_daily(dates):
             event_name,
             prop_user_id,
             prop_os,
-            prop_url
+            prop_url,
+            raw_event_id
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
     ),
     base AS (
@@ -299,11 +327,26 @@ def run_dws_user_daily(dates):
             event_name,
             prop_user_id,
             prop_os,
-            prop_url
+            prop_url,
+            raw_event_id
         FROM normalized
         WHERE DATE(event_ts_utc, '{TORONTO_TZ}') IN ({dates_str})
     ),
-    user_daily_agg AS (
+    active_users AS (
+        SELECT
+            dt,
+            prop_user_id,
+            CASE
+                WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'h5'
+                WHEN LOWER(prop_os) = 'ios' THEN 'iOS'
+                WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android'
+                ELSE 'unknown'
+            END AS platform
+        FROM base
+        WHERE prop_user_id IS NOT NULL AND prop_user_id != ''
+        GROUP BY dt, prop_user_id, platform
+    ),
+    content_events AS (
         SELECT
             dt,
             prop_user_id,
@@ -313,10 +356,20 @@ def run_dws_user_daily(dates):
                 WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android'
                 ELSE 'unknown'
             END AS platform,
-            COUNTIF(event_name IN ({CONTENT_EVENTS})) AS content_consume_count
-            -- dwd 中相同 session 的 list 拆分的 code 是去重的
+            raw_event_id
         FROM base
         WHERE prop_user_id IS NOT NULL AND prop_user_id != ''
+            AND event_name IN ({CONTENT_EVENTS})
+            AND raw_event_id IS NOT NULL
+        GROUP BY dt, prop_user_id, platform, raw_event_id
+    ),
+    user_content_agg AS (
+        SELECT
+            dt,
+            prop_user_id,
+            platform,
+            COUNT(*) AS content_consume_count
+        FROM content_events
         GROUP BY dt, prop_user_id, platform
     )
     SELECT
@@ -325,11 +378,13 @@ def run_dws_user_daily(dates):
         a.platform,
         f.first_active_date,
         (f.first_active_date = a.dt) AS is_new_user,
-        a.content_consume_count,
+        COALESCE(c.content_consume_count, 0) AS content_consume_count,
         CURRENT_TIMESTAMP() AS update_time
-    FROM user_daily_agg a
+    FROM active_users a
     LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dim_user_first_active` f
-        ON a.prop_user_id = f.prop_user_id;
+        ON a.prop_user_id = f.prop_user_id
+    LEFT JOIN user_content_agg c
+        ON a.dt = c.dt AND a.prop_user_id = c.prop_user_id AND a.platform = c.platform;
     """
     logging.info(f"开始处理: dws_user_daily")
     job = client.query(query)
