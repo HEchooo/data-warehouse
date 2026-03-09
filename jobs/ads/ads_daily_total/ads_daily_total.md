@@ -34,7 +34,9 @@
 ### 平均停留时长 (avg_duration_sec)
 - **定义**: 活跃设备在当日的平均停留时长
 - **计算方式**: `SUM(session_duration_sec) / COUNT(DISTINCT prop_device_id)`
-- **session_duration_sec 计算**: 每个 session 的 `MAX(logAt_timestamp) - MIN(logAt_timestamp)`
+- **session_duration_sec 计算**: `event_name = 'app_launch'` 的 `args_session_duration` 按原始事件去重后求和
+- **去重键**: 优先使用 `raw_event_id`，缺失时回退到 `hash_id`
+- **单位**: `args_session_duration` 原始值为毫秒，入 DWS/ADS 时统一换算为秒
 
 ### 人均内容消费数 (avg_content_consume_count)
 - **定义**: 活跃设备在当日的人均内容消费次数
