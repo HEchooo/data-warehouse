@@ -168,7 +168,7 @@ def run_dws_device_daily(dates):
     """
     纯 SQL 计算 dws_device_daily，DELETE + INSERT 保证幂等。
     - first_active_date: 从 dim_device_first_active 维度表获取（不再全表扫描 DWD）
-    - session_duration_sec: SUM(每个 session 的 MAX(logAt_timestamp) - MIN(logAt_timestamp))
+    - session_duration_sec: `app_launch` 事件的 `args_session_duration` 去重后求和，并将毫秒转为秒
     - content_consume_count: 5 种内容消费事件计数
     使用多伦多时间（America/Toronto）。
     """
@@ -185,45 +185,58 @@ def run_dws_device_daily(dates):
     WITH
     normalized AS (
         SELECT
+            hash_id,
             {event_ts} AS event_ts_utc,
             event_name,
-            session_id,
             prop_device_id,
             prop_os,
             prop_url,
-            raw_event_id
+            raw_event_id,
+            args_session_duration
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
     ),
     base AS (
         SELECT
+            hash_id,
             event_ts_utc,
             DATE(event_ts_utc, '{TORONTO_TZ}') AS dt,
             event_name,
-            session_id,
             prop_device_id,
             prop_os,
             prop_url,
-            raw_event_id
+            raw_event_id,
+            args_session_duration
         FROM normalized
         WHERE DATE(event_ts_utc, '{TORONTO_TZ}') IN ({dates_str})
     ),
-    -- 每天每个设备每个 session 的持续时间，一个 session 整体归属一个端
-    session_duration AS (
+    -- 每天每个设备的停留时长：只取 app_launch 的 args_session_duration，按原始事件去重后汇总
+    app_launch_events AS (
         SELECT
             dt,
             prop_device_id,
-            session_id,
             CASE
-                WHEN LOGICAL_OR(prop_url IS NOT NULL AND prop_url != '') THEN 'h5'
-                WHEN LOGICAL_OR(LOWER(prop_os) = 'ios') THEN 'iOS'
-                WHEN LOGICAL_OR(LOWER(prop_os) IN ('android', 'harmony')) THEN 'Android'
+                WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'h5'
+                WHEN LOWER(prop_os) = 'ios' THEN 'iOS'
+                WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android'
                 ELSE 'unknown'
             END AS platform,
-            TIMESTAMP_DIFF(MAX(event_ts_utc), MIN(event_ts_utc), SECOND) AS duration_sec
+            COALESCE(raw_event_id, hash_id) AS duration_event_id,
+            CAST(args_session_duration AS FLOAT64) AS duration_ms
         FROM base
         WHERE prop_device_id IS NOT NULL AND prop_device_id != ''
-            AND session_id IS NOT NULL AND session_id != ''
-        GROUP BY dt, prop_device_id, session_id
+            AND event_name = 'app_launch'
+            AND args_session_duration IS NOT NULL
+            AND COALESCE(raw_event_id, hash_id) IS NOT NULL
+    ),
+    deduped_app_launch_events AS (
+        SELECT
+            dt,
+            prop_device_id,
+            platform,
+            duration_event_id,
+            MAX(duration_ms) AS duration_ms
+        FROM app_launch_events
+        GROUP BY dt, prop_device_id, platform, duration_event_id
     ),
     active_devices AS (
         SELECT
@@ -266,8 +279,12 @@ def run_dws_device_daily(dates):
         GROUP BY dt, prop_device_id, platform
     ),
     device_duration_agg AS (
-        SELECT dt, prop_device_id, platform, SUM(duration_sec) AS total_duration_sec
-        FROM session_duration
+        SELECT
+            dt,
+            prop_device_id,
+            platform,
+            SUM(duration_ms) / 1000.0 AS total_duration_sec
+        FROM deduped_app_launch_events
         GROUP BY dt, prop_device_id, platform
     )
     SELECT
