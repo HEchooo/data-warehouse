@@ -263,6 +263,35 @@ def generate_raw_event_id(row) -> str:
     return hashlib.md5(normalized_payload.encode("utf-8")).hexdigest()
 
 
+def generate_hash_id(
+    oss_key,
+    prop_user_id,
+    session_id,
+    logAt_timestamp,
+    product_code,
+    post_code,
+    event_name,
+    idx,
+) -> str:
+    hash_components = [
+        oss_key,
+        prop_user_id,
+        session_id,
+        logAt_timestamp,
+        product_code,
+        post_code,
+        event_name,
+        idx,
+    ]
+    normalized_components = [
+        normalize_value_for_hash(value) for value in hash_components
+    ]
+    normalized_payload = json.dumps(
+        normalized_components, ensure_ascii=False, separators=(",", ":")
+    )
+    return hashlib.md5(normalized_payload.encode("utf-8")).hexdigest()
+
+
 INVITE_CODE_CODE_MASK = 873645731
 _BASE62_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 _BASE62_INDEX = {ch: i for i, ch in enumerate(_BASE62_ALPHABET)}
@@ -479,8 +508,16 @@ def transform_data(query: str) -> pd.DataFrame:
                 }
 
                 # 生成一个hash值，包含更多唯一标识字段确保唯一性
-                unique_string = f"{row.oss_key}_{row.prop_user_id}_{row.session_id}_{row.logAt_timestamp}_{product_code}_{post_code}_{row.event_name}_{idx}"
-                row_dict["hash_id"] = hashlib.md5(unique_string.encode()).hexdigest()
+                row_dict["hash_id"] = generate_hash_id(
+                    row.oss_key,
+                    row.prop_user_id,
+                    row.session_id,
+                    row.logAt_timestamp,
+                    product_code,
+                    post_code,
+                    row.event_name,
+                    idx,
+                )
 
                 row_dict["update_time"] = pd.to_datetime(start_time)
 
@@ -493,9 +530,16 @@ def transform_data(query: str) -> pd.DataFrame:
             logging.error(f"处理行时出错: {e}")
             # 构造与正常行相同结构的 dict，避免 schema 不一致
             row_dict = {
-                "hash_id": hashlib.md5(
-                    f"{row.oss_key}_{row.prop_user_id}_{row.session_id}_{row.logAt_timestamp}_error_{index}".encode()
-                ).hexdigest(),
+                "hash_id": generate_hash_id(
+                    row.oss_key,
+                    row.prop_user_id,
+                    row.session_id,
+                    row.logAt_timestamp,
+                    None,
+                    None,
+                    f"{row.event_name}_error",
+                    index,
+                ),
                 "event_name": row.event_name,
                 "logAt_timestamp": row.logAt_timestamp,
                 "session_id": row.session_id,
@@ -743,11 +787,11 @@ try:
     # 构建日期过滤条件用于分区修剪
     logAt_dates_formatted = ", ".join([f"'{d}'" for d in logAt_dates_str])
 
-    # 步骤1: DELETE - 只删除相关分区和 hash_id 的数据（利用分区修剪）
+    # 步骤1: DELETE - 按 oss_key 整体替换旧数据，避免转换逻辑变化时遗留旧行
     delete_query = f"""
     DELETE FROM `{PROJECT_ID}.{DATASET_ID}.{target_table}`
     WHERE DATE(logAt_timestamp) IN ({logAt_dates_formatted})
-    AND hash_id IN (SELECT hash_id FROM `{temp_table_id}`)
+    AND oss_key IN (SELECT DISTINCT oss_key FROM `{temp_table_id}`)
     """
 
     logging.info("执行 DELETE 操作...")
