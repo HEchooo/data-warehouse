@@ -12,11 +12,11 @@
 | platform_exposure_uv | INT64 | 平台曝光 UV（Home 曝光 UV） |
 | avg_browse_content_count_per_user | NUMERIC | 人均内容曝光数（进入详情，历史字段名保留） |
 | like_total_count | INT64 | 点赞总数（点赞成功次数） |
-| like_rate | NUMERIC | 点赞率（点赞次数 / 内容曝光次数） |
+| like_rate | NUMERIC | 点赞率（点赞 UV / 内容曝光 UV） |
 | follow_total_count | INT64 | 关注总数（关注成功次数） |
-| read_follow_rate | NUMERIC | 曝光关注率（关注专栏数 / 专栏曝光数，历史字段名保留） |
+| read_follow_rate | NUMERIC | 曝光关注率（关注 UV / 专栏曝光 UV，历史字段名保留） |
 | tryon_total_count | INT64 | 上身试穿总次数（开始试穿 PV） |
-| read_tryon_rate | NUMERIC | 曝光试穿率（试穿次数 / 内容曝光次数，历史字段名保留） |
+| read_tryon_rate | NUMERIC | 曝光试穿率（试穿 PV / 专栏曝光 PV，历史字段名保留） |
 | update_time | TIMESTAMP | 更新时间（UTC） |
 
 **分区**: `dt`（按日期分区）
@@ -43,9 +43,10 @@
 - **计算方式**: `COUNT(c_like)`（PV）
 
 ### 点赞率 (like_rate)
-- **定义**: 点赞专栏数 / 专栏曝光数。
-- **计算方式**: `点赞专栏数(visitor_id|column_id 去重) / 专栏曝光数(visitor_id|column_id 去重)`
-- **说明**: 同一用户对同一专栏下多篇帖子点赞只计 1 次。
+- **定义**: 点赞 UV / 内容曝光 UV。
+- **点赞 UV 口径**: 同一用户当天发生多次点赞，只计 1 个 UV。
+- **内容曝光 UV 口径**: 详见「人均内容曝光数」的内容详情曝光事件范围。
+- **计算方式**: `点赞UV(visitor_id 去重) / 内容曝光UV(visitor_id 去重)`
 
 ### 关注总数 (follow_total_count)
 - **定义**: 当天关注成功的行为次数（关注某个专栏）。
@@ -53,13 +54,15 @@
 - **计算方式**: `COUNT(c_follow)`（PV）
 
 ### 曝光关注率 (read_follow_rate)
-- **定义**: 关注专栏数 / 专栏曝光数。
+- **定义**: 新增关注 UV / 专栏曝光 UV。
 - **说明**: 字段名 `read_follow_rate` 为历史命名，当前语义按“曝光关注率”解释。
-- **专栏曝光数口径**: 同一用户、同一天、同一专栏多次曝光只记 1 次。
-- **关注专栏数口径**: 按成功关注的专栏实体数统计。
-- **专栏曝光事件**: `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`
-- **计算方式**: `关注专栏数 / 专栏曝光数`
-- **示例**: 1 个用户当天看了 10 个明星专栏、总共看了 100 篇帖子、关注了 3 个明星，则曝光关注率为 `3 / 10 = 0.3`。
+- **专栏曝光 UV 口径**: 同一用户、同一天多次专栏曝光，只记 1 个 UV。
+- **新增关注 UV 口径**: 同一用户当天多次关注，只记 1 个 UV（且需要能识别到专栏实体 `column_id`）。
+- **专栏曝光事件**:
+  - 明细页曝光：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`
+  - Feed 曝光（同属专栏曝光）：`v_star_post_feeds`, `v_brand_post_feeds`
+  - 说明：`v_home_feeds` 属于 Home 曝光，不计入专栏曝光。
+- **计算方式**: `关注UV(visitor_id 去重) / 专栏曝光UV(visitor_id 去重)`
 
 ### 上身试穿总次数 (tryon_total_count)
 - **定义**: 当天触发试穿开始的总次数。
@@ -67,9 +70,10 @@
 - **计算方式**: `COUNT(c_tryon)`（PV）
 
 ### 曝光试穿率 (read_tryon_rate)
-- **定义**: 试穿专栏数 / 专栏曝光数。
+- **定义**: 试穿 PV / 专栏曝光 PV。
 - **说明**: 字段名 `read_tryon_rate` 为历史命名，当前语义按”曝光试穿率”解释。
-- **计算方式**: `试穿专栏数(visitor_id|column_id 去重) / 专栏曝光数(visitor_id|column_id 去重)`
+- **专栏曝光 PV 口径**: 以专栏曝光事件的明细曝光行为计数（按 `hash_id` 去重）。
+- **计算方式**: `试穿PV(COUNT(c_tryon)) / 专栏曝光PV(专栏曝光事件 COUNT(hash_id 去重))`
 
 ## 数据来源
 
