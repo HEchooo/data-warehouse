@@ -6,6 +6,14 @@
 
 **粒度**：`dt × post_id × module × column_id`
 
+## Filters（筛选维度）
+
+- 日期：`dt`
+- 帖子ID：`post_id`
+- 帖子名称：`post_name`
+- 模块：`module`（`star` / `magazine` / `brand`）
+- 专栏：`column_name`（展示）/ `column_id`（ID）
+
 ## 表结构
 
 | 字段 | 类型 | 说明 |
