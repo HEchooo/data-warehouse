@@ -6,6 +6,8 @@
 - `ads_daily_new`
 - `ads_daily_total`
 - `ads_daily_content_performance`
+- `ads_daily_home_module_performance`
+- `ads_daily_user_duration_frequency`
 
 ## 目录结构
 
@@ -20,9 +22,15 @@ jobs/ads/
 ├── ads_daily_total/
 │   ├── ads_daily_total.py                           # ads_daily_total 任务
 │   └── ads_daily_total.md                           # ads_daily_total 口径
-└── ads_daily_content_performance/
-    ├── ads_daily_content_performance.py             # 内容表现日报任务
-    └── ads_daily_content_performance.md             # 内容表现日报口径
+├── ads_daily_content_performance/
+│   ├── ads_daily_content_performance.py             # 内容表现日报任务
+│   └── ads_daily_content_performance.md             # 内容表现日报口径
+├── ads_daily_home_module_performance/
+│   ├── ads_daily_home_module_performance.py         # 首页模块表现日报任务
+│   └── ads_daily_home_module_performance.md         # 首页模块表现日报口径
+└── ads_daily_user_duration_frequency/
+    ├── ads_daily_user_duration_frequency.py         # 用户时长与访问频次日报任务
+    └── ads_daily_user_duration_frequency.md         # 用户时长与访问频次日报口径
 ```
 
 ## 执行流程
@@ -34,6 +42,8 @@ jobs/ads/
 2. 执行 `jobs/ads/ads_daily_new/ads_daily_new.py`
 3. 执行 `jobs/ads/ads_daily_total/ads_daily_total.py`
 4. 执行 `jobs/ads/ads_daily_content_performance/ads_daily_content_performance.py`
+5. 执行 `jobs/ads/ads_daily_home_module_performance/ads_daily_home_module_performance.py`
+6. 执行 `jobs/ads/ads_daily_user_duration_frequency/ads_daily_user_duration_frequency.py`
 
 ## 设计原则
 
