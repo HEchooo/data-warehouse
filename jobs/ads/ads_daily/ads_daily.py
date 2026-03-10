@@ -23,6 +23,9 @@ from ads_daily_content_performance.ads_daily_content_performance import (
 from ads_daily_home_module_performance.ads_daily_home_module_performance import (
     run_ads_daily_home_module_performance,
 )
+from ads_daily_user_duration_frequency.ads_daily_user_duration_frequency import (
+    run_ads_daily_user_duration_frequency,
+)
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
@@ -66,6 +69,25 @@ def get_dates_to_process():
                 "dws_device_daily",
                 "ads_daily_home_module_performance",
             ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_user_duration_frequency",
+            ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_user_duration_frequency",
+                "DATE_SUB(dt, INTERVAL 1 DAY)",
+            ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_user_duration_frequency",
+                "DATE_SUB(dt, INTERVAL 7 DAY)",
+            ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_user_duration_frequency",
+                "DATE_SUB(dt, INTERVAL 30 DAY)",
+            ),
         ]
     )
     query += "\nORDER BY dt"
@@ -93,6 +115,9 @@ if __name__ == "__main__":
     logging.info("-" * 50)
 
     run_ads_daily_home_module_performance(dates)
+    logging.info("-" * 50)
+
+    run_ads_daily_user_duration_frequency(dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"ADS ETL 完成, 耗时: {elapsed:.1f} 秒")
