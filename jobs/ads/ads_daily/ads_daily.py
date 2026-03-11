@@ -26,6 +26,10 @@ from ads_daily_home_module_performance.ads_daily_home_module_performance import 
 from ads_daily_user_duration_frequency.ads_daily_user_duration_frequency import (
     run_ads_daily_user_duration_frequency,
 )
+from ads_daily_tryon_confirm.ads_daily_tryon_confirm import run_ads_daily_tryon_confirm
+from ads_daily_post_tryon_confirm.ads_daily_post_tryon_confirm import (
+    run_ads_daily_post_tryon_confirm,
+)
 from ads_daily_post_performance.ads_daily_post_performance import (
     run_ads_daily_post_performance,
 )
@@ -70,6 +74,14 @@ def get_dates_to_process():
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_content_performance",
+            ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_tryon_confirm",
+            ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_post_tryon_confirm",
             ),
             incremental_dates_sql(
                 "dws_device_daily",
@@ -126,6 +138,12 @@ if __name__ == "__main__":
     logging.info("-" * 50)
 
     run_ads_daily_content_performance(dates)
+    logging.info("-" * 50)
+
+    run_ads_daily_tryon_confirm(dates)
+    logging.info("-" * 50)
+
+    run_ads_daily_post_tryon_confirm(dates)
     logging.info("-" * 50)
 
     run_ads_daily_post_performance(dates)
