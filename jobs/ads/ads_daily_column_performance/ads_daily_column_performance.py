@@ -145,7 +145,7 @@ def run_ads_daily_column_performance(dates):
         SELECT
             dt,
             raw_event_id,
-            ANY_VALUE(COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, ''))) AS visitor_id,
+            ANY_VALUE(visitor_id) AS visitor_id,
             ANY_VALUE({module_sql}) AS module,
             ANY_VALUE({column_id_sql}) AS column_id
         FROM base
