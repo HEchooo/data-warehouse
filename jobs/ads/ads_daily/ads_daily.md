@@ -7,6 +7,7 @@
 - `ads_daily_total`
 - `ads_daily_content_performance`
 - `ads_daily_post_performance`
+- `ads_daily_column_performance`
 - `ads_daily_home_module_performance`
 - `ads_daily_user_duration_frequency`
 
@@ -29,6 +30,9 @@ jobs/ads/
 ├── ads_daily_post_performance/
 │   ├── ads_daily_post_performance.py                # 内容维度日报（日×帖子）任务
 │   └── ads_daily_post_performance.md                # 内容维度日报（日×帖子）口径
+├── ads_daily_column_performance/
+│   ├── ads_daily_column_performance.py              # 专栏追踪明细（日×专栏）任务
+│   └── ads_daily_column_performance.md              # 专栏追踪明细（日×专栏）口径
 ├── ads_daily_home_module_performance/
 │   ├── ads_daily_home_module_performance.py         # 首页模块表现日报任务
 │   └── ads_daily_home_module_performance.md         # 首页模块表现日报口径
@@ -47,8 +51,9 @@ jobs/ads/
 3. 执行 `jobs/ads/ads_daily_total/ads_daily_total.py`
 4. 执行 `jobs/ads/ads_daily_content_performance/ads_daily_content_performance.py`
 5. 执行 `jobs/ads/ads_daily_post_performance/ads_daily_post_performance.py`
-6. 执行 `jobs/ads/ads_daily_home_module_performance/ads_daily_home_module_performance.py`
-7. 执行 `jobs/ads/ads_daily_user_duration_frequency/ads_daily_user_duration_frequency.py`
+6. 执行 `jobs/ads/ads_daily_column_performance/ads_daily_column_performance.py`
+7. 执行 `jobs/ads/ads_daily_home_module_performance/ads_daily_home_module_performance.py`
+8. 执行 `jobs/ads/ads_daily_user_duration_frequency/ads_daily_user_duration_frequency.py`
 
 ## 设计原则
 
