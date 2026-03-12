@@ -11,6 +11,7 @@
 - `ads_daily_post_tryon_confirm`
 - `ads_daily_post_performance`
 - `ads_daily_column_performance`
+- `ads_daily_product_tryon_performance`
 - `ads_daily_home_module_performance`
 - `ads_daily_user_duration_frequency`
 
@@ -45,6 +46,9 @@ jobs/ads/
 ├── ads_daily_column_performance/
 │   ├── ads_daily_column_performance.py              # 专栏追踪明细（日×专栏）任务
 │   └── ads_daily_column_performance.md              # 专栏追踪明细（日×专栏）口径
+├── ads_daily_product_tryon_performance/
+│   ├── ads_daily_product_tryon_performance.py       # 商详页试穿维度（日期×SPU×SKU）任务
+│   └── ads_daily_product_tryon_performance.md       # 商详页试穿维度（日期×SPU×SKU）口径
 ├── ads_daily_home_module_performance/
 │   ├── ads_daily_home_module_performance.py         # 首页模块表现日报任务
 │   └── ads_daily_home_module_performance.md         # 首页模块表现日报口径
@@ -67,8 +71,9 @@ jobs/ads/
 7. 执行 `jobs/ads/ads_daily_post_tryon_confirm/ads_daily_post_tryon_confirm.py`
 8. 执行 `jobs/ads/ads_daily_post_performance/ads_daily_post_performance.py`
 9. 执行 `jobs/ads/ads_daily_column_performance/ads_daily_column_performance.py`
-10. 执行 `jobs/ads/ads_daily_home_module_performance/ads_daily_home_module_performance.py`
-11. 执行 `jobs/ads/ads_daily_user_duration_frequency/ads_daily_user_duration_frequency.py`
+10. 执行 `jobs/ads/ads_daily_product_tryon_performance/ads_daily_product_tryon_performance.py`
+11. 执行 `jobs/ads/ads_daily_home_module_performance/ads_daily_home_module_performance.py`
+12. 执行 `jobs/ads/ads_daily_user_duration_frequency/ads_daily_user_duration_frequency.py`
 
 ## 设计原则
 
