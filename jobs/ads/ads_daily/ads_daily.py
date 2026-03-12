@@ -39,6 +39,9 @@ from ads_daily_post_performance.ads_daily_post_performance import (
 from ads_daily_column_performance.ads_daily_column_performance import (
     run_ads_daily_column_performance,
 )
+from ads_daily_product_tryon_performance.ads_daily_product_tryon_performance import (
+    run_ads_daily_product_tryon_performance,
+)
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
@@ -97,6 +100,10 @@ def get_dates_to_process():
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_column_performance",
+            ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_product_tryon_performance",
             ),
             incremental_dates_sql(
                 "dws_device_daily",
@@ -160,6 +167,9 @@ if __name__ == "__main__":
     logging.info("-" * 50)
 
     run_ads_daily_column_performance(dates)
+    logging.info("-" * 50)
+
+    run_ads_daily_product_tryon_performance(dates)
     logging.info("-" * 50)
 
     run_ads_daily_home_module_performance(dates)
