@@ -122,3 +122,48 @@ ads_daily_post_performance
 - **DDL**：`ddl/ads/ads_daily_post_performance.sql`
 - **任务脚本**：`jobs/ads/ads_daily_post_performance/ads_daily_post_performance.py`（函数 `run_ads_daily_post_performance`）
 - **入口脚本**：`jobs/ads/ads_daily/ads_daily.py`
+
+## Superset 看板
+
+### 看板名称
+
+- `【AI-Fashion】内容维度日报（日×帖子）`
+
+### 看板信息
+
+- Dashboard ID：`94`
+- 访问路径：`/superset/dashboard/94/`
+- Dataset：`decom.ads_daily_post_performance`（dataset_id=`223`，main_dttm_col=`dt`）
+- 默认时间范围：`Last week`
+- 原生筛选器（Native Filters）：`日期范围` / `模块` / `专栏` / `帖子ID`
+
+### 图表信息
+
+- `【AI-Fashion】内容维度日报（日×帖子）-规模趋势`（chart_id=`547`）
+- `【AI-Fashion】内容维度日报（日×帖子）-转化趋势`（chart_id=`548`）
+- `【AI-Fashion】内容维度日报（日×帖子）-Top帖子`（chart_id=`549`）
+- `【AI-Fashion】内容维度日报（日×帖子）-明细表`（chart_id=`550`）
+
+### 生成脚本
+
+- `.agents/skills/superset/scripts/create_ads_daily_post_performance_dashboard.py`
+
+### 使用方式
+
+默认先 dry-run（只输出计划，不写入 Superset）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_post_performance_dashboard.py
+```
+
+真正创建/更新（写入 Superset）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_post_performance_dashboard.py --apply
+```
+
+如需指定 `database_id`（仅在 dataset 不存在且无法自动推断时）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_post_performance_dashboard.py --apply --database-id <你的database_id>
+```
