@@ -75,3 +75,21 @@
 - **DDL**：`ddl/ads/ads_daily_tryon_add_cart_conversion.sql`
 - **任务脚本**：`jobs/ads/ads_daily_tryon_add_cart_conversion/ads_daily_tryon_add_cart_conversion.py`（函数 `run_ads_daily_tryon_add_cart_conversion`）
 - **入口脚本**：`jobs/ads/ads_daily/ads_daily.py`
+
+## Superset BI 看板
+
+已在 Superset 中创建对应 BI dashboard，便于业务侧直接查看趋势与明细（2026-03-13）：
+
+- **Dashboard 名称**：`【AI-Fashion】试穿结果转化`
+- **Dashboard ID**：`97`
+- **访问地址**：`https://bi.alvinclub.ca/superset/dashboard/97/`
+- **默认筛选**：原生时间筛选器「日期范围（多伦多）」默认 `Last week`
+- **Dataset（Superset 侧）**：
+  - 表：`decom.ads_daily_tryon_add_cart_conversion`
+  - dataset_id：`226`
+  - main_dttm_col：`dt`
+- **Charts**：
+  - `561`：试穿结果转化（日表）-规模趋势
+  - `562`：试穿结果转化（日表）-转化趋势
+  - `563`：试穿结果转化（日表）-明细表
+- **生成脚本**：`.agents/skills/superset/scripts/create_ads_daily_tryon_add_cart_conversion_dashboard.py`
