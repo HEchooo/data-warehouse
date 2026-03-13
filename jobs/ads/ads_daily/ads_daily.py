@@ -74,6 +74,17 @@ def get_dates_to_process():
     """
     query = "\nUNION DISTINCT\n".join(
         [
+            # 支持 T+0 展示：只要 DWS 已有多伦多“当天/昨天”的分区，就强制纳入这两天 dt。
+            # 这样可以避免因为 update_time 对比（DWS <= ADS）导致“当天有数据但 ADS 不刷新”的情况，
+            # 同时保证“昨天”的次日留存等需要 T+1 才成熟的指标能在今天回刷。
+            f"""
+            SELECT DISTINCT dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+            WHERE dt IN (
+                CURRENT_DATE('{TORONTO_TZ}'),
+                DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
+            )
+            """,
             incremental_dates_sql("dws_device_daily", "ads_daily_total"),
             incremental_dates_sql(
                 "dws_device_daily",
