@@ -96,3 +96,23 @@ ads_daily_user_duration_frequency
 - **DDL**: `ddl/ads/ads_daily_user_duration_frequency.sql`
 - **任务脚本**: `jobs/ads/ads_daily_user_duration_frequency/ads_daily_user_duration_frequency.py`（函数 `run_ads_daily_user_duration_frequency`）
 - **入口脚本**: `jobs/ads/ads_daily/ads_daily.py`
+
+## Superset BI 看板
+
+已在 Superset 中创建对应 BI dashboard，便于业务侧直接查看趋势与明细。
+
+- **Dashboard 名称**：`【AI-Fashion】用户时长与访问频次`
+- **Dashboard ID**：`95`
+- **访问地址**：`https://bi.alvinclub.ca/superset/dashboard/95/`
+- **默认筛选**：原生时间筛选器「日期范围（多伦多）」默认 `Last week`
+- **Dataset（Superset 侧）**：
+  - 表：`decom.ads_daily_user_duration_frequency`
+  - dataset_id：`224`
+  - main_dttm_col：`dt`
+- **Charts**：
+  - `551`：用户时长与访问频次（日表）-活跃与启动趋势
+  - `552`：用户时长与访问频次（日表）-时长趋势
+  - `553`：用户时长与访问频次（日表）-访问频次趋势
+  - `554`：用户时长与访问频次（日表）-留存趋势
+  - `555`：用户时长与访问频次（日表）-明细表
+- **生成脚本**：`.agents/skills/superset/scripts/create_ads_daily_user_duration_frequency_dashboard.py`
