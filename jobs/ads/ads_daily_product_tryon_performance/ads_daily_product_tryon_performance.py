@@ -20,6 +20,18 @@ TORONTO_TZ = "America/Toronto"
 client = bigquery.Client(project=PROJECT_ID)
 
 
+def clean_sku_expr(field_name: str) -> str:
+    """
+    dwd_event_log 的 args_sku 有时携带多层双引号/转义：
+    - '"123"'、'""123""'、'\\"123\\"'
+    这里统一去掉首尾的双引号与反斜杠，并将 '' / 'null'（大小写不敏感）归一为 NULL。
+    """
+    # BigQuery 标准 SQL：使用 raw string literal，确保反斜杠不被当作转义序列吞掉
+    # r'\"' 的字符集包含：反斜杠 + 双引号
+    cleaned = f"TRIM(TRIM(CAST({field_name} AS STRING)), r'\\\"')"
+    return f"NULLIF(CASE WHEN LOWER({cleaned}) = 'null' THEN NULL ELSE {cleaned} END, '')"
+
+
 def run_ads_daily_product_tryon_performance(dates):
     """
     商详页试穿维度（日期 × SPU × SKU）:
@@ -32,6 +44,7 @@ def run_ads_daily_product_tryon_performance(dates):
     """
     dates_str = dates_to_sql_list(dates)
     event_ts = event_ts_expr()
+    sku_sql = clean_sku_expr("args_sku")
 
     query = f"""
     DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_product_tryon_performance`
@@ -47,10 +60,7 @@ def run_ads_daily_product_tryon_performance(dates):
             visitor_id,
             action_event_id,
             spu,
-            COALESCE(
-                NULLIF(IF(LOWER(sku_raw) = 'null', '', sku_raw), ''),
-                '__NULL__'
-            ) AS sku_key,
+            COALESCE(sku, '__NULL__') AS sku_key,
             page_key
         FROM (
             SELECT
@@ -59,7 +69,7 @@ def run_ads_daily_product_tryon_performance(dates):
                 COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
                 COALESCE(raw_event_id, hash_id) AS action_event_id,
                 NULLIF(CAST(product_code AS STRING), '') AS spu,
-                REGEXP_REPLACE(TRIM(CAST(args_sku AS STRING)), r'^\"|\"$', '') AS sku_raw,
+                {sku_sql} AS sku,
                 CAST(args_page_key AS STRING) AS page_key
             FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
             WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})

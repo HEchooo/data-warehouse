@@ -30,7 +30,7 @@ Filters：
 - SPU：使用 `dwd_event_log.product_code`（由 `args_spu` 展开得到的单个 SPU）。
   - 说明：`dwd_event_log` 会对 `args_spu` 做数组展开，因此同一事件可能生成多行（每个 SPU 一行）。
 - SKU：来自 `dwd_event_log.args_sku`，并做清洗后落表：
-  - 去掉首尾双引号（如 `"SK..."`
+  - 去掉首尾双引号（支持多层/转义，如 `'"123"'`、`'""123""'`、`'\\"123\\"'`）
   - 将 `''` / `'null'`（大小写不敏感）视为 `NULL`
 
 ### 商品曝光UV (exposure_uv)
