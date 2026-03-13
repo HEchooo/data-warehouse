@@ -80,3 +80,37 @@ ads_daily_home_module_performance
 - **DDL**: `ddl/ads/ads_daily_home_module_performance.sql`
 - **任务脚本**: `jobs/ads/ads_daily_home_module_performance/ads_daily_home_module_performance.py`（函数 `run_ads_daily_home_module_performance`）
 - **入口脚本**: `jobs/ads/ads_daily/ads_daily.py`
+
+## Superset 看板
+
+### 看板名称
+
+- `【AI-Fashion】首页模块曝光/点击明细（日×模块）`
+
+### 看板内容
+
+- 图表
+  - `首页模块曝光/点击明细（日×模块）-规模趋势`
+  - `首页模块曝光/点击明细（日×模块）-转化趋势`
+  - `首页模块曝光/点击明细（日×模块）-明细表`
+- 筛选器（Native Filters）
+  - `日期范围`：默认 `Last week`
+  - `模块`：多选，字段 `module`（值：`star` / `magazine` / `brand`）
+
+### 生成脚本
+
+- `.agents/skills/superset/scripts/create_ads_daily_home_module_exposure_click_dashboard.py`
+
+### 使用方式
+
+默认先 dry-run（只输出计划，不写入 Superset）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_home_module_exposure_click_dashboard.py
+```
+
+真正创建/更新（写入 Superset）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_home_module_exposure_click_dashboard.py --apply
+```
