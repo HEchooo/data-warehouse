@@ -5,7 +5,7 @@
 - `dt × module × column_id`
 - `dt`：使用 `America/Toronto` 时区切天
 - `module`：`star` / `brand` / `magazine`
-- `column_id`：专栏ID（对应明星/品牌/杂志的 ID）
+- `column_id`：专栏ID（对应明星/品牌/杂志的 ID；会去掉首尾双引号 `"`，避免出现 `"260..."`）
 
 ## Filters（BI 侧筛选字段）
 
