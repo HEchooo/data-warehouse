@@ -57,7 +57,7 @@ def incremental_dates_sql(source_table, target_table, select_expr="dt"):
         SELECT COALESCE(MAX(update_time), TIMESTAMP('1970-01-01'))
         FROM `{PROJECT_ID}.{DATASET_ID}.{target_table}`
     )
-    AND dt <= DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
+    AND dt <= CURRENT_DATE('{TORONTO_TZ}')
     """
 
 
@@ -67,6 +67,10 @@ def get_dates_to_process():
     同时包含前一天用于回刷次日留存率。
     同时纳入下载 DWS 与内容表现日报的增量日期。
     使用多伦多时间（America/Toronto）。
+
+    说明：
+    - 允许处理到多伦多当天 dt（当天数据可能不完整，适合看趋势与实时观察）。
+    - 留存/到期类指标是否产出，仍由各子任务内部的“成熟度”逻辑决定（不强制当天出结果）。
     """
     query = "\nUNION DISTINCT\n".join(
         [
