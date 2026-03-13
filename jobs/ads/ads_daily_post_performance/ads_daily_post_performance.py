@@ -34,26 +34,42 @@ def event_ts_expr():
 
 
 def module_expr(event_name_field="event_name"):
+    star_id = clean_id_expr("args_star")
+    magazine_id = clean_id_expr("args_magazine")
+    brand_id = clean_id_expr("args_brand")
     return f"""
     CASE
         WHEN {event_name_field} = 'v_star_post_detail' THEN 'star'
         WHEN {event_name_field} = 'v_magazine_post_detail' THEN 'magazine'
         WHEN {event_name_field} = 'v_brand_post_detail' THEN 'brand'
-        WHEN NULLIF(args_star, '') IS NOT NULL THEN 'star'
-        WHEN NULLIF(args_magazine, '') IS NOT NULL THEN 'magazine'
-        WHEN NULLIF(args_brand, '') IS NOT NULL THEN 'brand'
+        WHEN {star_id} IS NOT NULL THEN 'star'
+        WHEN {magazine_id} IS NOT NULL THEN 'magazine'
+        WHEN {brand_id} IS NOT NULL THEN 'brand'
         ELSE NULL
     END
     """
 
 
+def clean_id_expr(field_name: str) -> str:
+    """
+    dwd_event_log 的 args_* 有时来自 JSON_EXTRACT，可能携带首尾双引号：
+    例如：'"2602276189664"'。这里统一去掉首尾双引号并把空串归一为 NULL。
+    """
+    # 线上数据里也可能出现 'null' / '""' 这样的字符串，占位但不代表有效 ID
+    # 这里统一把它们当作 NULL，避免后续分组/映射异常。
+    return f"NULLIF(NULLIF(TRIM(TRIM({field_name}), '\"'), ''), 'null')"
+
+
 def column_id_expr(event_name_field="event_name"):
+    star_id = clean_id_expr("args_star")
+    magazine_id = clean_id_expr("args_magazine")
+    brand_id = clean_id_expr("args_brand")
     return f"""
     CASE
-        WHEN {event_name_field} = 'v_star_post_detail' THEN NULLIF(args_star, '')
-        WHEN {event_name_field} = 'v_magazine_post_detail' THEN NULLIF(args_magazine, '')
-        WHEN {event_name_field} = 'v_brand_post_detail' THEN NULLIF(args_brand, '')
-        ELSE COALESCE(NULLIF(args_star, ''), NULLIF(args_magazine, ''), NULLIF(args_brand, ''))
+        WHEN {event_name_field} = 'v_star_post_detail' THEN {star_id}
+        WHEN {event_name_field} = 'v_magazine_post_detail' THEN {magazine_id}
+        WHEN {event_name_field} = 'v_brand_post_detail' THEN {brand_id}
+        ELSE COALESCE({star_id}, {magazine_id}, {brand_id})
     END
     """
 
@@ -377,4 +393,3 @@ def run_ads_daily_post_performance(dates):
     job = client.query(query)
     job.result()
     logging.info(f"ads_daily_post_performance 刷新完成, 处理日期: {dates}")
-
