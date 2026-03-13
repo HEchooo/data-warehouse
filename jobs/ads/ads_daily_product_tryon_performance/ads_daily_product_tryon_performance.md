@@ -97,3 +97,18 @@ ORDER BY dt DESC, spu;
 - **DDL**: `ddl/ads/ads_daily_product_tryon_performance.sql`
 - **任务脚本**: `jobs/ads/ads_daily_product_tryon_performance/ads_daily_product_tryon_performance.py` (函数 `run_ads_daily_product_tryon_performance`)
 - **入口脚本**: `jobs/ads/ads_daily/ads_daily.py`
+
+## Superset BI 看板
+
+- **Dashboard**：`【AI-Fashion】商详页试穿维度`（dashboard_id=98）
+  - 访问路径：`/superset/dashboard/98/`
+  - 默认时间范围：`Last week`
+  - 原生筛选器：`日期范围（多伦多）`、`SPU`、`SKU`（SKU 允许为空）
+- **Dataset**：`decom.ads_daily_product_tryon_performance`（dataset_id=227，main_dttm_col=`dt`，database_id=5）
+- **Charts**：
+  - 564：`【AI-Fashion】商详页试穿维度-规模趋势`
+  - 565：`【AI-Fashion】商详页试穿维度-转化趋势`
+  - 566：`【AI-Fashion】商详页试穿维度-TopSPU`
+  - 567：`【AI-Fashion】商详页试穿维度-TopSKU`
+  - 568：`【AI-Fashion】商详页试穿维度-明细表`
+- **生成脚本**：`.agents/skills/superset/scripts/create_ads_daily_product_tryon_performance_dashboard.py`
