@@ -89,6 +89,7 @@
 
 使用表：`v3_decom.kol_rel`（`status`, `user_id`, `nickname`, `kol_type`）
 
+- 说明：来自埋点日志的 `column_id` 可能携带首尾双引号（例如 `"2602276189664"`），也可能出现 `'null'`/`'""'` 这类占位字符串；ETL 会在 join 前做清理以保证能匹配到 `kol_rel.user_id`
 - 仅取 `status=0`
 - `kol_type` 映射：
   - star：2
