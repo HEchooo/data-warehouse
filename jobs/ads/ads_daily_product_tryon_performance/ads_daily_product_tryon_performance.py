@@ -42,16 +42,29 @@ def run_ads_daily_product_tryon_performance(dates):
     WITH
     base AS (
         SELECT
-            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            dt,
             event_name,
-            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
-            COALESCE(raw_event_id, hash_id) AS action_event_id,
-            NULLIF(CAST(product_code AS STRING), '') AS spu,
-            COALESCE(NULLIF(CAST(args_sku AS STRING), ''), '__NULL__') AS sku_key,
-            CAST(args_page_key AS STRING) AS page_key
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND event_name IN ('v_product_detail', 'v_home_feeds', 'c_tryon', 'c_add_cart')
+            visitor_id,
+            action_event_id,
+            spu,
+            COALESCE(
+                NULLIF(IF(LOWER(sku_raw) = 'null', '', sku_raw), ''),
+                '__NULL__'
+            ) AS sku_key,
+            page_key
+        FROM (
+            SELECT
+                DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+                event_name,
+                COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
+                COALESCE(raw_event_id, hash_id) AS action_event_id,
+                NULLIF(CAST(product_code AS STRING), '') AS spu,
+                REGEXP_REPLACE(TRIM(CAST(args_sku AS STRING)), r'^\"|\"$', '') AS sku_raw,
+                CAST(args_page_key AS STRING) AS page_key
+            FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+            WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
+                AND event_name IN ('v_product_detail', 'v_home_feeds', 'c_tryon', 'c_add_cart')
+        )
     ),
     exposure_daily AS (
         SELECT

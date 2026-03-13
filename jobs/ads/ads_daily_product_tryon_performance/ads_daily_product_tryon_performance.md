@@ -29,7 +29,9 @@ Filters：
 
 - SPU：使用 `dwd_event_log.product_code`（由 `args_spu` 展开得到的单个 SPU）。
   - 说明：`dwd_event_log` 会对 `args_spu` 做数组展开，因此同一事件可能生成多行（每个 SPU 一行）。
-- SKU：使用 `NULLIF(dwd_event_log.args_sku, '')`。
+- SKU：来自 `dwd_event_log.args_sku`，并做清洗后落表：
+  - 去掉首尾双引号（如 `"SK..."`
+  - 将 `''` / `'null'`（大小写不敏感）视为 `NULL`
 
 ### 商品曝光UV (exposure_uv)
 
@@ -107,7 +109,7 @@ ORDER BY dt DESC, spu;
 - **Dataset**：`decom.ads_daily_product_tryon_performance`（dataset_id=227，main_dttm_col=`dt`，database_id=5）
 - **Charts**：
   - 564：`【AI-Fashion】商详页试穿维度-规模趋势`
-  - 565：`【AI-Fashion】商详页试穿维度-转化趋势`
+  - 565：`【AI-Fashion】商详页试穿维度-转化趋势`（不展示百分比，仅展示试穿次数/加购UV趋势）
   - 566：`【AI-Fashion】商详页试穿维度-TopSPU`
   - 567：`【AI-Fashion】商详页试穿维度-TopSKU`
   - 568：`【AI-Fashion】商详页试穿维度-明细表`
