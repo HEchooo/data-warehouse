@@ -48,3 +48,16 @@
 - ETL：`jobs/ads/ads_daily_column_performance/ads_daily_column_performance.py`
 - 编排：`jobs/ads/ads_daily/ads_daily.py`
 
+## Superset BI 看板
+
+已在 Superset 落地（2026-03-13）：
+
+- Dashboard：`【AI-Fashion】专栏追踪明细（日×专栏）`（dashboard_id=93，已发布）
+- Dataset：`decom.ads_daily_column_performance`（dataset_id=222，`main_dttm_col=dt`）
+- Chart：`专栏追踪明细（日×专栏）-明细表`（chart_id=546，Table/raw）
+- Native filters（默认）：
+  - `日期范围`：默认 `Last week`
+  - `模块`：列 `module`（多选）
+  - `专栏ID`：列 `column_id`（多选，可搜索）
+  - `专栏名称`：列 `column_name`（多选，可搜索）
+- 生成脚本：`.agents/skills/superset/scripts/create_ads_daily_column_performance_dashboard.py`
