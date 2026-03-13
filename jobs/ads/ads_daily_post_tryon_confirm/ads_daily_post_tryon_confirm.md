@@ -92,3 +92,48 @@ ads_daily_post_tryon_confirm
 - **任务脚本**：`jobs/ads/ads_daily_post_tryon_confirm/ads_daily_post_tryon_confirm.py`（函数 `run_ads_daily_post_tryon_confirm`）
 - **入口脚本**：`jobs/ads/ads_daily/ads_daily.py`
 
+## Superset 看板
+
+### 看板名称
+
+- `【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）`
+
+### 看板信息
+
+- Dashboard ID：`96`
+- 访问路径：`/superset/dashboard/96/`
+- Dataset：`decom.ads_daily_post_tryon_confirm`（dataset_id=`225`，main_dttm_col=`dt`）
+- 默认时间范围：`Last week`
+- 原生筛选器（Native Filters）：`日期范围（多伦多）` / `帖子ID` / `帖子名称`
+
+### 图表信息
+
+- `【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）-点击使用PV趋势`（chart_id=`556`）
+- `【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）-点击使用UV趋势`（chart_id=`557`）
+- `【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）-人均点击使用次数趋势`（chart_id=`558`）
+- `【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）-Top帖子`（chart_id=`559`）
+- `【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）-明细表`（chart_id=`560`）
+
+### 生成脚本
+
+- `.agents/skills/superset/scripts/create_ads_daily_post_tryon_confirm_dashboard.py`
+
+### 使用方式
+
+默认先 dry-run（只输出计划，不写入 Superset）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_post_tryon_confirm_dashboard.py
+```
+
+真正创建/更新（写入 Superset）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_post_tryon_confirm_dashboard.py --apply
+```
+
+如需指定 `database_id`（仅在 dataset 不存在且无法自动推断时）：
+
+```bash
+python3 .agents/skills/superset/scripts/create_ads_daily_post_tryon_confirm_dashboard.py --apply --database-id <你的database_id>
+```
