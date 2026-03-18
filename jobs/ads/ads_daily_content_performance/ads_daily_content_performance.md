@@ -13,8 +13,8 @@
 | avg_browse_content_count_per_user | NUMERIC | 人均内容曝光数（进入详情，历史字段名保留） |
 | like_total_count | INT64 | 点赞总数（点赞成功次数） |
 | like_rate | NUMERIC | 点赞率（点赞 UV / 内容曝光 UV） |
-| follow_total_count | INT64 | 关注总数（关注成功次数） |
-| read_follow_rate | NUMERIC | 曝光关注率（关注 UV / 专栏曝光 UV，历史字段名保留） |
+| follow_total_count | INT64 | 关注总数（关注专栏成功次数） |
+| read_follow_rate | NUMERIC | 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留） |
 | tryon_total_count | INT64 | 上身试穿总次数（开始试穿 PV） |
 | read_tryon_rate | NUMERIC | 曝光试穿率（试穿 PV / 专栏曝光 PV，历史字段名保留） |
 | update_time | TIMESTAMP | 更新时间（UTC） |
@@ -49,20 +49,21 @@
 - **计算方式**: `点赞UV(visitor_id 去重) / 内容曝光UV(visitor_id 去重)`
 
 ### 关注总数 (follow_total_count)
-- **定义**: 当天关注成功的行为次数（关注某个专栏）。
+- **定义**: 当天点击关注专栏成功的行为次数。
 - **事件范围**: `c_follow`
-- **计算方式**: `COUNT(c_follow)`（PV）
+- **计算方式**: `COUNT(c_follow)`（PV，按 `raw_event_id` 去重，且需能识别专栏 `column_id`）
 
 ### 曝光关注率 (read_follow_rate)
-- **定义**: 新增关注 UV / 专栏曝光 UV。
-- **说明**: 字段名 `read_follow_rate` 为历史命名，当前语义按“曝光关注率”解释。
-- **专栏曝光 UV 口径**: 同一用户、同一天多次专栏曝光，只记 1 个 UV。
-- **新增关注 UV 口径**: 同一用户当天多次关注，只记 1 个 UV（且需要能识别到专栏实体 `column_id`）。
+- **定义**: 点击关注专栏次数 / 专栏曝光次数。
+- **说明**: 字段名 `read_follow_rate` 为历史命名，当前语义按“曝光关注率”解释。这里统一使用“次数”表述，不再用 `PV/UV`，避免误解成用户口径或专栏实体去重口径。
+- **专栏曝光次数口径**: 专栏曝光事件按 `hash_id` 去重计数，且需能识别专栏 `column_id`。
+- **点击关注次数口径**: `c_follow` 按 `raw_event_id` 去重计数，且需能识别专栏 `column_id`。
+- **注意**: 这里统计的是“专栏曝光事件次数”，不是“曝光的专栏数”；同理，分子统计的是“点击关注事件次数”，不是关注用户数。
 - **专栏曝光事件**:
   - 明细页曝光：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`
   - Feed 曝光（同属专栏曝光）：`v_star_post_feeds`, `v_brand_post_feeds`
   - 说明：`v_home_feeds` 属于 Home 曝光，不计入专栏曝光。
-- **计算方式**: `关注UV(visitor_id 去重) / 专栏曝光UV(visitor_id 去重)`
+- **计算方式**: `关注专栏次数(follow_total_count) / 专栏曝光次数(column_exposure_pv)`
 
 ### 上身试穿总次数 (tryon_total_count)
 - **定义**: 当天触发试穿开始的总次数。
