@@ -2,14 +2,14 @@
 
 ## 报表定义
 
-统计首页三大模块（star / magazine / brand）的每日曝光与点击表现（每日每模块一行），用于监控模块点击率与点击深度。
+统计首页四个模块（star / magazine / brand / feeds）的每日曝光与点击表现（每日每模块一行），用于监控模块点击率与点击深度。
 
 ## 表结构
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | dt | DATE | 日期（多伦多时间） |
-| module | STRING | 首页模块标识（star / magazine / brand） |
+| module | STRING | 首页模块标识（star / magazine / brand / feeds） |
 | module_exposure_uv | INT64 | 模块曝光 UV |
 | module_click_uv | INT64 | 模块点击 UV |
 | click_rate | NUMERIC | 点击率（点击 UV / 曝光 UV） |
@@ -32,6 +32,7 @@
 | star | v_home_star | c_home_star |
 | magazine | v_home_magazine | c_home_magazine |
 | brand | v_home_brand | c_home_brand |
+| feeds | v_home_feeds | c_home_feeds |
 
 ### 模块曝光 UV (module_exposure_uv)
 - **定义**: 当天触发对应模块曝光事件的去重访客数。
@@ -73,7 +74,7 @@ ads_daily_home_module_performance
 - **调度周期**: T+1（每日更新）
 - **更新方式**: DELETE + INSERT（幂等）
 - **增量判断**: `dws_device_daily.update_time > ads_daily_home_module_performance.update_time`
-- **补 0 行机制**: 通过 `date_list × module_list` 生成键，保证每天三大模块都产出行（无数据时指标为 0）
+- **补 0 行机制**: 通过 `date_list × module_list` 生成键，保证每天四个模块都产出行（无数据时指标为 0）
 
 ## 相关文件
 
@@ -95,7 +96,7 @@ ads_daily_home_module_performance
   - `首页模块曝光/点击明细（日×模块）-明细表`
 - 筛选器（Native Filters）
   - `日期范围`：默认 `Last week`
-  - `模块`：多选，字段 `module`（值：`star` / `magazine` / `brand`）
+  - `模块`：多选，字段 `module`（值：`star` / `magazine` / `brand` / `feeds`）
 
 ### 生成脚本
 
