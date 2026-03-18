@@ -320,6 +320,7 @@ def run_ads_daily_post_performance(dates):
             COUNT(*) AS follow_total_count,
             COUNT(DISTINCT visitor_id) AS follow_uv
         FROM follow_attributed
+        WHERE module IS NOT NULL AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
     ),
     keys AS (
@@ -334,6 +335,7 @@ def run_ads_daily_post_performance(dates):
         UNION DISTINCT
         SELECT DISTINCT dt, post_code, module, column_id
         FROM follow_daily
+        WHERE module IS NOT NULL AND column_id IS NOT NULL
     ),
     final AS (
         SELECT
