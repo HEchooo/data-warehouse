@@ -22,6 +22,8 @@ UNION ALL
 SELECT 'magazine' AS module, 'v_home_magazine' AS exposure_event, 'c_home_magazine' AS click_event
 UNION ALL
 SELECT 'brand' AS module, 'v_home_brand' AS exposure_event, 'c_home_brand' AS click_event
+UNION ALL
+SELECT 'feeds' AS module, 'v_home_feeds' AS exposure_event, 'c_home_feeds' AS click_event
 """.strip()
 client = bigquery.Client(project=PROJECT_ID)
 
