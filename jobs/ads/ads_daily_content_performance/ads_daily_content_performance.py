@@ -52,8 +52,8 @@ def run_ads_daily_content_performance(dates):
     - avg_browse_content_count_per_user: 人均内容曝光数（进入详情，历史字段名保留）
     - like_total_count: 点赞总数（点赞成功次数）
     - like_rate: 点赞率（点赞 UV / 内容曝光 UV）
-    - follow_total_count: 关注总数（关注成功次数）
-    - read_follow_rate: 曝光关注率（关注 UV / 专栏曝光 UV，历史字段名保留）
+    - follow_total_count: 关注总数（关注专栏成功次数）
+    - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
     - tryon_total_count: 上身试穿总次数（开始试穿 PV）
     - read_tryon_rate: 曝光试穿率（试穿 PV / 专栏曝光 PV，历史字段名保留）
     使用多伦多时间（America/Toronto）。
@@ -136,7 +136,6 @@ def run_ads_daily_content_performance(dates):
             COUNT(
                 DISTINCT IF(
                     event_name IN ({COLUMN_EXPOSURE_EVENTS})
-                    AND visitor_id IS NOT NULL
                     AND column_id IS NOT NULL,
                     hash_id,
                     NULL
@@ -161,19 +160,10 @@ def run_ads_daily_content_performance(dates):
         SELECT
             dt,
             COUNTIF(event_name = 'c_like') AS like_total_count,
-            COUNTIF(event_name = 'c_follow') AS follow_total_count,
+            COUNTIF(event_name = 'c_follow' AND column_id IS NOT NULL) AS follow_total_count,
             COUNTIF(event_name = 'c_tryon') AS tryon_total_count,
             COUNT(DISTINCT IF(event_name = 'c_like' AND visitor_id IS NOT NULL, visitor_id, NULL))
-                AS like_uv,
-            COUNT(
-                DISTINCT IF(
-                    event_name = 'c_follow'
-                    AND visitor_id IS NOT NULL
-                    AND column_id IS NOT NULL,
-                    visitor_id,
-                    NULL
-                )
-            ) AS follow_uv
+                AS like_uv
         FROM action_events
         GROUP BY dt
     ),
@@ -186,7 +176,6 @@ def run_ads_daily_content_performance(dates):
             COALESCE(a.like_total_count, 0) AS like_total_count,
             COALESCE(a.like_uv, 0) AS like_uv,
             COALESCE(a.follow_total_count, 0) AS follow_total_count,
-            COALESCE(a.follow_uv, 0) AS follow_uv,
             COALESCE(a.tryon_total_count, 0) AS tryon_total_count,
             COALESCE(e.column_exposure_uv, 0) AS column_exposure_uv,
             COALESCE(e.column_exposure_pv, 0) AS column_exposure_pv
@@ -215,9 +204,9 @@ def run_ads_daily_content_performance(dates):
         END AS NUMERIC) AS like_rate,
         follow_total_count,
         CAST(CASE
-            WHEN column_exposure_uv = 0 THEN 0
+            WHEN column_exposure_pv = 0 THEN 0
             ELSE ROUND(
-                CAST(follow_uv AS NUMERIC) / CAST(column_exposure_uv AS NUMERIC),
+                CAST(follow_total_count AS NUMERIC) / CAST(column_exposure_pv AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS read_follow_rate,
