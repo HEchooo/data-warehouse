@@ -88,12 +88,19 @@ ads_daily_home_module_performance
 
 - `【AI-Fashion】首页模块曝光/点击明细（日×模块）`
 
+### 看板信息
+
+- Dashboard ID：`92`
+- 访问地址：`https://bi.alvinclub.ca/superset/dashboard/92/`
+- Dataset：`decom.ads_daily_home_module_performance`（dataset_id=`221`，main_dttm_col=`dt`）
+- 默认时间范围：`Last week`
+
 ### 看板内容
 
 - 图表
-  - `首页模块曝光/点击明细（日×模块）-规模趋势`
-  - `首页模块曝光/点击明细（日×模块）-转化趋势`
-  - `首页模块曝光/点击明细（日×模块）-明细表`
+  - `首页模块曝光/点击明细（日×模块）-规模趋势`（chart_id=`543`）
+  - `首页模块曝光/点击明细（日×模块）-转化趋势`（chart_id=`544`）
+  - `首页模块曝光/点击明细（日×模块）-明细表`（chart_id=`545`）
 - 筛选器（Native Filters）
   - `日期范围`：默认 `Last week`
   - `模块`：多选，字段 `module`（值：`star` / `magazine` / `brand` / `feeds`）

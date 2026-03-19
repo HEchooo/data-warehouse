@@ -134,7 +134,7 @@ ads_daily_post_performance
 ### 看板信息
 
 - Dashboard ID：`94`
-- 访问路径：`/superset/dashboard/94/`
+- 访问地址：`https://bi.alvinclub.ca/superset/dashboard/94/`
 - Dataset：`decom.ads_daily_post_performance`（dataset_id=`223`，main_dttm_col=`dt`）
 - 默认时间范围：`Last week`
 - 原生筛选器（Native Filters）：`日期范围` / `模块` / `专栏` / `帖子ID`

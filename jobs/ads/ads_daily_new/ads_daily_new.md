@@ -121,3 +121,11 @@ ORDER BY dt DESC;
   - `ods_android_download`
   - `dim_device_first_active`
   - `dim_user_first_active`
+
+## Superset BI 看板
+
+- **Dashboard 名称**：`【AI-Fashion】用增报表`
+- **Dashboard ID**：`88`
+- **访问地址**：`https://bi.alvinclub.ca/superset/dashboard/88/`
+- **Dataset**：`decom.ads_daily_new`（dataset_id=`218`）
+- **Chart**：`用增数据`（chart_id=`538`，Table/raw）
