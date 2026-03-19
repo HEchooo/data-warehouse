@@ -28,7 +28,7 @@ def require_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
         raise RuntimeError(
-            f"缺少环境变量 {name}，请在 etl_config.json 的 paths.<mode>.env 中配置"
+            f"缺少环境变量 {name}，请在 env/etl_config.json 的 paths.<mode>.env 中配置"
         )
     return value
 
