@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = SCRIPT_DIR / "etl_config.json"
+CONFIG_PATH = SCRIPT_DIR / "env" / "etl_config.json"
 
 # 在脚本内覆盖运行模式：None / "remote" / "local"
 PATH_MODE_OVERRIDE = "remote"
