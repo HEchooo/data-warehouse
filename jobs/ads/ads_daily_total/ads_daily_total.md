@@ -105,3 +105,11 @@ ORDER BY dt DESC;
 - **依赖表**:
   - `dws_device_daily`
   - `dws_user_daily`
+
+## Superset BI 看板
+
+- **Dashboard 名称**：`【AI-Fashion】全量报表`
+- **Dashboard ID**：`89`
+- **访问地址**：`https://bi.alvinclub.ca/superset/dashboard/89/`
+- **Dataset**：`decom.ads_daily_total`（dataset_id=`219`）
+- **Chart**：`全量数据`（chart_id=`539`，Table/raw）

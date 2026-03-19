@@ -53,6 +53,7 @@
 已在 Superset 落地（2026-03-13）：
 
 - Dashboard：`【AI-Fashion】专栏追踪明细（日×专栏）`（dashboard_id=93，已发布）
+- 访问地址：`https://bi.alvinclub.ca/superset/dashboard/93/`
 - Dataset：`decom.ads_daily_column_performance`（dataset_id=222，`main_dttm_col=dt`）
 - Chart：`专栏追踪明细（日×专栏）-明细表`（chart_id=546，Table/raw）
 - Native filters（默认）：

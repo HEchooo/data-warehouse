@@ -103,7 +103,7 @@ ORDER BY dt DESC, spu;
 ## Superset BI 看板
 
 - **Dashboard**：`【AI-Fashion】商详页试穿维度`（dashboard_id=98）
-  - 访问路径：`/superset/dashboard/98/`
+  - 访问地址：`https://bi.alvinclub.ca/superset/dashboard/98/`
   - 默认时间范围：`Last week`
   - 原生筛选器：`日期范围（多伦多）`、`SPU`、`SKU`（SKU 允许为空）
 - **Dataset**：`decom.ads_daily_product_tryon_performance`（dataset_id=227，main_dttm_col=`dt`，database_id=5）
