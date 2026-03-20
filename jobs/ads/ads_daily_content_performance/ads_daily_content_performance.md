@@ -12,7 +12,7 @@
 | platform_exposure_uv | INT64 | 平台曝光 UV（Home 曝光 UV） |
 | avg_browse_content_count_per_user | NUMERIC | 人均内容曝光数（进入详情，历史字段名保留） |
 | like_total_count | INT64 | 点赞总数（点赞成功次数） |
-| like_rate | NUMERIC | 点赞率（点赞 UV / 内容曝光 UV） |
+| like_rate | NUMERIC | 点赞率（点赞 UV / 帖子内容曝光 UV） |
 | follow_total_count | INT64 | 关注总数（关注专栏成功次数） |
 | read_follow_rate | NUMERIC | 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留） |
 | tryon_total_count | INT64 | 上身试穿总次数（开始试穿 PV） |
@@ -32,9 +32,10 @@
 - **事件范围**: `v_home_star`, `v_home_magazine`, `v_home_brand`, `v_home_feeds`
 
 ### 人均内容曝光数 (avg_browse_content_count_per_user)
-- **定义**: 当天用户平均产生的内容详情曝光次数。
-- **内容详情曝光事件**: `v_product_detail`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`
-- **计算方式**: `内容详情曝光次数 / 内容详情曝光 UV`
+- **定义**: 当天用户平均产生的帖子详情曝光次数。
+- **帖子内容曝光事件**: `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`
+- **不包含**: `v_product_detail`（商详页曝光）
+- **计算方式**: `帖子内容曝光次数 / 帖子内容曝光 UV`
 - **说明**: 内容曝光次数按内容粒度统计；同一专栏下不同帖子会分别计数。
 
 ### 点赞总数 (like_total_count)
@@ -43,10 +44,10 @@
 - **计算方式**: `COUNT(c_like)`（PV）
 
 ### 点赞率 (like_rate)
-- **定义**: 点赞 UV / 内容曝光 UV。
+- **定义**: 点赞 UV / 帖子内容曝光 UV。
 - **点赞 UV 口径**: 同一用户当天发生多次点赞，只计 1 个 UV。
-- **内容曝光 UV 口径**: 详见「人均内容曝光数」的内容详情曝光事件范围。
-- **计算方式**: `点赞UV(visitor_id 去重) / 内容曝光UV(visitor_id 去重)`
+- **帖子内容曝光 UV 口径**: 详见「人均内容曝光数」的帖子内容曝光事件范围。
+- **计算方式**: `点赞UV(visitor_id 去重) / 帖子内容曝光UV(visitor_id 去重)`
 
 ### 关注总数 (follow_total_count)
 - **定义**: 当天点击关注专栏成功的行为次数。
