@@ -12,6 +12,12 @@ POST_DETAIL_EXPOSURE_EVENTS = (
     "'v_magazine_post_detail',"
     "'v_brand_post_detail'"
 )
+READ_EVENTS = (
+    "'r_star_post_detail',"
+    "'r_magazine_post_detail',"
+    "'r_brand_post_detail',"
+    "'r_kol_post_detail'"
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -83,6 +89,7 @@ def run_ads_daily_post_performance(dates):
     - post_exposure_uv: 帖子曝光UV（进入帖子详情页的去重用户数）
     - like_total_count: 帖子点赞数（点赞成功次数）
     - like_rate: 帖子点赞率（点赞UV / 帖子曝光UV；同一用户同一天同帖只要点赞过即计为1）
+    - read_rate: 帖子完读率（阅读UV / 帖子曝光UV；同一用户同一天同帖只要阅读过即计为1）
     - follow_total_count: 帖子相关关注数（关注成功次数，按 last-touch 归因到帖子详情曝光）
     - follow_rate: 帖子关注转化率（归因关注UV / 帖子曝光UV）
     - tryon_total_count: 从该帖子发起的试穿次数（try on 成功次数）
@@ -106,7 +113,7 @@ def run_ads_daily_post_performance(dates):
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_post_performance`
     (dt, post_id, post_code, post_name, creator, module, column_id, column_name,
-     post_exposure_uv, like_total_count, like_rate,
+     post_exposure_uv, like_total_count, like_rate, read_rate,
      follow_total_count, follow_rate, tryon_total_count, update_time)
     WITH
     base AS (
@@ -226,6 +233,42 @@ def run_ads_daily_post_performance(dates):
         WHERE module IS NOT NULL AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
     ),
+    read_events_raw AS (
+        SELECT
+            dt,
+            raw_event_id,
+            visitor_id,
+            post_code,
+            {module_sql} AS module,
+            {column_id_sql} AS column_id
+        FROM base
+        WHERE event_name IN ({READ_EVENTS})
+            AND raw_event_id IS NOT NULL
+            AND post_code IS NOT NULL
+            AND visitor_id IS NOT NULL
+    ),
+    read_events_dedup AS (
+        SELECT
+            dt,
+            raw_event_id,
+            post_code,
+            ANY_VALUE(visitor_id) AS visitor_id,
+            ANY_VALUE(module) AS module,
+            ANY_VALUE(column_id) AS column_id
+        FROM read_events_raw
+        GROUP BY dt, raw_event_id, post_code
+    ),
+    read_daily AS (
+        SELECT
+            dt,
+            post_code,
+            module,
+            column_id,
+            COUNT(DISTINCT visitor_id) AS read_uv
+        FROM read_events_dedup
+        WHERE module IS NOT NULL AND column_id IS NOT NULL
+        GROUP BY dt, post_code, module, column_id
+    ),
     tryon_events_raw AS (
         SELECT
             dt,
@@ -333,6 +376,9 @@ def run_ads_daily_post_performance(dates):
         FROM like_daily
         UNION DISTINCT
         SELECT DISTINCT dt, post_code, module, column_id
+        FROM read_daily
+        UNION DISTINCT
+        SELECT DISTINCT dt, post_code, module, column_id
         FROM tryon_daily
         UNION DISTINCT
         SELECT DISTINCT dt, post_code, module, column_id
@@ -352,12 +398,14 @@ def run_ads_daily_post_performance(dates):
             COALESCE(e.post_exposure_uv, 0) AS post_exposure_uv,
             COALESCE(l.like_total_count, 0) AS like_total_count,
             COALESCE(l.like_uv, 0) AS like_uv,
+            COALESCE(r.read_uv, 0) AS read_uv,
             COALESCE(f.follow_total_count, 0) AS follow_total_count,
             COALESCE(f.follow_uv, 0) AS follow_uv,
             COALESCE(t.tryon_total_count, 0) AS tryon_total_count
         FROM keys k
         LEFT JOIN exposure_daily e USING (dt, post_code, module, column_id)
         LEFT JOIN like_daily l USING (dt, post_code, module, column_id)
+        LEFT JOIN read_daily r USING (dt, post_code, module, column_id)
         LEFT JOIN follow_daily f USING (dt, post_code, module, column_id)
         LEFT JOIN tryon_daily t USING (dt, post_code, module, column_id)
         LEFT JOIN post_map pm USING (post_code)
@@ -385,6 +433,10 @@ def run_ads_daily_post_performance(dates):
             WHEN post_exposure_uv = 0 THEN 0
             ELSE ROUND(CAST(like_uv AS NUMERIC) / CAST(post_exposure_uv AS NUMERIC), 4)
         END AS NUMERIC) AS like_rate,
+        CAST(CASE
+            WHEN post_exposure_uv = 0 THEN 0
+            ELSE ROUND(CAST(read_uv AS NUMERIC) / CAST(post_exposure_uv AS NUMERIC), 4)
+        END AS NUMERIC) AS read_rate,
         follow_total_count,
         CAST(CASE
             WHEN post_exposure_uv = 0 THEN 0
