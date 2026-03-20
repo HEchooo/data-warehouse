@@ -10,3 +10,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_post_tryon_confirm` (
 )
 PARTITION BY
     dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_post_tryon_confirm`
+ADD COLUMN IF NOT EXISTS creator STRING;
