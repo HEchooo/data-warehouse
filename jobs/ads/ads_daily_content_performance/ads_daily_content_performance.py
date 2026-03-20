@@ -9,8 +9,7 @@ TORONTO_TZ = "America/Toronto"
 HOME_EXPOSURE_EVENTS = (
     "'v_home_star'," "'v_home_magazine'," "'v_home_brand'," "'v_home_feeds'"
 )
-CONTENT_EXPOSURE_EVENTS = (
-    "'v_product_detail',"
+POST_CONTENT_EXPOSURE_EVENTS = (
     "'v_star_post_detail',"
     "'v_magazine_post_detail',"
     "'v_brand_post_detail',"
@@ -49,9 +48,9 @@ def run_ads_daily_content_performance(dates):
     """
     平台整体内容表现日报（每日一行）:
     - platform_exposure_uv: 平台曝光 UV（Home 曝光 UV）
-    - avg_browse_content_count_per_user: 人均内容曝光数（进入详情，历史字段名保留）
+    - avg_browse_content_count_per_user: 人均帖子内容曝光数（进入帖子详情，历史字段名保留）
     - like_total_count: 点赞总数（点赞成功次数）
-    - like_rate: 点赞率（点赞 UV / 内容曝光 UV）
+    - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
     - follow_total_count: 关注总数（关注专栏成功次数）
     - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
     - tryon_total_count: 上身试穿总次数（开始试穿 PV）
@@ -122,8 +121,8 @@ def run_ads_daily_content_performance(dates):
     exposure_daily AS (
         SELECT
             dt,
-            COUNT(DISTINCT IF(event_name IN ({CONTENT_EXPOSURE_EVENTS}), visitor_id, NULL)) AS content_exposure_uv,
-            COUNT(DISTINCT IF(event_name IN ({CONTENT_EXPOSURE_EVENTS}), hash_id, NULL)) AS content_exposure_pv,
+            COUNT(DISTINCT IF(event_name IN ({POST_CONTENT_EXPOSURE_EVENTS}), visitor_id, NULL)) AS content_exposure_uv,
+            COUNT(DISTINCT IF(event_name IN ({POST_CONTENT_EXPOSURE_EVENTS}), hash_id, NULL)) AS content_exposure_pv,
             COUNT(
                 DISTINCT IF(
                     event_name IN ({COLUMN_EXPOSURE_EVENTS})
