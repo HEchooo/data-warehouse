@@ -80,11 +80,12 @@ def column_id_expr(event_name_field="event_name"):
 
 def run_ads_daily_column_performance(dates):
     """
-    专栏追踪明细（日×专栏）:
-    粒度：dt × module × column_id
+    专栏追踪明细（日×创建者×专栏）:
+    粒度：dt × creator × module × column_id
 
     Filters（用于 BI）：
     - dt（日期范围）
+    - creator：帖子创建者（映射 v3_decom.community_post.creator 原值）
     - module：star / brand / magazine
     - column_id：专栏ID（对应 star_id/brand_id/magazine_id）
     - column_name：专栏名称（映射 v3_decom.kol_rel.nickname）
@@ -95,9 +96,10 @@ def run_ads_daily_column_performance(dates):
       - brand：v_brand_post_feeds + v_brand_post_detail
       - magazine：仅 v_magazine_post_detail（无 feeds 埋点）
     - follow_total_count：关注点击次数（c_follow，按 raw_event_id 去重计数）
-    - follow_rate：关注转化率（follow_uv / column_exposure_uv；同一用户同天同专栏只要关注过一次即 100%）
-    - read_post_count：去重后的帖子数（同一用户同天同专栏同一 post 多次曝光只算 1）
+    - follow_rate：关注转化率（follow_uv / column_exposure_uv；同一用户同天同创建者同专栏只要关注过一次即 100%）
+    - read_post_count：去重后的帖子数（同一用户同天同创建者同专栏同一 post 多次曝光只算 1）
     - avg_read_post_count_per_user：人均阅读帖子数（read_post_count / column_exposure_uv）
+    - c_follow 无 creator，需要归因到同一天内该访客最近一次专栏曝光事件，再取对应 post_code 的 creator
 
     使用多伦多时间（America/Toronto）。
     """
@@ -111,13 +113,14 @@ def run_ads_daily_column_performance(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_column_performance`
-    (dt, module, column_id, column_name,
+    (dt, creator, module, column_id, column_name,
      column_exposure_uv, follow_total_count, follow_rate,
      read_post_count, avg_read_post_count_per_user, update_time)
     WITH
     base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            {event_ts} AS event_ts,
             event_name,
             COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
             raw_event_id,
@@ -129,20 +132,33 @@ def run_ads_daily_column_performance(dates):
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
     ),
+    post_map AS (
+        SELECT
+            CAST(post_code AS STRING) AS post_code,
+            ANY_VALUE(CAST(creator AS STRING)) AS creator
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post`
+        WHERE post_code IS NOT NULL
+        GROUP BY post_code
+    ),
     exposure_events AS (
         SELECT
-            dt,
+            b.dt,
+            b.event_ts,
             {module_sql} AS module,
             {column_id_sql} AS column_id,
-            visitor_id,
-            hash_id,
-            post_code
-        FROM base
+            pm.creator,
+            b.visitor_id,
+            b.hash_id,
+            b.post_code
+        FROM base b
+        LEFT JOIN post_map pm
+            ON CAST(b.post_code AS STRING) = pm.post_code
         WHERE event_name IN ({COLUMN_EXPOSURE_EVENTS})
     ),
     exposure_daily AS (
         SELECT
             dt,
+            creator,
             module,
             column_id,
             COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS column_exposure_uv,
@@ -155,34 +171,57 @@ def run_ads_daily_column_performance(dates):
             ) AS read_post_count
         FROM exposure_events
         WHERE module IS NOT NULL AND column_id IS NOT NULL
-        GROUP BY dt, module, column_id
+        GROUP BY dt, creator, module, column_id
     ),
-    follow_events AS (
+    follow_events_dedup AS (
         SELECT
             dt,
             raw_event_id,
+            ANY_VALUE(event_ts) AS event_ts,
             ANY_VALUE(visitor_id) AS visitor_id,
             ANY_VALUE({module_sql}) AS module,
             ANY_VALUE({column_id_sql}) AS column_id
         FROM base
-        WHERE event_name = 'c_follow' AND raw_event_id IS NOT NULL
+        WHERE event_name = 'c_follow'
+            AND raw_event_id IS NOT NULL
         GROUP BY dt, raw_event_id
+    ),
+    follow_attributed AS (
+        SELECT
+            f.dt,
+            f.raw_event_id,
+            f.visitor_id,
+            e.creator,
+            f.module AS module,
+            f.column_id AS column_id
+        FROM follow_events_dedup f
+        LEFT JOIN exposure_events e
+            ON e.dt = f.dt
+            AND e.visitor_id = f.visitor_id
+            AND e.event_ts <= f.event_ts
+            AND e.module = f.module
+            AND e.column_id = f.column_id
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY f.dt, f.raw_event_id
+            ORDER BY e.event_ts DESC, e.hash_id DESC
+        ) = 1
     ),
     follow_daily AS (
         SELECT
             dt,
+            creator,
             module,
             column_id,
             COUNT(*) AS follow_total_count,
             COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS follow_uv
-        FROM follow_events
+        FROM follow_attributed
         WHERE module IS NOT NULL AND column_id IS NOT NULL
-        GROUP BY dt, module, column_id
+        GROUP BY dt, creator, module, column_id
     ),
     keys AS (
-        SELECT DISTINCT dt, module, column_id FROM exposure_daily
+        SELECT DISTINCT dt, creator, module, column_id FROM exposure_daily
         UNION DISTINCT
-        SELECT DISTINCT dt, module, column_id FROM follow_daily
+        SELECT DISTINCT dt, creator, module, column_id FROM follow_daily
     ),
     column_map AS (
         SELECT
@@ -201,6 +240,7 @@ def run_ads_daily_column_performance(dates):
     daily AS (
         SELECT
             k.dt,
+            k.creator,
             k.module,
             k.column_id,
             COALESCE(cm.column_name, '') AS column_name,
@@ -209,12 +249,23 @@ def run_ads_daily_column_performance(dates):
             COALESCE(f.follow_uv, 0) AS follow_uv,
             COALESCE(e.read_post_count, 0) AS read_post_count
         FROM keys k
-        LEFT JOIN exposure_daily e USING (dt, module, column_id)
-        LEFT JOIN follow_daily f USING (dt, module, column_id)
-        LEFT JOIN column_map cm USING (module, column_id)
+        LEFT JOIN exposure_daily e
+            ON k.dt = e.dt
+            AND k.creator IS NOT DISTINCT FROM e.creator
+            AND k.module = e.module
+            AND k.column_id = e.column_id
+        LEFT JOIN follow_daily f
+            ON k.dt = f.dt
+            AND k.creator IS NOT DISTINCT FROM f.creator
+            AND k.module = f.module
+            AND k.column_id = f.column_id
+        LEFT JOIN column_map cm
+            ON cm.module = k.module
+            AND cm.column_id = k.column_id
     )
     SELECT
         dt,
+        creator,
         module,
         column_id,
         column_name,
