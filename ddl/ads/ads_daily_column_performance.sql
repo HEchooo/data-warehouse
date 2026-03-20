@@ -12,3 +12,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance` (
 )
 PARTITION BY
     dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS creator STRING;
