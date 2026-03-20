@@ -12,6 +12,7 @@
 
 - 日期：`dt`
 - 使用来源帖子：`post_id`（可选）
+- 创建者：`creator`（可选）
 
 ## 表结构
 
@@ -21,6 +22,7 @@
 | post_id | INT64 | 来源帖子 ID（由 post_code 映射） |
 | post_code | STRING | 来源帖子 code（埋点字段 args.post） |
 | post_name | STRING | 帖子名称（由 post_code 映射） |
+| creator | STRING | 帖子创建者（由 `v3_decom.community_post.creator` 映射） |
 | click_use_pv | INT64 | 点击使用次数（PV，按 raw_event_id 去重） |
 | click_use_uv | INT64 | 点击使用用户数（UV，visitor_id 去重） |
 | avg_click_use_count_per_user | NUMERIC | 人均点击使用次数（PV / UV） |
@@ -51,9 +53,9 @@
 
 ## 维度映射
 
-### post_code → post_id/post_name
+### post_code → post_id/post_name/creator
 
-使用表：`v3_decom.community_post`（`id`, `post_code`, `title`）
+使用表：`v3_decom.community_post`（`id`, `post_code`, `title`, `creator`）
 
 ## 数据范围与丢弃规则
 
@@ -104,7 +106,7 @@ ads_daily_post_tryon_confirm
 - 访问路径：`/superset/dashboard/96/`
 - Dataset：`decom.ads_daily_post_tryon_confirm`（dataset_id=`225`，main_dttm_col=`dt`）
 - 默认时间范围：`Last week`
-- 原生筛选器（Native Filters）：`日期范围（多伦多）` / `帖子ID` / `帖子名称`
+- 原生筛选器（Native Filters）：`日期范围（多伦多）` / `帖子ID` / `帖子名称` / `创建者`
 
 ### 图表信息
 

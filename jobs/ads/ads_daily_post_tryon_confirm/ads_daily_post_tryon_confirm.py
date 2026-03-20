@@ -34,6 +34,7 @@ def run_ads_daily_post_tryon_confirm(dates):
     事件：c_tryon_confirm
     时区：dt 使用 America/Toronto（多伦多时间）
     丢弃：post_code 为空的事件舍弃；post_code 无法映射到 post_id 的事件也舍弃。
+    维度映射：post_code -> creator 使用 v3_decom.community_post.creator 原值。
     """
     dates_str = dates_to_sql_list(dates)
     event_ts = event_ts_expr()
@@ -43,7 +44,7 @@ def run_ads_daily_post_tryon_confirm(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_post_tryon_confirm`
-    (dt, post_id, post_code, post_name,
+    (dt, post_id, post_code, post_name, creator,
      click_use_pv, click_use_uv, avg_click_use_count_per_user, update_time)
     WITH
     base AS (
@@ -72,7 +73,8 @@ def run_ads_daily_post_tryon_confirm(dates):
         SELECT
             CAST(post_code AS STRING) AS post_code,
             ANY_VALUE(SAFE_CAST(id AS INT64)) AS post_id,
-            ANY_VALUE(title) AS post_name
+            ANY_VALUE(title) AS post_name,
+            ANY_VALUE(CAST(creator AS STRING)) AS creator
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post`
         WHERE post_code IS NOT NULL
         GROUP BY post_code
@@ -83,6 +85,7 @@ def run_ads_daily_post_tryon_confirm(dates):
             pm.post_id,
             e.post_code,
             pm.post_name,
+            pm.creator,
             e.raw_event_id,
             e.visitor_id
         FROM events_dedup e
@@ -95,16 +98,18 @@ def run_ads_daily_post_tryon_confirm(dates):
             post_id,
             post_code,
             post_name,
+            creator,
             COUNT(*) AS click_use_pv,
             COUNT(DISTINCT visitor_id) AS click_use_uv
         FROM events_enriched
-        GROUP BY dt, post_id, post_code, post_name
+        GROUP BY dt, post_id, post_code, post_name, creator
     )
     SELECT
         dt,
         post_id,
         post_code,
         post_name,
+        creator,
         click_use_pv,
         click_use_uv,
         CAST(CASE
@@ -122,4 +127,3 @@ def run_ads_daily_post_tryon_confirm(dates):
     job = client.query(query)
     job.result()
     logging.info(f"ads_daily_post_tryon_confirm 刷新完成, 处理日期: {dates}")
-
