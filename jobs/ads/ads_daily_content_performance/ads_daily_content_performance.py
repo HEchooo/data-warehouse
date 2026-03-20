@@ -15,6 +15,12 @@ POST_CONTENT_EXPOSURE_EVENTS = (
     "'v_brand_post_detail',"
     "'v_kol_post_detail'"
 )
+READ_EVENTS = (
+    "'r_star_post_detail',"
+    "'r_magazine_post_detail',"
+    "'r_brand_post_detail',"
+    "'r_kol_post_detail'"
+)
 COLUMN_EXPOSURE_EVENTS = (
     "'v_star_post_detail',"
     "'v_magazine_post_detail',"
@@ -51,6 +57,7 @@ def run_ads_daily_content_performance(dates):
     - avg_browse_content_count_per_user: 人均帖子内容曝光数（进入帖子详情，历史字段名保留）
     - like_total_count: 点赞总数（点赞成功次数）
     - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
+    - read_rate: 完读率（阅读 UV / 帖子内容曝光 UV）
     - follow_total_count: 关注总数（关注专栏成功次数）
     - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
     - tryon_total_count: 上身试穿总次数（开始试穿 PV）
@@ -66,7 +73,7 @@ def run_ads_daily_content_performance(dates):
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
     (dt, platform_exposure_uv, avg_browse_content_count_per_user,
-     like_total_count, like_rate, follow_total_count, read_follow_rate,
+     like_total_count, like_rate, read_rate, follow_total_count, read_follow_rate,
      tryon_total_count, read_tryon_rate, update_time)
     WITH
     base AS (
@@ -166,6 +173,13 @@ def run_ads_daily_content_performance(dates):
         FROM action_events
         GROUP BY dt
     ),
+    read_daily AS (
+        SELECT
+            dt,
+            COUNT(DISTINCT IF(event_name IN ({READ_EVENTS}) AND visitor_id IS NOT NULL, visitor_id, NULL)) AS read_uv
+        FROM events
+        GROUP BY dt
+    ),
     daily AS (
         SELECT
             d.dt,
@@ -174,6 +188,7 @@ def run_ads_daily_content_performance(dates):
             COALESCE(e.content_exposure_uv, 0) AS content_exposure_uv,
             COALESCE(a.like_total_count, 0) AS like_total_count,
             COALESCE(a.like_uv, 0) AS like_uv,
+            COALESCE(r.read_uv, 0) AS read_uv,
             COALESCE(a.follow_total_count, 0) AS follow_total_count,
             COALESCE(a.tryon_total_count, 0) AS tryon_total_count,
             COALESCE(e.column_exposure_uv, 0) AS column_exposure_uv,
@@ -182,6 +197,7 @@ def run_ads_daily_content_performance(dates):
         LEFT JOIN platform_daily p USING (dt)
         LEFT JOIN exposure_daily e USING (dt)
         LEFT JOIN action_daily a USING (dt)
+        LEFT JOIN read_daily r USING (dt)
     )
     SELECT
         dt,
@@ -201,6 +217,13 @@ def run_ads_daily_content_performance(dates):
                 4
             )
         END AS NUMERIC) AS like_rate,
+        CAST(CASE
+            WHEN content_exposure_uv = 0 THEN 0
+            ELSE ROUND(
+                CAST(read_uv AS NUMERIC) / CAST(content_exposure_uv AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS read_rate,
         follow_total_count,
         CAST(CASE
             WHEN column_exposure_pv = 0 THEN 0
