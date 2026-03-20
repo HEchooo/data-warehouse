@@ -11,6 +11,7 @@
 - 日期：`dt`
 - 帖子ID：`post_id`
 - 帖子名称：`post_name`
+- 创建者：`creator`
 - 模块：`module`（`star` / `magazine` / `brand`）
 - 专栏：`column_name`（展示）/ `column_id`（ID）
 
@@ -22,6 +23,7 @@
 | post_id | INT64 | 帖子 ID（由 post_code 映射） |
 | post_code | STRING | 帖子 code（埋点字段） |
 | post_name | STRING | 帖子名称（由 post_code 映射） |
+| creator | STRING | 帖子创建者（由 `v3_decom.community_post.creator` 映射） |
 | module | STRING | 模块：`star` / `magazine` / `brand` |
 | column_id | STRING | 专栏 ID（对应 star_id/magazine_id/brand_id） |
 | column_name | STRING | 专栏名称（`kol_rel.nickname`，仅取 `status=0`） |
@@ -82,9 +84,9 @@
 
 ## 维度映射
 
-### post_code → post_id/post_name
+### post_code → post_id/post_name/creator
 
-使用表：`v3_decom.community_post`（`id`, `post_code`, `title`）
+使用表：`v3_decom.community_post`（`id`, `post_code`, `title`, `creator`）
 
 ### column_id → column_name
 
@@ -137,7 +139,7 @@ ads_daily_post_performance
 - 访问地址：`https://bi.alvinclub.ca/superset/dashboard/94/`
 - Dataset：`decom.ads_daily_post_performance`（dataset_id=`223`，main_dttm_col=`dt`）
 - 默认时间范围：`Last week`
-- 原生筛选器（Native Filters）：`日期范围` / `模块` / `专栏` / `帖子ID`
+- 原生筛选器（Native Filters）：`日期范围` / `模块` / `专栏` / `帖子ID` / `创建者`
 
 ### 图表信息
 

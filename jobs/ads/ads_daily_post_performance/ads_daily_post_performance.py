@@ -89,6 +89,7 @@ def run_ads_daily_post_performance(dates):
 
     说明：
     - post_code -> post_id/post_name：v3_decom.community_post (id, post_code, title)
+    - post_code -> creator：v3_decom.community_post (post_code, creator)
     - column_name：v3_decom.kol_rel (status=0, user_id, nickname, kol_type=2/3/4)
     - 关注事件 c_follow 无 post_code，需用同一天内“此事件之前最后一次帖子详情曝光”归因
     - dwd_event_log 会展开 args_post，PV 类指标统一按 raw_event_id 去重
@@ -104,7 +105,7 @@ def run_ads_daily_post_performance(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_post_performance`
-    (dt, post_id, post_code, post_name, module, column_id, column_name,
+    (dt, post_id, post_code, post_name, creator, module, column_id, column_name,
      post_exposure_uv, like_total_count, like_rate,
      follow_total_count, follow_rate, tryon_total_count, update_time)
     WITH
@@ -127,7 +128,8 @@ def run_ads_daily_post_performance(dates):
         SELECT
             CAST(post_code AS STRING) AS post_code,
             ANY_VALUE(SAFE_CAST(id AS INT64)) AS post_id,
-            ANY_VALUE(title) AS post_name
+            ANY_VALUE(title) AS post_name,
+            ANY_VALUE(CAST(creator AS STRING)) AS creator
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post`
         WHERE post_code IS NOT NULL
         GROUP BY post_code
@@ -343,6 +345,7 @@ def run_ads_daily_post_performance(dates):
             pm.post_id,
             k.post_code,
             pm.post_name,
+            pm.creator,
             k.module,
             k.column_id,
             cm.column_name,
@@ -372,6 +375,7 @@ def run_ads_daily_post_performance(dates):
         post_id,
         post_code,
         post_name,
+        creator,
         module,
         column_id,
         column_name,
