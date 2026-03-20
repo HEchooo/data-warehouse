@@ -30,6 +30,7 @@
 | post_exposure_uv | INT64 | 帖子曝光 UV（进入帖子详情页的去重用户数） |
 | like_total_count | INT64 | 帖子点赞数（点赞成功次数，PV） |
 | like_rate | NUMERIC | 帖子点赞率（点赞 UV / 帖子曝光 UV） |
+| read_rate | NUMERIC | 帖子完读率（阅读 UV / 帖子曝光 UV） |
 | follow_total_count | INT64 | 帖子相关关注数（关注成功次数，按 last-touch 归因到帖子详情曝光） |
 | follow_rate | NUMERIC | 帖子关注转化率（归因关注 UV / 帖子曝光 UV） |
 | tryon_total_count | INT64 | 从该帖子发起的试穿次数（try on 成功次数，PV） |
@@ -61,6 +62,13 @@
 - **定义**：点赞 UV / 帖子曝光 UV
 - **用户侧逻辑**：同一用户同一天同一帖子曝光多次，只要当天点赞过一次，则该用户当天该帖子视为“点赞=1”
 - **计算**：`like_uv / post_exposure_uv`
+
+### 帖子完读率（read_rate）
+
+- **定义**：阅读 UV / 帖子曝光 UV
+- **事件范围**：`r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail`
+- **用户侧逻辑**：同一用户同一天同一帖子曝光多次，只要当天阅读过一次，则该用户当天该帖子视为“阅读=1”
+- **计算**：`read_uv / post_exposure_uv`
 
 ### 帖子相关关注数（follow_total_count）
 

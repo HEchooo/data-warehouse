@@ -19,3 +19,6 @@ PARTITION BY
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_post_performance`
 ADD COLUMN IF NOT EXISTS creator STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_post_performance`
+ADD COLUMN IF NOT EXISTS read_rate NUMERIC;
