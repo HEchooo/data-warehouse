@@ -13,6 +13,7 @@
 | avg_browse_content_count_per_user | NUMERIC | 人均内容曝光数（进入详情，历史字段名保留） |
 | like_total_count | INT64 | 点赞总数（点赞成功次数） |
 | like_rate | NUMERIC | 点赞率（点赞 UV / 帖子内容曝光 UV） |
+| read_rate | NUMERIC | 完读率（阅读 UV / 帖子内容曝光 UV） |
 | follow_total_count | INT64 | 关注总数（关注专栏成功次数） |
 | read_follow_rate | NUMERIC | 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留） |
 | tryon_total_count | INT64 | 上身试穿总次数（开始试穿 PV） |
@@ -48,6 +49,13 @@
 - **点赞 UV 口径**: 同一用户当天发生多次点赞，只计 1 个 UV。
 - **帖子内容曝光 UV 口径**: 详见「人均内容曝光数」的帖子内容曝光事件范围。
 - **计算方式**: `点赞UV(visitor_id 去重) / 帖子内容曝光UV(visitor_id 去重)`
+
+### 完读率 (read_rate)
+- **定义**: 阅读 UV / 帖子内容曝光 UV。
+- **阅读事件范围**: `r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail`
+- **阅读 UV 口径**: 同一用户当天发生多次阅读，只计 1 个 UV。
+- **帖子内容曝光 UV 口径**: 详见「人均内容曝光数」的帖子内容曝光事件范围。
+- **计算方式**: `阅读UV(visitor_id 去重) / 帖子内容曝光UV(visitor_id 去重)`
 
 ### 关注总数 (follow_total_count)
 - **定义**: 当天点击关注专栏成功的行为次数。
