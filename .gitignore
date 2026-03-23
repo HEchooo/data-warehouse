@@ -13,4 +13,5 @@ AGENTS.md
 CLAUDE.md
 .DS_Store
 HANDOFF.md
-env/
+env/github-key.md
+env/superset.json
