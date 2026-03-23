@@ -10,38 +10,22 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# 支持直接执行 jobs/ads/ads_daily/ads_daily.py 时导入同级包
-ADS_ROOT = Path(__file__).resolve().parent.parent
+# 支持直接执行 jobs/ads/ads_daily.py 时导入同级脚本
+ADS_ROOT = Path(__file__).resolve().parent
 if str(ADS_ROOT) not in sys.path:
     sys.path.insert(0, str(ADS_ROOT))
 
-from ads_daily_new.ads_daily_new import run_ads_daily_new
-from ads_daily_total.ads_daily_total import run_ads_daily_total
-from ads_daily_content_performance.ads_daily_content_performance import (
-    run_ads_daily_content_performance,
-)
-from ads_daily_home_module_performance.ads_daily_home_module_performance import (
-    run_ads_daily_home_module_performance,
-)
-from ads_daily_user_duration_frequency.ads_daily_user_duration_frequency import (
-    run_ads_daily_user_duration_frequency,
-)
-from ads_daily_tryon_confirm.ads_daily_tryon_confirm import run_ads_daily_tryon_confirm
-from ads_daily_tryon_add_cart_conversion.ads_daily_tryon_add_cart_conversion import (
-    run_ads_daily_tryon_add_cart_conversion,
-)
-from ads_daily_post_tryon_confirm.ads_daily_post_tryon_confirm import (
-    run_ads_daily_post_tryon_confirm,
-)
-from ads_daily_post_performance.ads_daily_post_performance import (
-    run_ads_daily_post_performance,
-)
-from ads_daily_column_performance.ads_daily_column_performance import (
-    run_ads_daily_column_performance,
-)
-from ads_daily_product_tryon_performance.ads_daily_product_tryon_performance import (
-    run_ads_daily_product_tryon_performance,
-)
+from ads_daily_new import run_ads_daily_new
+from ads_daily_total import run_ads_daily_total
+from ads_daily_content_performance import run_ads_daily_content_performance
+from ads_daily_home_module_performance import run_ads_daily_home_module_performance
+from ads_daily_user_duration_frequency import run_ads_daily_user_duration_frequency
+from ads_daily_tryon_confirm import run_ads_daily_tryon_confirm
+from ads_daily_tryon_add_cart_conversion import run_ads_daily_tryon_add_cart_conversion
+from ads_daily_post_tryon_confirm import run_ads_daily_post_tryon_confirm
+from ads_daily_post_performance import run_ads_daily_post_performance
+from ads_daily_column_performance import run_ads_daily_column_performance
+from ads_daily_product_tryon_performance import run_ads_daily_product_tryon_performance
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
