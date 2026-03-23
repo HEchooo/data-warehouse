@@ -79,7 +79,7 @@ def run_ads_daily_user_duration_frequency(dates: list[date]):
             AND DATE({event_ts}, '{TORONTO_TZ}') BETWEEN DATE_TRUNC(DATE '{min_date}', MONTH)
                 AND LEAST(
                     DATE_ADD(DATE '{max_date}', INTERVAL 30 DAY),
-                    DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
+                    CURRENT_DATE('{TORONTO_TZ}')
                 )
     ),
     active_visitors AS (
@@ -147,7 +147,7 @@ def run_ads_daily_user_duration_frequency(dates: list[date]):
         LEFT JOIN active_visitors a
             ON a.dt BETWEEN DATE_TRUNC(d.dt, MONTH) AND LEAST(
                 DATE_SUB(DATE_ADD(DATE_TRUNC(d.dt, MONTH), INTERVAL 1 MONTH), INTERVAL 1 DAY),
-                DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
+                CURRENT_DATE('{TORONTO_TZ}')
             )
         GROUP BY d.dt
     )
