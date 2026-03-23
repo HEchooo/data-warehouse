@@ -4,14 +4,11 @@ import sys
 
 from google.cloud import bigquery
 
-ADS_ROOT = Path(__file__).resolve().parent.parent
+ADS_ROOT = Path(__file__).resolve().parent
 if str(ADS_ROOT) not in sys.path:
     sys.path.insert(0, str(ADS_ROOT))
 
-from ads_daily_content_performance.ads_daily_content_performance import (
-    dates_to_sql_list,
-    event_ts_expr,
-)
+from ads_daily_content_performance import dates_to_sql_list, event_ts_expr
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
@@ -101,4 +98,3 @@ def run_ads_daily_tryon_confirm(dates):
     job = client.query(query)
     job.result()
     logging.info(f"ads_daily_tryon_confirm 刷新完成, 处理日期: {dates}")
-

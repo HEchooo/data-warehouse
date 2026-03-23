@@ -1,5 +1,5 @@
 {
-  "path_mode": "remote",
+  "path_mode": "local",
   "paths": {
     "remote": {
       "project_dir": "/home/echooo/sinn_project/data-warehouse",
@@ -12,13 +12,13 @@
       }
     },
     "local": {
-      "project_dir": "/Users/sinn/Documents/Work/data-warehouse",
+      "project_dir": "/Users/sinn/Documents/guyin/data-warehouse",
       "python": "/Users/sinn/Documents/work_py_venv/bin/python3.11",
-      "log_dir": "/Users/sinn/Documents/Work/data-warehouse/logs",
+      "log_dir": "/Users/sinn/Documents/guyin/data-warehouse/logs",
       "env": {
-        "IOS_KEY_FILE": "/Users/sinn/Documents/Work/data-warehouse/jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8",
-        "ANDROID_GCS_SERVICE_ACCOUNT": "/Users/sinn/Documents/Work/data-warehouse/jobs/ods/ods_android_download/tidy-access-396909-b58d1fb35fce.json",
-        "ANDROID_BQ_SERVICE_ACCOUNT": "/Users/sinn/Documents/Work/data-warehouse/jobs/ods/ods_android_download/my-project-8584-jetonai-2bafc5bf74da.json"
+        "IOS_KEY_FILE": "/Users/sinn/Documents/guyin/data-warehouse/jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8",
+        "ANDROID_GCS_SERVICE_ACCOUNT": "/Users/sinn/Documents/guyin/data-warehouse/jobs/ods/ods_android_download/tidy-access-396909-b58d1fb35fce.json",
+        "ANDROID_BQ_SERVICE_ACCOUNT": "/Users/sinn/Documents/guyin/data-warehouse/jobs/ods/ods_android_download/my-project-8584-jetonai-2bafc5bf74da.json"
       }
     }
   },
@@ -56,7 +56,7 @@
     {
       "stage": "ADS",
       "name": "ADS 日报 ETL",
-      "script": "jobs/ads/ads_daily/ads_daily.py",
+      "script": "jobs/ads/ads_daily.py",
       "enabled": true
     }
   ]

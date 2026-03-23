@@ -13,8 +13,10 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = SCRIPT_DIR / "env" / "etl_config.json"
 
-# 在脚本内覆盖运行模式：None / "remote" / "local"
-PATH_MODE_OVERRIDE = "remote"
+# 优先读取环境变量 PATH_MODE_OVERRIDE；未设置时回落到配置文件 path_mode
+PATH_MODE_OVERRIDE = os.environ.get("PATH_MODE_OVERRIDE")
+if PATH_MODE_OVERRIDE:
+    PATH_MODE_OVERRIDE = PATH_MODE_OVERRIDE.strip().lower()
 
 
 def fail(message: str) -> None:
