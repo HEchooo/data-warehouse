@@ -63,8 +63,8 @@
 
 ### 当月月活（自然月）(mau_uv)
 - **定义**: `dt` 所属自然月内有任意事件活跃的去重 visitor_id 数。
-- **计算方式**: `COUNT(DISTINCT visitor_id)` on `active_visitors.dt BETWEEN 当月1号 AND MIN(当月最后一天, 多伦多昨天)`
-- **说明**: 若 `dt` 属于当前月，则因未来日期尚无数据，统计范围会自然截止到“多伦多昨天”（效果等价于当月累计 MTD）。
+- **计算方式**: `COUNT(DISTINCT visitor_id)` on `active_visitors.dt BETWEEN 当月1号 AND MIN(当月最后一天, 多伦多今天)`
+- **说明**: 若 `dt` 属于当前月，则因未来日期尚无数据，统计范围会自然截止到“多伦多今天”（效果等价于当月累计 MTD，含当天实时数据）。
 
 ### DAU/MAU (dau_mau)
 - **定义**: 当天活跃占当月月活（自然月）的比例。
@@ -86,7 +86,7 @@ ads_daily_user_duration_frequency
 
 ## 更新机制
 
-- **调度周期**: T+1（每日更新）
+- **调度周期**: T+0 / T+1（每日更新，当天分区随增量实时刷新）
 - **更新方式**: DELETE + INSERT（幂等）
 - **增量判断**: `dws_device_daily.update_time > ads_daily_user_duration_frequency.update_time`
 - **到期回刷**: 入口编排会额外纳入 `dt-1`、`dt-7`、`dt-30`，用于留存到期后自动回刷对应日期的数据
