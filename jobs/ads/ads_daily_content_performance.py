@@ -29,6 +29,15 @@ COLUMN_EXPOSURE_EVENTS = (
     "'v_star_post_feeds',"
     "'v_brand_post_feeds'"
 )
+COLUMN_FOLLOW_EXPOSURE_EVENTS = (
+    "'v_kol_post_feeds',"
+    "'v_kol_post_detail',"
+    "'v_star_post_feeds',"
+    "'v_star_post_detail',"
+    "'v_magazine_post_detail',"
+    "'v_brand_post_feeds',"
+    "'v_brand_post_detail'"
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -133,7 +142,16 @@ def build_ads_daily_content_performance_select_query(dates):
                     hash_id,
                     NULL
                 )
-            ) AS column_exposure_pv
+            ) AS column_exposure_pv,
+            COUNT(
+                DISTINCT IF(
+                    event_name IN ({COLUMN_FOLLOW_EXPOSURE_EVENTS})
+                    AND visitor_id IS NOT NULL
+                    AND column_id IS NOT NULL,
+                    visitor_id,
+                    NULL
+                )
+            ) AS column_follow_exposure_uv
         FROM events
         GROUP BY dt
     ),
@@ -190,7 +208,8 @@ def build_ads_daily_content_performance_select_query(dates):
             COALESCE(u.dau_uv, 0) AS dau_uv,
             COALESCE(a.tryon_total_count, 0) AS tryon_total_count,
             COALESCE(e.column_exposure_uv, 0) AS column_exposure_uv,
-            COALESCE(e.column_exposure_pv, 0) AS column_exposure_pv
+            COALESCE(e.column_exposure_pv, 0) AS column_exposure_pv,
+            COALESCE(e.column_follow_exposure_uv, 0) AS column_follow_exposure_uv
         FROM date_list d
         LEFT JOIN dau_daily u USING (dt)
         LEFT JOIN platform_daily p USING (dt)
@@ -234,6 +253,13 @@ def build_ads_daily_content_performance_select_query(dates):
             )
         END AS NUMERIC) AS follow_rate,
         CAST(CASE
+            WHEN column_follow_exposure_uv = 0 THEN 0
+            ELSE ROUND(
+                CAST(follow_uv AS NUMERIC) / CAST(column_follow_exposure_uv AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS column_follow_rate,
+        CAST(CASE
             WHEN column_exposure_pv = 0 THEN 0
             ELSE ROUND(
                 CAST(follow_total_count AS NUMERIC) / CAST(column_exposure_pv AS NUMERIC),
@@ -265,6 +291,7 @@ def run_ads_daily_content_performance(dates):
     - follow_uv: 关注 UV（c_follow 去重访客数）
     - dau_uv: 日活 UV（任意事件活跃 visitor_id）
     - follow_rate: 关注率（关注 UV / 日活 UV）
+    - column_follow_rate: 专栏关注率（关注 UV / 指定专栏内容曝光 UV）
     - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
     - tryon_total_count: 上身试穿总次数（开始试穿 PV）
     - read_tryon_rate: 曝光试穿率（试穿 PV / 专栏曝光 PV，历史字段名保留）
@@ -280,7 +307,7 @@ def run_ads_daily_content_performance(dates):
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
     (dt, platform_exposure_uv, avg_browse_content_count_per_user,
      like_total_count, like_rate, read_rate,
-     follow_total_count, follow_uv, dau_uv, follow_rate, read_follow_rate,
+     follow_total_count, follow_uv, dau_uv, follow_rate, column_follow_rate, read_follow_rate,
      tryon_total_count, read_tryon_rate, update_time)
     {select_query};
     """

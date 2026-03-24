@@ -19,6 +19,7 @@
 | follow_uv | 关注专栏 UV；`c_follow` 去重访客数，且需能识别 `column_id` |
 | dau_uv | 当天日活 UV；任意事件活跃的 `COUNT(DISTINCT visitor_id)` |
 | follow_rate | `follow_uv / dau_uv` |
+| column_follow_rate | 专栏关注率；`follow_uv / 专栏内容曝光 UV`；分母事件：`v_kol_post_feeds`, `v_kol_post_detail`, `v_star_post_feeds`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_feeds`, `v_brand_post_detail` |
 | read_follow_rate | 关注次数 / 专栏曝光次数；历史字段名保留 |
 | tryon_total_count | 试穿总次数（PV）；事件：`c_tryon` |
 | read_tryon_rate | 试穿 PV / 专栏曝光 PV；历史字段名保留 |

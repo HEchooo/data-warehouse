@@ -15,3 +15,16 @@
 
 - 默认时间范围、secondary axis 百分比格式、中文列名、明细表列展示都踩过坑
 - 优先检查脚本和 dashboard 配置，不要先怀疑 ADS 表本身
+
+## 专栏关注率要和旧关注率分开
+
+- `follow_rate` 仍然是 `follow_uv / dau_uv`，不能直接改口径
+- 新增“专栏关注率”时，单独落字段 `column_follow_rate`
+- 该字段分母只包含 7 个专栏内容曝光事件：`v_kol_post_feeds`, `v_kol_post_detail`, `v_star_post_feeds`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_feeds`, `v_brand_post_detail`
+
+## Superset chart 不能只更新 params，不更新 query_context
+
+- 这次 91 看板里“转化趋势 / 明细表”报 `Unexpected error`，先是因为 BigQuery 生产表缺少 `column_follow_rate`
+- 补列并回刷后，如果只用 API 更新 chart 的 `params`，老 chart 仍可能继续执行旧 `query_context`，表现为新字段没生效，甚至继续报错
+- 保险做法是：补齐底表字段后，同时重建或重写 chart 的 `query_context`
+- 现项目里的 `dashboard_builder.py` 已补上 `query_context` 一起写入，后续遇到新增指标列时优先沿用这个入口
