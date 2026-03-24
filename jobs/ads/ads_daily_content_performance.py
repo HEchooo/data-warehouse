@@ -50,31 +50,11 @@ def event_ts_expr():
     )
 
 
-def run_ads_daily_content_performance(dates):
-    """
-    平台整体内容表现日报（每日一行）:
-    - platform_exposure_uv: 平台曝光 UV（Home 曝光 UV）
-    - avg_browse_content_count_per_user: 人均帖子内容曝光数（进入帖子详情，历史字段名保留）
-    - like_total_count: 点赞总数（点赞成功次数）
-    - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
-    - read_rate: 完读率（阅读 UV / 帖子内容曝光 UV）
-    - follow_total_count: 关注总数（关注专栏成功次数）
-    - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
-    - tryon_total_count: 上身试穿总次数（开始试穿 PV）
-    - read_tryon_rate: 曝光试穿率（试穿 PV / 专栏曝光 PV，历史字段名保留）
-    使用多伦多时间（America/Toronto）。
-    """
+def build_ads_daily_content_performance_select_query(dates):
     dates_str = dates_to_sql_list(dates)
     event_ts = event_ts_expr()
 
-    query = f"""
-    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
-    WHERE dt IN ({dates_str});
-
-    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
-    (dt, platform_exposure_uv, avg_browse_content_count_per_user,
-     like_total_count, like_rate, read_rate, follow_total_count, read_follow_rate,
-     tryon_total_count, read_tryon_rate, update_time)
+    return f"""
     WITH
     base AS (
         SELECT
@@ -117,6 +97,13 @@ def run_ads_daily_content_performance(dates):
     date_list AS (
         SELECT DISTINCT dt
         FROM base
+    ),
+    dau_daily AS (
+        SELECT
+            dt,
+            COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS dau_uv
+        FROM events
+        GROUP BY dt
     ),
     platform_daily AS (
         SELECT
@@ -169,7 +156,16 @@ def run_ads_daily_content_performance(dates):
             COUNTIF(event_name = 'c_follow' AND column_id IS NOT NULL) AS follow_total_count,
             COUNTIF(event_name = 'c_tryon') AS tryon_total_count,
             COUNT(DISTINCT IF(event_name = 'c_like' AND visitor_id IS NOT NULL, visitor_id, NULL))
-                AS like_uv
+                AS like_uv,
+            COUNT(
+                DISTINCT IF(
+                    event_name = 'c_follow'
+                    AND visitor_id IS NOT NULL
+                    AND column_id IS NOT NULL,
+                    visitor_id,
+                    NULL
+                )
+            ) AS follow_uv
         FROM action_events
         GROUP BY dt
     ),
@@ -190,10 +186,13 @@ def run_ads_daily_content_performance(dates):
             COALESCE(a.like_uv, 0) AS like_uv,
             COALESCE(r.read_uv, 0) AS read_uv,
             COALESCE(a.follow_total_count, 0) AS follow_total_count,
+            COALESCE(a.follow_uv, 0) AS follow_uv,
+            COALESCE(u.dau_uv, 0) AS dau_uv,
             COALESCE(a.tryon_total_count, 0) AS tryon_total_count,
             COALESCE(e.column_exposure_uv, 0) AS column_exposure_uv,
             COALESCE(e.column_exposure_pv, 0) AS column_exposure_pv
         FROM date_list d
+        LEFT JOIN dau_daily u USING (dt)
         LEFT JOIN platform_daily p USING (dt)
         LEFT JOIN exposure_daily e USING (dt)
         LEFT JOIN action_daily a USING (dt)
@@ -225,6 +224,15 @@ def run_ads_daily_content_performance(dates):
             )
         END AS NUMERIC) AS read_rate,
         follow_total_count,
+        follow_uv,
+        dau_uv,
+        CAST(CASE
+            WHEN dau_uv = 0 THEN 0
+            ELSE ROUND(
+                CAST(follow_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS follow_rate,
         CAST(CASE
             WHEN column_exposure_pv = 0 THEN 0
             ELSE ROUND(
@@ -241,7 +249,40 @@ def run_ads_daily_content_performance(dates):
             )
         END AS NUMERIC) AS read_tryon_rate,
         CURRENT_TIMESTAMP() AS update_time
-    FROM daily;
+    FROM daily
+    """
+
+
+def run_ads_daily_content_performance(dates):
+    """
+    平台整体内容表现日报（每日一行）:
+    - platform_exposure_uv: 平台曝光 UV（Home 曝光 UV）
+    - avg_browse_content_count_per_user: 人均帖子内容曝光数（进入帖子详情，历史字段名保留）
+    - like_total_count: 点赞总数（点赞成功次数）
+    - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
+    - read_rate: 完读率（阅读 UV / 帖子内容曝光 UV）
+    - follow_total_count: 关注总数（关注专栏点击次数）
+    - follow_uv: 关注 UV（c_follow 去重访客数）
+    - dau_uv: 日活 UV（任意事件活跃 visitor_id）
+    - follow_rate: 关注率（关注 UV / 日活 UV）
+    - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
+    - tryon_total_count: 上身试穿总次数（开始试穿 PV）
+    - read_tryon_rate: 曝光试穿率（试穿 PV / 专栏曝光 PV，历史字段名保留）
+    使用多伦多时间（America/Toronto）。
+    """
+    dates_str = dates_to_sql_list(dates)
+    select_query = build_ads_daily_content_performance_select_query(dates)
+
+    query = f"""
+    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
+    WHERE dt IN ({dates_str});
+
+    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
+    (dt, platform_exposure_uv, avg_browse_content_count_per_user,
+     like_total_count, like_rate, read_rate,
+     follow_total_count, follow_uv, dau_uv, follow_rate, read_follow_rate,
+     tryon_total_count, read_tryon_rate, update_time)
+    {select_query};
     """
     logging.info("开始处理: ads_daily_content_performance")
     job = client.query(query)
