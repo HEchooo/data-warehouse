@@ -15,3 +15,12 @@ PARTITION BY
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
 ADD COLUMN IF NOT EXISTS read_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS follow_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS dau_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS follow_rate NUMERIC;

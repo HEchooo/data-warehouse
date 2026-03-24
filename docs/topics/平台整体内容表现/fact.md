@@ -15,7 +15,10 @@
 | like_total_count | 点赞成功次数（PV）；事件：`c_like` |
 | like_rate | 点赞 UV / 帖子内容曝光 UV |
 | read_rate | 阅读 UV / 帖子内容曝光 UV；阅读事件：`r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail` |
-| follow_total_count | 关注专栏成功次数；事件：`c_follow`；按 `raw_event_id` 去重且需能识别 `column_id` |
+| follow_total_count | 关注专栏点击次数（PV）；事件：`c_follow`；按 `raw_event_id` 去重且需能识别 `column_id` |
+| follow_uv | 关注专栏 UV；`c_follow` 去重访客数，且需能识别 `column_id` |
+| dau_uv | 当天日活 UV；任意事件活跃的 `COUNT(DISTINCT visitor_id)` |
+| follow_rate | `follow_uv / dau_uv` |
 | read_follow_rate | 关注次数 / 专栏曝光次数；历史字段名保留 |
 | tryon_total_count | 试穿总次数（PV）；事件：`c_tryon` |
 | read_tryon_rate | 试穿 PV / 专栏曝光 PV；历史字段名保留 |
