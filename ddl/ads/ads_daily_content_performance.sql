@@ -24,3 +24,6 @@ ADD COLUMN IF NOT EXISTS dau_uv INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
 ADD COLUMN IF NOT EXISTS follow_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS column_follow_rate NUMERIC;
