@@ -27,4 +27,4 @@
 - 这次 91 看板里“转化趋势 / 明细表”报 `Unexpected error`，先是因为 BigQuery 生产表缺少 `column_follow_rate`
 - 补列并回刷后，如果只用 API 更新 chart 的 `params`，老 chart 仍可能继续执行旧 `query_context`，表现为新字段没生效，甚至继续报错
 - 保险做法是：补齐底表字段后，同时重建或重写 chart 的 `query_context`
-- 现项目里的 `dashboard_builder.py` 已补上 `query_context` 一起写入，后续遇到新增指标列时优先沿用这个入口
+- 后续再遇到新增指标列时，不要只改展示参数，要同步检查并重写 chart 的 `query_context`
