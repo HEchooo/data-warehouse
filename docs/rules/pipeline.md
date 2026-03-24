@@ -35,11 +35,11 @@
 11. 执行 `jobs/ads/ads_daily_home_module_performance.py`
 12. 执行 `jobs/ads/ads_daily_user_duration_frequency.py`
 
-### 规则
 
-- 主题文档按业务主题维护：每个主题目录统一使用 `fact.md`（既定事实）和 `patterns.md`（踩坑记录）
-- 入口聚合：`ads_daily.py` 负责编排与日期识别
-- 任务独立：各表脚本自包含，避免强耦合
-- 日期处理：默认允许处理到多伦多当天 `dt`（当天数据可能不完整）
-  - 为支持 T+0 展示，入口会强制把 DWS 中“当天/昨天”的 `dt` 纳入待处理日期（若 DWS 已存在对应分区）
-  - 留存/到期类指标以各任务内部成熟度逻辑为准
+## 主链路
+
+- 事件链路：
+  - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily -> ads_*`
+- 下载链路：
+  - `ods_ios_download + ods_android_download -> dws_download_daily -> ads_*`
+- 总量和新增异常时，先确认自己走的是事件链路还是下载链路。

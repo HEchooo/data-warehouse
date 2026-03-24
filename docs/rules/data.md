@@ -17,14 +17,6 @@
 - `like_rate`、`read_rate`、`follow_rate` 这类率指标跨天或跨维度聚合时，不能直接 `AVG`。
 - 正确做法是按曝光 UV 加权，或等价地先聚合分子分母再计算整体率。
 
-## 主链路
-
-- 事件链路：
-  - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily -> ads_*`
-- 下载链路：
-  - `ods_ios_download + ods_android_download -> dws_download_daily -> ads_*`
-- 总量和新增异常时，先确认自己走的是事件链路还是下载链路。
-
 ## 停留时长
 
 - 停留时长口径只统计 `event_name = 'app_launch'` 的 `args_session_duration`。
