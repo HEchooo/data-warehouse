@@ -36,6 +36,12 @@
       "enabled": true
     },
     {
+      "stage": "ODS",
+      "name": "ODS AppsFlyer 下载 ETL",
+      "script": "jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py",
+      "enabled": true
+    },
+    {
       "stage": "DWD",
       "name": "DWD 事件 ETL",
       "script": "jobs/dwd/dwd_event_log/dwd_event_log.py",
