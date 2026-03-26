@@ -44,8 +44,8 @@
 |------|------|------|------|
 | 新增视频 | `decom.dws_video_daily` | `is_new_video` 聚合 | `发布时间（America/Toronto 日期） = dt` 且 `dt` 当天播放增量 `> 0` 的视频数 |
 | 活跃视频数 | `decom.dws_video_daily` | `is_active_video` 聚合 | `dt` 当天播放增量 `> 0` 的视频数 |
-| 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `发布时间（America/Toronto 日期） = dt` 的视频，在 `dt` 当天产生的播放增量之和 |
-| 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count` |
+| 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt` |
+| 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量 |
 | 新增下载 | `decom.dws_appsflyer_download_daily` | `new_download_count` | AppsFlyer `install` 口径的 iOS + Android 当日新增下载总数，按 `America/Toronto` 切天 |
 | 新增设备数 | `decom.ads_daily_investor` | `new_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT IF(is_new_device, prop_device_id, NULL))` 计算 |
 | 活跃设备数 | `decom.ads_daily_investor` | `active_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT prop_device_id)` 计算 |
@@ -56,7 +56,7 @@
 | 内容点击率 | `decom.ads_daily_investor` | `content_ctr` | 来自 `decom.dws_content_item_device_daily`，`SUM(click_item_count) / SUM(exposure_item_count)` |
 | 次日留存 | `decom.ads_daily_investor` | `next_day_retention_rate` | 来自 `decom.dws_user_daily`，以当日活跃注册用户 cohort 为分母，统计 `dt+1` 仍活跃的去重用户数 / cohort 用户数；若 `dt+1` 未成熟返回 `NULL` |
 | 7日留存 | `decom.ads_daily_investor` | `day_7_retention_rate` | 来自 `decom.dws_user_daily`，以当日活跃注册用户 cohort 为分母，统计 `dt+7` 仍活跃的去重用户数 / cohort 用户数；若 `dt+7` 未成熟返回 `NULL` |
-| 播放下载转化率 | `decom.ads_daily_investor` | `play_download_conversion_rate` | `new_download_count / new_video_view_count` |
+| 播放下载转化率 | `decom.ads_daily_investor` | `play_download_conversion_rate` | `new_download_count / new_video_view_count`，其中 `new_video_view_count` 为当日全量视频播放增量 |
 | 视频平均下载转化数 | `decom.ads_daily_investor` | `avg_video_download_conversion_count` | `new_download_count / active_video_count` |
 
 补充说明：
