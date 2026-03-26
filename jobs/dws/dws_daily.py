@@ -26,6 +26,14 @@ CONTENT_EVENTS = (
     "'v_brand_post_detail',"
     "'v_kol_post_detail'"
 )
+CONTENT_ITEM_EXPOSURE_EVENTS = (
+    "'v_home_feeds',"
+    "'v_shop_feeds',"
+    "'v_star_post_feeds',"
+    "'v_brand_post_feeds',"
+    "'v_kol_post_feeds'"
+)
+CONTENT_ITEM_CLICK_EVENTS = CONTENT_EVENTS
 TORONTO_TZ = "America/Toronto"
 
 
@@ -45,23 +53,44 @@ def event_ts_expr():
 def get_dates_to_process():
     """
     找出 DWD 层有新数据但 DWS 层尚未处理的日期。
-    逻辑: dwd_event_log.update_time > dws_device_daily 最大 update_time 的所有日期。
-    首次运行时 dws_device_daily 为空，处理 dwd_event_log 全部日期。
+    逻辑: dwd_event_log.update_time 晚于任一事件类 DWS 目标表最大 update_time 的所有日期。
+    首次运行时目标表为空，处理 dwd_event_log 全部日期。
     使用多伦多时间（America/Toronto）。
     """
     event_ts = event_ts_expr()
     query = f"""
-    WITH base AS (
+    WITH
+    base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
             update_time
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+    ),
+    min_target_watermark AS (
+        SELECT MIN(max_update_time) AS max_update_time
+        FROM (
+            SELECT
+                COALESCE(MAX(update_time), TIMESTAMP('1970-01-01')) AS max_update_time
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+
+            UNION ALL
+
+            SELECT
+                COALESCE(MAX(update_time), TIMESTAMP('1970-01-01')) AS max_update_time
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
+
+            UNION ALL
+
+            SELECT
+                COALESCE(MAX(update_time), TIMESTAMP('1970-01-01')) AS max_update_time
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_content_item_device_daily`
+        )
     )
     SELECT DISTINCT dt
     FROM base
     WHERE update_time > (
-        SELECT COALESCE(MAX(update_time), TIMESTAMP('1970-01-01'))
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+        SELECT max_update_time
+        FROM min_target_watermark
     )
     ORDER BY dt
     """
@@ -415,6 +444,110 @@ def run_dws_user_daily(dates):
     logging.info(f"dws_user_daily 刷新完成, 处理日期: {dates}")
 
 
+def run_dws_content_item_device_daily(dates):
+    """
+    纯 SQL 计算 dws_content_item_device_daily，DELETE + INSERT 保证幂等。
+    指标：
+    - exposure_item_count: item 级 feeds 曝光数，按 raw_event_id + item_key 去重
+    - click_item_count: item 级详情点击数，按 raw_event_id + item_key 去重
+    使用多伦多时间（America/Toronto）。
+    """
+    dates_str = ", ".join([f"'{d}'" for d in dates])
+    event_ts = event_ts_expr()
+
+    query = f"""
+    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.dws_content_item_device_daily`
+    WHERE dt IN ({dates_str});
+
+    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.dws_content_item_device_daily`
+    (dt, prop_device_id, exposure_item_count, click_item_count, update_time)
+    WITH
+    base AS (
+        SELECT
+            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            prop_device_id,
+            event_name,
+            raw_event_id,
+            COALESCE(
+                IF(
+                    product_code IS NULL OR product_code = '',
+                    NULL,
+                    CONCAT('product:', product_code)
+                ),
+                IF(
+                    post_code IS NULL OR post_code = '',
+                    NULL,
+                    CONCAT('post:', post_code)
+                )
+            ) AS item_key
+        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+        WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND prop_device_id IS NOT NULL
+            AND prop_device_id != ''
+    ),
+    exposure_events AS (
+        SELECT
+            dt,
+            prop_device_id,
+            raw_event_id,
+            item_key
+        FROM base
+        WHERE event_name IN ({CONTENT_ITEM_EXPOSURE_EVENTS})
+            AND raw_event_id IS NOT NULL
+            AND item_key IS NOT NULL
+        GROUP BY dt, prop_device_id, raw_event_id, item_key
+    ),
+    click_events AS (
+        SELECT
+            dt,
+            prop_device_id,
+            raw_event_id,
+            item_key
+        FROM base
+        WHERE event_name IN ({CONTENT_ITEM_CLICK_EVENTS})
+            AND raw_event_id IS NOT NULL
+            AND item_key IS NOT NULL
+        GROUP BY dt, prop_device_id, raw_event_id, item_key
+    ),
+    exposure_agg AS (
+        SELECT
+            dt,
+            prop_device_id,
+            COUNT(*) AS exposure_item_count
+        FROM exposure_events
+        GROUP BY dt, prop_device_id
+    ),
+    click_agg AS (
+        SELECT
+            dt,
+            prop_device_id,
+            COUNT(*) AS click_item_count
+        FROM click_events
+        GROUP BY dt, prop_device_id
+    ),
+    metric_keys AS (
+        SELECT dt, prop_device_id FROM exposure_agg
+        UNION DISTINCT
+        SELECT dt, prop_device_id FROM click_agg
+    )
+    SELECT
+        k.dt,
+        k.prop_device_id,
+        COALESCE(e.exposure_item_count, 0) AS exposure_item_count,
+        COALESCE(c.click_item_count, 0) AS click_item_count,
+        CURRENT_TIMESTAMP() AS update_time
+    FROM metric_keys k
+    LEFT JOIN exposure_agg e
+        ON k.dt = e.dt AND k.prop_device_id = e.prop_device_id
+    LEFT JOIN click_agg c
+        ON k.dt = c.dt AND k.prop_device_id = c.prop_device_id;
+    """
+    logging.info("开始处理: dws_content_item_device_daily")
+    job = client.query(query)
+    job.result()
+    logging.info(f"dws_content_item_device_daily 刷新完成, 处理日期: {dates}")
+
+
 def run_dws_download_daily(dates):
     """
     纯 SQL 计算 dws_download_daily，DELETE + INSERT 保证幂等。
@@ -469,6 +602,9 @@ if __name__ == "__main__":
         logging.info("-" * 50)
 
         run_dws_user_daily(event_dates)
+        logging.info("-" * 50)
+
+        run_dws_content_item_device_daily(event_dates)
         logging.info("-" * 50)
 
     if download_dates:
