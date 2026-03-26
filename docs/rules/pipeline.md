@@ -16,6 +16,7 @@
 - `ads_daily_product_tryon_performance`
 - `ads_daily_home_module_performance`
 - `ads_daily_user_duration_frequency`
+- `ads_daily_investor`
 
 ### 执行流程
 
@@ -34,12 +35,13 @@
 10. 执行 `jobs/ads/ads_daily_product_tryon_performance.py`
 11. 执行 `jobs/ads/ads_daily_home_module_performance.py`
 12. 执行 `jobs/ads/ads_daily_user_duration_frequency.py`
+13. 执行 `jobs/ads/ads_daily_investor.py`
 
 
 ## 主链路
 
 - 事件链路：
-  - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily -> ads_*`
+  - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily / dws_content_item_device_daily -> ads_*`
 - 下载链路：
   - `ods_ios_download + ods_android_download -> dws_download_daily -> ads_*`
 - AppsFlyer 下载链路：
