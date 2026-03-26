@@ -1,4 +1,6 @@
-## magazine, star, brand 映射关系
+# magazine, star, brand 映射关系
+
+## dataset: v3_decom
 
 - 表 `v3_decom.kol_rel`：
   - `status = 0` 正常
