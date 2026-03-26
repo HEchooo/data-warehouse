@@ -2,6 +2,10 @@ from google.cloud import bigquery
 from datetime import datetime, timezone
 import logging
 
+from dws_appsflyer_download_daily import (
+    get_appsflyer_dates_to_process,
+    run_dws_appsflyer_download_daily,
+)
 from dws_video_daily import get_video_dates_to_process, run_dws_video_daily
 
 # 配置日志记录
@@ -445,8 +449,9 @@ if __name__ == "__main__":
     event_dates = get_dates_to_process()
     download_dates = get_download_dates_to_process()
     video_dates = get_video_dates_to_process()
+    appsflyer_dates = get_appsflyer_dates_to_process()
 
-    if not event_dates and not download_dates and not video_dates:
+    if not event_dates and not download_dates and not video_dates and not appsflyer_dates:
         logging.info("没有新数据需要处理")
         exit(0)
 
@@ -474,6 +479,11 @@ if __name__ == "__main__":
     if video_dates:
         logging.info(f"视频待处理日期: {video_dates}")
         run_dws_video_daily(video_dates)
+        logging.info("-" * 50)
+
+    if appsflyer_dates:
+        logging.info(f"AppsFlyer 下载待处理日期: {appsflyer_dates}")
+        run_dws_appsflyer_download_daily(appsflyer_dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"DWS ETL 完成, 耗时: {elapsed:.1f} 秒")
