@@ -20,7 +20,7 @@ def dates_to_array_sql(dates):
 def run_ads_daily_investor(dates: list[date]):
     """
     投资人主题日报（dt 一行）:
-    - 视频侧指标直接复用 dws_video_daily
+    - 视频侧指标直接复用 dws_video_daily，其中新增视频播放数按当天全量视频播放增量汇总
     - 新增下载直接复用 dws_appsflyer_download_daily
     - 设备/注册用户/时长直接复用 dws_device_daily / dws_user_daily
     - 内容展示/点击来自 dws_content_item_device_daily
@@ -67,7 +67,7 @@ def run_ads_daily_investor(dates: list[date]):
             dt,
             COUNT(DISTINCT IF(is_new_video, video_key, NULL)) AS new_video_count,
             COUNT(DISTINCT IF(is_active_video, video_key, NULL)) AS active_video_count,
-            COALESCE(SUM(IF(is_new_video, daily_view_increment, 0)), 0) AS new_video_view_count
+            COALESCE(SUM(daily_view_increment), 0) AS new_video_view_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily`
         WHERE dt IN ({dates_str})
         GROUP BY dt
