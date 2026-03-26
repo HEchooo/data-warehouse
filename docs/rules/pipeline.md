@@ -42,4 +42,8 @@
   - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily -> ads_*`
 - 下载链路：
   - `ods_ios_download + ods_android_download -> dws_download_daily -> ads_*`
+- AppsFlyer 下载链路：
+  - `ods_appsflyer_download -> dws_appsflyer_download_daily`
+- 投资人视频链路：
+  - `videos.* -> dws_video_daily`
 - 总量和新增异常时，先确认自己走的是事件链路还是下载链路。
