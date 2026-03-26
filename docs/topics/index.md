@@ -19,3 +19,4 @@
 | 试穿结果转化 | `ads_daily_tryon_add_cart_conversion` | [97](https://bi.alvinclub.ca/superset/dashboard/97/) | [fact.md](./试穿结果转化/fact.md) | [patterns.md](./试穿结果转化/patterns.md) |
 | 商详页试穿维度 | `ads_daily_product_tryon_performance` | [98](https://bi.alvinclub.ca/superset/dashboard/98/) | [fact.md](./商详页试穿维度/fact.md) | [patterns.md](./商详页试穿维度/patterns.md) |
 | 用户时长与访问频次 | `ads_daily_user_duration_frequency` | [95](https://bi.alvinclub.ca/superset/dashboard/95/) | [fact.md](./用户时长与访问频次/fact.md) | [patterns.md](./用户时长与访问频次/patterns.md) |
+| 投资人报表【核心业务报表】 | `ads_daily_investor` | - | [fact.md](./投资人报表【核心业务报表】/fact.md) | [patterns.md](./投资人报表【核心业务报表】/patterns.md) |

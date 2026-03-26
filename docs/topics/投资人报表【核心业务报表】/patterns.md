@@ -7,3 +7,22 @@
 - AppsFlyer 实际返回的分组列可能与预期列名不完全一致，ODS 不能只保留猜测字段，必须额外保留完整原始行，如 `raw_row_json`，否则后续无法回查分组维度。
 - AppsFlyer 常见字段名不是固定的 `Media Source` / `Campaign`，实际可能是 `Media Source (pid)`、`Campaign (c)` 这类变体；解析时不能只做精确列名匹配。
 - AppsFlyer 某些 `campaign` 值可能出现编码异常，例如中文 campaign 在返回结果里显示成乱码；当前“新增下载总数”口径不受影响，但如果后续要按 campaign 分析，需优先回看 `raw_row_json` 并单独确认编码处理方案。
+
+## 复用 `dws_device_daily` / `dws_user_daily` 时不能先按 `platform` 汇总再相加
+
+- 投资人主题最终粒度是 `dt`，而 `dws_device_daily` / `dws_user_daily` 的现有粒度包含 `platform`
+- 设备数、注册用户数、留存 cohort 都必须回到 `prop_device_id` / `prop_user_id` 明细去重后再做 `dt` 聚合
+- 直接相加各端聚合值，会在同一 ID 跨端活跃时重复计数
+
+## 注册用户留存不是新增注册用户留存
+
+- 需求里的“注册用户”指 `prop_user_id` 非空且当日活跃的用户
+- 留存分母不是 `is_new_user = TRUE`
+- 如果误用新增注册用户 cohort，结果会更接近“注册次留”，不是当前投资人报表要的注册用户留存
+
+## 内容展示量 / 点击量必须按 item 级去重
+
+- `content_consume_count` 只覆盖详情类内容消费，不含 feeds 曝光，也不是 `post / spu` item 数
+- `dwd_event_log` 已把 `args_spu` 落成 `product_code`、把 `args_post` 落成 `post_code`，同一原始事件会共享同一个 `raw_event_id`
+- 因此内容展示量 / 点击量要按 `raw_event_id + item_key` 去重，其中 `item_key = product_code` 或 `post_code`
+- 只按 `raw_event_id` 统计会把同一次曝光里的多个 item 压成 1，导致人均内容展示量和内容点击率都偏低

@@ -26,6 +26,7 @@ from ads_daily_post_tryon_confirm import run_ads_daily_post_tryon_confirm
 from ads_daily_post_performance import run_ads_daily_post_performance
 from ads_daily_column_performance import run_ads_daily_column_performance
 from ads_daily_product_tryon_performance import run_ads_daily_product_tryon_performance
+from ads_daily_investor import run_ads_daily_investor
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
@@ -127,6 +128,36 @@ def get_dates_to_process():
                 "ads_daily_user_duration_frequency",
                 "DATE_SUB(dt, INTERVAL 30 DAY)",
             ),
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_investor",
+            ),
+            incremental_dates_sql(
+                "dws_user_daily",
+                "ads_daily_investor",
+            ),
+            incremental_dates_sql(
+                "dws_user_daily",
+                "ads_daily_investor",
+                "DATE_SUB(dt, INTERVAL 1 DAY)",
+            ),
+            incremental_dates_sql(
+                "dws_user_daily",
+                "ads_daily_investor",
+                "DATE_SUB(dt, INTERVAL 7 DAY)",
+            ),
+            incremental_dates_sql(
+                "dws_video_daily",
+                "ads_daily_investor",
+            ),
+            incremental_dates_sql(
+                "dws_appsflyer_download_daily",
+                "ads_daily_investor",
+            ),
+            incremental_dates_sql(
+                "dws_content_item_device_daily",
+                "ads_daily_investor",
+            ),
         ]
     )
     query += "\nORDER BY dt"
@@ -175,6 +206,9 @@ if __name__ == "__main__":
     logging.info("-" * 50)
 
     run_ads_daily_user_duration_frequency(dates)
+    logging.info("-" * 50)
+
+    run_ads_daily_investor(dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"ADS ETL 完成, 耗时: {elapsed:.1f} 秒")
