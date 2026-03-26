@@ -26,3 +26,17 @@
 - `dwd_event_log` 已把 `args_spu` 落成 `product_code`、把 `args_post` 落成 `post_code`，同一原始事件会共享同一个 `raw_event_id`
 - 因此内容展示量 / 点击量要按 `raw_event_id + item_key` 去重，其中 `item_key = product_code` 或 `post_code`
 - 只按 `raw_event_id` 统计会把同一次曝光里的多个 item 压成 1，导致人均内容展示量和内容点击率都偏低
+
+## 新增视频口径不能依赖“发布当天有播放增量”
+
+- 现有视频源的采集时间与发布时间存在明显滞后，很多视频在 `published_dt` 当天没有任何播放快照
+- 已实际验证：`published_dt = dt` 的行存在，但绝大多数 `has_snapshot = FALSE`，因此 `daily_view_increment` 会被算成 `0`
+- 如果把新增视频定义为 `published_dt = dt AND daily_view_increment > 0`，则 `is_new_video` 可能长期全为 `FALSE`
+- 排查这类问题时，先逐个渠道核对：发布时间、多伦多时区下的首个采集时间、首个采集日与发布日期的天数差，不要直接怀疑 ADS 聚合
+
+## 新增视频播放数不能错误绑定 `is_new_video`
+
+- `daily_view_increment` 表示视频在 `dt` 当天的播放增量，属于全量视频的日增量指标
+- 投资人报表里的“新增视频播放数”实际要的是“当天新增播放数”，即 `dt` 当天全量视频 `daily_view_increment` 之和
+- 如果写成 `SUM(IF(is_new_video, daily_view_increment, 0))`，会把分母错误收缩到“新增视频”，在 `is_new_video` 异常时进一步把播放增量也算成 `0`
+- 正确做法是按 `SUM(daily_view_increment)` 汇总，再基于该值计算平均播放数和播放下载转化率
