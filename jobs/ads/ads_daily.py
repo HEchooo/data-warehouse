@@ -16,7 +16,6 @@ if str(ADS_ROOT) not in sys.path:
     sys.path.insert(0, str(ADS_ROOT))
 
 from ads_daily_new import run_ads_daily_new
-from ads_daily_video import run_ads_daily_video
 from ads_daily_total import run_ads_daily_total
 from ads_daily_content_performance import run_ads_daily_content_performance
 from ads_daily_home_module_performance import run_ads_daily_home_module_performance
@@ -77,7 +76,6 @@ def get_dates_to_process():
                 "DATE_SUB(dt, INTERVAL 1 DAY)",
             ),
             incremental_dates_sql("dws_download_daily", "ads_daily_new"),
-            incremental_dates_sql("dws_video_daily", "ads_daily_video"),
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_content_performance",
@@ -147,9 +145,6 @@ if __name__ == "__main__":
     logging.info(f"待处理日期: {dates}")
 
     run_ads_daily_new(dates)
-    logging.info("-" * 50)
-
-    run_ads_daily_video(dates)
     logging.info("-" * 50)
 
     run_ads_daily_total(dates)
