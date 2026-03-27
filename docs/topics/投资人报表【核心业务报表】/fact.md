@@ -21,7 +21,7 @@
 | 需求字段 | 定义 |
 |------|------|
 | 日期 | 报表日期 |
-| 新增视频 | 当天新发布且有播放的视频数量 |
+| 新增视频 | 某视频第一次被采集到且播放量大于 0 的那一天计为新增，后续日期不重复计数 |
 | 活跃视频数 | 当天有播放的视频数量 |
 | 新增视频播放数 | 当天新增播放次数 |
 | 视频平均播放数 | 新增视频播放数 / 活跃视频数 |
@@ -42,7 +42,7 @@
 
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |------|------|------|------|
-| 新增视频 | `decom.dws_video_daily` | `is_new_video` 聚合 | `发布时间（America/Toronto 日期） = dt` 且 `dt` 当天播放增量 `> 0` 的视频数 |
+| 新增视频 | `decom.dws_video_daily` | `is_new_video` 聚合 | 按 `video_key` 全历史实际采集日中最早满足 `raw_day_end_views > 0` 的 `dt` 记为新增日；当日 `is_new_video = TRUE`，后续日期不重复计数 |
 | 活跃视频数 | `decom.dws_video_daily` | `is_active_video` 聚合 | `dt` 当天播放增量 `> 0` 的视频数 |
 | 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt` |
 | 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量 |
