@@ -50,7 +50,7 @@
 | 新增设备数 | `decom.ads_daily_investor` | `new_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT IF(is_new_device, prop_device_id, NULL))` 计算 |
 | 活跃设备数 | `decom.ads_daily_investor` | `active_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT prop_device_id)` 计算 |
 | 活跃注册用户数 | `decom.ads_daily_investor` | `active_registered_user_count` | 来自 `decom.dws_user_daily`，按 `COUNT(DISTINCT prop_user_id)` 计算 |
-| 人均停留时长 | `decom.ads_daily_investor` | `avg_duration_sec` | 来自 `decom.dws_device_daily`，`SUM(session_duration_sec) / 活跃设备数` |
+| 人均停留时长 | `decom.ads_daily_investor` | `avg_duration_sec` | 来自 `decom.dws_device_daily`，`SUM(session_duration_sec) / 非 h5 活跃设备数`；`h5` 无时长埋点，不能进入分母 |
 | 人均内容展示量 | `decom.ads_daily_investor` | `avg_content_exposure_count` | 来自 `decom.dws_content_item_device_daily`，`SUM(exposure_item_count) / 活跃设备数` |
 | 人均内容点击量 | `decom.ads_daily_investor` | `avg_content_click_count` | 来自 `decom.dws_content_item_device_daily`，`SUM(click_item_count) / 活跃设备数` |
 | 内容点击率 | `decom.ads_daily_investor` | `content_ctr` | 来自 `decom.dws_content_item_device_daily`，`SUM(click_item_count) / SUM(exposure_item_count)` |
@@ -67,6 +67,8 @@
 - AppsFlyer `daily_report/v5` 返回值按 `date + media source + campaign` 分组，同一天需先汇总 `Installs`
 - `ods_appsflyer_download` 需保留完整原始行，当前通过 `raw_row_json` 存储 AppsFlyer 每行返回字段
 - 投资人主题最终 ADS 粒度仍为 `dt`；复用 `dws_device_daily` / `dws_user_daily` 时，设备数和用户数要按 `id` 去重后再汇总，不能直接相加各 `platform`
+- 人均停留时长的分母要排除 `platform = 'h5'` 的设备；`h5` 没有 `app_launch.args_session_duration` 埋点，把它算进分母会系统性压低结果
+- `ads_daily_investor` 已按该口径完成全量回填；当前 `投资人报表（日表）-明细表` 直接读取物理 dataset `ads_daily_investor`（Superset dataset id=228）
 - 内容展示量 / 点击量不能复用 `content_consume_count`；它们是 `post / spu` item 级指标，需基于 `dwd_event_log.product_code`、`dwd_event_log.post_code` 重新计数
 - `dwd_event_log` 已提前展开 `args_spu` / `args_post`；同一原始事件若带多个 item，需要按 `raw_event_id + item_key` 统计，而不是只按 `raw_event_id`
 - 内容展示量的 feeds 事件只包含 item 级曝光：`v_home_feeds`, `v_shop_feeds`, `v_star_post_feeds`, `v_brand_post_feeds`, `v_kol_post_feeds`；不包含 `v_home_star`, `v_home_magazine`, `v_home_brand` 这类 module 曝光
@@ -79,6 +81,7 @@
 - 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `decom.dwd_event_log`, `decom.ods_appsflyer_download`
 - 中间表：`decom.dws_video_daily`, `decom.dws_appsflyer_download_daily`, `decom.dws_device_daily`, `decom.dws_user_daily`, `decom.dws_content_item_device_daily`
 - 报表表：`decom.ads_daily_investor`
+- Superset：物理 dataset `ads_daily_investor`（id=228），chart `投资人报表（日表）-明细表`（id=574）
 - 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_daily.py`, `jobs/ads/ads_daily_investor.py`
 - DDL：`ddl/ods/ods_appsflyer_download.sql`, `ddl/dws/dws_video_daily.sql`, `ddl/dws/dws_appsflyer_download_daily.sql`, `ddl/dws/dws_device_daily.sql`, `ddl/dws/dws_user_daily.sql`, `ddl/dws/dws_content_item_device_daily.sql`, `ddl/dwd/dwd_event_log.sql`, `ddl/ads/ads_daily_investor.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`, `jobs/dws/dws_daily.py`, `jobs/ads/ads_daily.py`

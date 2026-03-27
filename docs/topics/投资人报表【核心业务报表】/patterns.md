@@ -42,3 +42,11 @@
 - 投资人报表里的“新增视频播放数”实际要的是“当天新增播放数”，即 `dt` 当天全量视频 `daily_view_increment` 之和
 - 如果写成 `SUM(IF(is_new_video, daily_view_increment, 0))`，会把分母错误收缩到“新增视频”，在 `is_new_video` 异常时进一步把播放增量也算成 `0`
 - 正确做法是按 `SUM(daily_view_increment)` 汇总，再基于该值计算平均播放数和播放下载转化率
+
+## 人均停留时长分母不能包含 `h5`
+
+- `dws_device_daily` 会把活跃设备按 `platform` 落成 `iOS / Android / h5 / unknown`
+- 只有 App 端 `app_launch` 才有 `args_session_duration`，`h5` 没有停留时长埋点
+- 如果分子仍取 `SUM(session_duration_sec)`，但分母用全量 `COUNT(DISTINCT prop_device_id)`，就会把 `h5` 设备算进来，系统性压低“人均停留时长”
+- 正确口径应为：`SUM(session_duration_sec) / COUNT(DISTINCT IF(platform != 'h5', prop_device_id, NULL))`
+- 这类问题要先区分“展示层实时修正”和“ADS 历史分区修正”：chart 可直接按 `dws_device_daily` 重算口径；`ads_daily_investor` 的历史数据若要同步，必须先确认回填后再改生产数据

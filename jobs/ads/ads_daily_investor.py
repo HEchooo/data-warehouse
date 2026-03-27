@@ -23,6 +23,7 @@ def run_ads_daily_investor(dates: list[date]):
     - 视频侧指标直接复用 dws_video_daily，其中新增视频播放数按当天全量视频播放增量汇总
     - 新增下载直接复用 dws_appsflyer_download_daily
     - 设备/注册用户/时长直接复用 dws_device_daily / dws_user_daily
+    - 人均停留时长分母排除 h5 设备，因为 h5 没有 session_duration 埋点
     - 内容展示/点击来自 dws_content_item_device_daily
     - 留存 cohort 为当日活跃注册用户，不是 is_new_user
     """
@@ -85,6 +86,7 @@ def run_ads_daily_investor(dates: list[date]):
             dt,
             COUNT(DISTINCT IF(is_new_device, prop_device_id, NULL)) AS new_device_count,
             COUNT(DISTINCT prop_device_id) AS active_device_count,
+            COUNT(DISTINCT IF(platform != 'h5', prop_device_id, NULL)) AS active_app_device_count,
             COALESCE(SUM(session_duration_sec), 0) AS total_duration_sec
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
         WHERE dt IN ({dates_str})
@@ -161,10 +163,10 @@ def run_ads_daily_investor(dates: list[date]):
         COALESCE(dev.active_device_count, 0) AS active_device_count,
         COALESCE(r.active_registered_user_count, 0) AS active_registered_user_count,
         CAST(CASE
-            WHEN COALESCE(dev.active_device_count, 0) = 0 THEN 0
+            WHEN COALESCE(dev.active_app_device_count, 0) = 0 THEN 0
             ELSE ROUND(
                 CAST(COALESCE(dev.total_duration_sec, 0) AS NUMERIC)
-                / CAST(dev.active_device_count AS NUMERIC),
+                / CAST(dev.active_app_device_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS avg_duration_sec,
