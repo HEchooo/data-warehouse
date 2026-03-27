@@ -4,7 +4,7 @@
 
 - 表：`ads_daily_investor`
 - 粒度：`dt`
-- Dashboard：暂无
+- Dashboard：[投资人报表【核心业务报表】](https://bi.alvinclub.ca/superset/dashboard/101/)（id=101）
 
 ### `dws_appsflyer_download_daily`
 
