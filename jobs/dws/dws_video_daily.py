@@ -166,6 +166,14 @@ def run_dws_video_daily(dates):
         )
         WHERE rn = 1
     ),
+    first_positive_snapshot AS (
+        SELECT
+            video_key,
+            MIN(dt) AS first_positive_view_dt
+        FROM daily_latest
+        WHERE raw_day_end_views > 0
+        GROUP BY video_key
+    ),
     seed_snapshot AS (
         SELECT
             video_key,
@@ -271,20 +279,22 @@ def run_dws_video_daily(dates):
         FROM filled_daily
     )
     SELECT
-        dt,
-        channel,
-        video_id,
-        video_key,
-        published_dt,
-        raw_day_end_views,
-        day_end_views,
-        daily_view_increment,
-        has_snapshot,
-        (daily_view_increment > 0) AS is_active_video,
-        (published_dt = dt AND daily_view_increment > 0) AS is_new_video,
+        f.dt,
+        f.channel,
+        f.video_id,
+        f.video_key,
+        f.published_dt,
+        f.raw_day_end_views,
+        f.day_end_views,
+        f.daily_view_increment,
+        f.has_snapshot,
+        (f.daily_view_increment > 0) AS is_active_video,
+        (fps.first_positive_view_dt = f.dt) AS is_new_video,
         CURRENT_TIMESTAMP() AS update_time
-    FROM final
-    WHERE dt IN ({dates_str});
+    FROM final f
+    LEFT JOIN first_positive_snapshot fps
+        ON f.video_key = fps.video_key
+    WHERE f.dt IN ({dates_str});
     """
     logging.info("开始处理: dws_video_daily")
     job = client.query(query)
