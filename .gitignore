@@ -12,5 +12,3 @@ AGENTS.md
 CLAUDE.md
 .DS_Store
 env/github-key.md
-env/superset.json
-env/appsflyer.json
