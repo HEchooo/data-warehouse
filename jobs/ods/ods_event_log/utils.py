@@ -152,6 +152,7 @@ def create_bigquery_row(log_entity, log_day, ctime, gcs_key):
         "prop_app_type": log_entity.properties.app_type,
         "prop_ua": log_entity.properties.ua,
         "prop_share_code": log_entity.properties.share_code,
+        "prop_app_version": log_entity.properties.app_version,
         "ext": json.dumps(log_entity.ext) if log_entity.ext else "{}",
         "ext_productCode": (
             json.dumps(log_entity.ext.get("productCode", None))
