@@ -59,15 +59,28 @@ def event_ts_expr():
     )
 
 
+def platform_expr():
+    return (
+        "CASE "
+        "WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'H5' "
+        "WHEN LOWER(prop_os) = 'ios' THEN 'iOS' "
+        "WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android' "
+        "ELSE 'unknown' "
+        "END"
+    )
+
+
 def build_ads_daily_content_performance_select_query(dates):
     dates_str = dates_to_sql_list(dates)
     event_ts = event_ts_expr()
+    platform_case = platform_expr()
 
     return f"""
     WITH
     base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            {platform_case} AS platform,
             event_name,
             prop_user_id,
             prop_device_id,
@@ -83,6 +96,7 @@ def build_ads_daily_content_performance_select_query(dates):
     events AS (
         SELECT
             dt,
+            platform,
             event_name,
             COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
             raw_event_id,
@@ -103,38 +117,34 @@ def build_ads_daily_content_performance_select_query(dates):
             ) AS column_id
         FROM base
     ),
-    date_list AS (
-        SELECT DISTINCT dt
+    date_platform_list AS (
+        SELECT DISTINCT dt, platform
         FROM base
     ),
     dau_daily AS (
         SELECT
             dt,
+            platform,
             COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS dau_uv
         FROM events
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     platform_daily AS (
         SELECT
             dt,
+            platform,
             COUNT(DISTINCT IF(event_name IN ({HOME_EXPOSURE_EVENTS}), visitor_id, NULL)) AS platform_exposure_uv
         FROM events
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     exposure_daily AS (
         SELECT
             dt,
-            COUNT(DISTINCT IF(event_name IN ({POST_CONTENT_EXPOSURE_EVENTS}), visitor_id, NULL)) AS content_exposure_uv,
-            COUNT(DISTINCT IF(event_name IN ({POST_CONTENT_EXPOSURE_EVENTS}), hash_id, NULL)) AS content_exposure_pv,
-            COUNT(
-                DISTINCT IF(
-                    event_name IN ({COLUMN_EXPOSURE_EVENTS})
-                    AND visitor_id IS NOT NULL
-                    AND column_id IS NOT NULL,
-                    visitor_id,
-                    NULL
-                )
-            ) AS column_exposure_uv,
+            platform,
+            COUNT(DISTINCT IF(event_name IN ({POST_CONTENT_EXPOSURE_EVENTS}), visitor_id, NULL))
+                AS content_exposure_uv,
+            COUNT(DISTINCT IF(event_name IN ({POST_CONTENT_EXPOSURE_EVENTS}), hash_id, NULL))
+                AS content_exposure_pv,
             COUNT(
                 DISTINCT IF(
                     event_name IN ({COLUMN_EXPOSURE_EVENTS})
@@ -153,11 +163,12 @@ def build_ads_daily_content_performance_select_query(dates):
                 )
             ) AS column_follow_exposure_uv
         FROM events
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     action_events AS (
         SELECT
             dt,
+            platform,
             event_name,
             raw_event_id,
             ANY_VALUE(visitor_id) AS visitor_id,
@@ -165,11 +176,12 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM events
         WHERE raw_event_id IS NOT NULL
             AND event_name IN ('c_like', 'c_follow', 'c_tryon')
-        GROUP BY dt, event_name, raw_event_id
+        GROUP BY dt, platform, event_name, raw_event_id
     ),
     action_daily AS (
         SELECT
             dt,
+            platform,
             COUNTIF(event_name = 'c_like') AS like_total_count,
             COUNTIF(event_name = 'c_follow' AND column_id IS NOT NULL) AS follow_total_count,
             COUNT(
@@ -192,21 +204,23 @@ def build_ads_daily_content_performance_select_query(dates):
                 )
             ) AS follow_uv
         FROM action_events
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     read_daily AS (
         SELECT
             dt,
+            platform,
             COUNT(DISTINCT IF(event_name IN ({READ_EVENTS}) AND visitor_id IS NOT NULL, visitor_id, NULL)) AS read_uv
         FROM events
-        GROUP BY dt
+        GROUP BY dt, platform
     ),
     daily AS (
         SELECT
             d.dt,
+            d.platform,
             COALESCE(p.platform_exposure_uv, 0) AS platform_exposure_uv,
-            COALESCE(e.content_exposure_pv, 0) AS content_exposure_pv,
             COALESCE(e.content_exposure_uv, 0) AS content_exposure_uv,
+            COALESCE(e.content_exposure_pv, 0) AS content_exposure_pv,
             COALESCE(a.like_total_count, 0) AS like_total_count,
             COALESCE(a.like_uv, 0) AS like_uv,
             COALESCE(r.read_uv, 0) AS read_uv,
@@ -215,19 +229,21 @@ def build_ads_daily_content_performance_select_query(dates):
             COALESCE(a.follow_uv, 0) AS follow_uv,
             COALESCE(u.dau_uv, 0) AS dau_uv,
             COALESCE(a.tryon_total_count, 0) AS tryon_total_count,
-            COALESCE(e.column_exposure_uv, 0) AS column_exposure_uv,
             COALESCE(e.column_exposure_pv, 0) AS column_exposure_pv,
             COALESCE(e.column_follow_exposure_uv, 0) AS column_follow_exposure_uv
-        FROM date_list d
-        LEFT JOIN dau_daily u USING (dt)
-        LEFT JOIN platform_daily p USING (dt)
-        LEFT JOIN exposure_daily e USING (dt)
-        LEFT JOIN action_daily a USING (dt)
-        LEFT JOIN read_daily r USING (dt)
+        FROM date_platform_list d
+        LEFT JOIN dau_daily u USING (dt, platform)
+        LEFT JOIN platform_daily p USING (dt, platform)
+        LEFT JOIN exposure_daily e USING (dt, platform)
+        LEFT JOIN action_daily a USING (dt, platform)
+        LEFT JOIN read_daily r USING (dt, platform)
     )
     SELECT
         dt,
+        platform,
         platform_exposure_uv,
+        content_exposure_uv,
+        content_exposure_pv,
         CAST(CASE
             WHEN content_exposure_uv = 0 THEN 0
             ELSE ROUND(
@@ -236,6 +252,7 @@ def build_ads_daily_content_performance_select_query(dates):
             )
         END AS NUMERIC) AS avg_browse_content_count_per_user,
         like_total_count,
+        like_uv,
         CAST(CASE
             WHEN content_exposure_uv = 0 THEN 0
             ELSE ROUND(
@@ -243,6 +260,7 @@ def build_ads_daily_content_performance_select_query(dates):
                 4
             )
         END AS NUMERIC) AS like_rate,
+        read_uv,
         CAST(CASE
             WHEN content_exposure_uv = 0 THEN 0
             ELSE ROUND(
@@ -268,6 +286,7 @@ def build_ads_daily_content_performance_select_query(dates):
                 4
             )
         END AS NUMERIC) AS column_follow_rate,
+        column_follow_exposure_uv,
         CAST(CASE
             WHEN column_exposure_pv = 0 THEN 0
             ELSE ROUND(
@@ -276,6 +295,7 @@ def build_ads_daily_content_performance_select_query(dates):
             )
         END AS NUMERIC) AS read_follow_rate,
         tryon_total_count,
+        column_exposure_pv,
         CAST(CASE
             WHEN column_exposure_pv = 0 THEN 0
             ELSE ROUND(
@@ -290,11 +310,16 @@ def build_ads_daily_content_performance_select_query(dates):
 
 def run_ads_daily_content_performance(dates):
     """
-    平台整体内容表现日报（每日一行）:
+    平台整体内容表现日报（每日每平台一行）:
+    - platform: 设备类型（iOS / Android / H5 / unknown）
     - platform_exposure_uv: 平台曝光 UV（Home 曝光 UV）
+    - content_exposure_uv: 帖子内容曝光 UV
+    - content_exposure_pv: 帖子内容曝光 PV（历史仍按 hash_id 统计）
     - avg_browse_content_count_per_user: 人均帖子内容曝光数（进入帖子详情，历史字段名保留）
     - like_total_count: 点赞总数（点赞成功次数）
+    - like_uv: 点赞 UV
     - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
+    - read_uv: 完读 UV
     - read_rate: 完读率（阅读 UV / 帖子内容曝光 UV）
     - follow_total_count: 关注总数（关注专栏点击次数）
     - follow_column_count: 关注专栏个数（当天被关注过的去重专栏数）
@@ -302,8 +327,10 @@ def run_ads_daily_content_performance(dates):
     - dau_uv: 日活 UV（任意事件活跃 visitor_id）
     - follow_rate: 关注率（关注 UV / 日活 UV）
     - column_follow_rate: 专栏关注率（关注 UV / 指定专栏内容曝光 UV）
+    - column_follow_exposure_uv: 用于重算专栏关注率的专栏内容曝光 UV
     - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
     - tryon_total_count: 上身试穿总次数（开始试穿 PV）
+    - column_exposure_pv: 用于重算曝光试穿率的专栏曝光 PV
     - read_tryon_rate: 曝光试穿率（试穿 PV / 专栏曝光 PV，历史字段名保留）
     使用多伦多时间（America/Toronto）。
     """
@@ -315,11 +342,12 @@ def run_ads_daily_content_performance(dates):
     WHERE dt IN ({dates_str});
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
-    (dt, platform_exposure_uv, avg_browse_content_count_per_user,
-     like_total_count, like_rate, read_rate,
-     follow_total_count, follow_column_count, follow_uv, dau_uv,
-     follow_rate, column_follow_rate, read_follow_rate,
-     tryon_total_count, read_tryon_rate, update_time)
+    (dt, platform, platform_exposure_uv, content_exposure_uv, content_exposure_pv,
+     avg_browse_content_count_per_user, like_total_count, like_uv, like_rate,
+     read_uv, read_rate, follow_total_count, follow_column_count, follow_uv,
+     dau_uv, follow_rate, column_follow_rate, column_follow_exposure_uv,
+     read_follow_rate, tryon_total_count, column_exposure_pv,
+     read_tryon_rate, update_time)
     {select_query};
     """
     logging.info("开始处理: ads_daily_content_performance")

@@ -3,32 +3,39 @@
 ## 报表
 
 - 表：`ads_daily_content_performance`
-- 粒度：`dt`
+- 粒度：`dt + platform`
 - Dashboard：[【AI-Fashion】平台整体内容表现](https://bi.alvinclub.ca/superset/dashboard/91/)（id=91）
 
 ## 字段
 
 | 字段 | 口径 |
 |------|------|
+| platform | 设备类型；`prop_url` 非空记为 `H5`，`LOWER(prop_os) = 'ios'` 记为 `iOS`，`LOWER(prop_os) IN ('android', 'harmony')` 记为 `Android`，其余为 `unknown` |
 | platform_exposure_uv | Home 曝光 UV；事件：`v_home_star`, `v_home_magazine`, `v_home_brand`, `v_home_feeds` |
-| avg_browse_content_count_per_user | 帖子详情曝光次数 / 帖子内容曝光 UV；不包含 `v_product_detail` |
+| content_exposure_uv | 帖子内容曝光 UV；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail` |
+| content_exposure_pv | 帖子内容曝光 PV；事件同 `content_exposure_uv`；当前按 `hash_id` 去重 |
+| avg_browse_content_count_per_user | `content_exposure_pv / content_exposure_uv` |
 | like_total_count | 点赞成功次数（PV）；事件：`c_like` |
-| like_rate | 点赞 UV / 帖子内容曝光 UV |
-| read_rate | 阅读 UV / 帖子内容曝光 UV；阅读事件：`r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail` |
+| like_uv | 点赞 UV；事件：`c_like` |
+| like_rate | `like_uv / content_exposure_uv` |
+| read_uv | 阅读 UV；阅读事件：`r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail` |
+| read_rate | `read_uv / content_exposure_uv` |
 | follow_total_count（报表中已取消） | 关注专栏点击次数（PV）；事件：`c_follow`；按 `raw_event_id` 去重且需能识别 `column_id` |
 | follow_column_count | 关注专栏个数；当天被关注过的去重专栏数；事件：`c_follow`；按 `raw_event_id` 去重后对 `column_id` 去重 |
 | follow_uv | 关注专栏 UV；`c_follow` 去重访客数，且需能识别 `column_id` |
 | dau_uv | 当天日活 UV；任意事件活跃的 `COUNT(DISTINCT visitor_id)` |
 | follow_rate | `follow_uv / dau_uv` |
-| column_follow_rate | 专栏关注率；`follow_uv / 专栏内容曝光 UV`；分母事件：`v_kol_post_feeds`, `v_kol_post_detail`, `v_star_post_feeds`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_feeds`, `v_brand_post_detail` |
+| column_follow_exposure_uv | 可参与专栏关注率重算的专栏内容曝光 UV；事件：`v_kol_post_feeds`, `v_kol_post_detail`, `v_star_post_feeds`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_feeds`, `v_brand_post_detail` |
+| column_follow_rate | 专栏关注率；`follow_uv / column_follow_exposure_uv` |
 | read_follow_rate（报表中已取消） | 关注次数 / 专栏曝光次数；历史字段名保留 |
 | tryon_total_count | 试穿总次数（PV）；事件：`c_tryon` |
-| read_tryon_rate | 试穿 PV / 专栏曝光 PV；历史字段名保留 |
+| column_exposure_pv | 专栏曝光 PV；用于重算曝光试穿率；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`, `v_star_post_feeds`, `v_brand_post_feeds` |
+| read_tryon_rate | `tryon_total_count / column_exposure_pv`；历史字段名保留 |
 
 补充说明：
-- 帖子内容曝光事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`
-- 专栏曝光事件：上述明细页 + `v_star_post_feeds`, `v_brand_post_feeds`
 - 访客去重：`visitor_id = COALESCE(prop_user_id, prop_device_id)`
+- `follow_rate` 保持 `follow_uv / dau_uv`，不与 `column_follow_rate` 混用
+- 该表升级为 `dt + platform` 后，跨平台汇总时 UV / 去重类指标与旧版 `dt` 总览不完全一致；率类指标应以分子分母重新聚合，不直接 `AVG`
 
 ## 依赖
 

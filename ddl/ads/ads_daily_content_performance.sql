@@ -30,3 +30,24 @@ ADD COLUMN IF NOT EXISTS column_follow_rate NUMERIC;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
 ADD COLUMN IF NOT EXISTS follow_column_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS platform STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS content_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS content_exposure_pv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS like_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS read_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS column_exposure_pv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS column_follow_exposure_uv INT64;
