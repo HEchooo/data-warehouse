@@ -47,3 +47,6 @@ ADD COLUMN args_session_duration NUMERIC;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ods_event_log`
 ADD COLUMN prop_timezone STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ods_event_log`
+ADD COLUMN prop_app_version STRING;
