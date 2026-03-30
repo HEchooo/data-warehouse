@@ -82,6 +82,7 @@ TEMP_DWD_EVENT_LOG_SCHEMA = [
     bigquery.SchemaField("prop_app_type", "STRING"),
     bigquery.SchemaField("prop_ua", "STRING"),
     bigquery.SchemaField("prop_timezone", "STRING"),
+    bigquery.SchemaField("prop_app_version", "STRING"),
     bigquery.SchemaField("raw_event_id", "STRING"),
     bigquery.SchemaField("ext", "STRING"),
     bigquery.SchemaField("ext_productCode", "STRING"),
@@ -141,6 +142,7 @@ SELECT
     CAST(dtl.prop_app_type AS STRING) AS prop_app_type,
     CAST(dtl.prop_ua AS STRING) AS prop_ua,
     CAST(dtl.prop_timezone AS STRING) AS prop_timezone,
+    CAST(dtl.prop_app_version AS STRING) AS prop_app_version,
     dtl.ext,
     TO_JSON_STRING(dtl.ext_productCode) AS ext_productCode,
     dtl.args,
@@ -472,6 +474,7 @@ def transform_data(query: str) -> pd.DataFrame:
                     "prop_app_type": row.prop_app_type,
                     "prop_ua": row.prop_ua,
                     "prop_timezone": row.prop_timezone,
+                    "prop_app_version": row.prop_app_version,
                     "raw_event_id": cached_raw_event_id,
                     "ext": cached_ext,  # 使用缓存的JSON字段
                     "ext_productCode": row.ext_productCode,
@@ -551,6 +554,7 @@ def transform_data(query: str) -> pd.DataFrame:
                 "prop_app_type": row.prop_app_type,
                 "prop_ua": row.prop_ua,
                 "prop_timezone": row.prop_timezone,
+                "prop_app_version": row.prop_app_version,
                 "raw_event_id": generate_raw_event_id(row),
                 "ext": safe_json_stringify(row.ext),
                 "ext_productCode": row.ext_productCode,
@@ -803,7 +807,7 @@ try:
     insert_query = f"""
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.{target_table}`
     (hash_id, event_name, logAt_timestamp, session_id, prop_device_id, prop_user_id,
-     prop_os, prop_url, prop_params, prop_app_type, prop_ua, prop_timezone, raw_event_id, ext, ext_productCode,
+     prop_os, prop_url, prop_params, prop_app_type, prop_ua, prop_timezone, prop_app_version, raw_event_id, ext, ext_productCode,
      product_code, post_code, args, args_title, args_page_key, args_session_duration, args_href, args_from, args_module, args_spu,
      oss_create_at, oss_key, tenant_code, prop_share_code, invite_user_id, country, update_time,
      prop_version_type, args_star, args_magazine, args_brand, args_post, args_topic,
@@ -816,6 +820,11 @@ try:
             WHEN CAST(prop_timezone AS STRING) IN ('NaN', 'nan') THEN NULL
             ELSE CAST(prop_timezone AS STRING)
         END AS prop_timezone,
+        CASE
+            WHEN prop_app_version IS NULL THEN NULL
+            WHEN CAST(prop_app_version AS STRING) IN ('NaN', 'nan') THEN NULL
+            ELSE CAST(prop_app_version AS STRING)
+        END AS prop_app_version,
         raw_event_id,
         PARSE_JSON(ext) as ext,
         ext_productCode,
