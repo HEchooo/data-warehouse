@@ -50,3 +50,15 @@
 - 如果分子仍取 `SUM(session_duration_sec)`，但分母用全量 `COUNT(DISTINCT prop_device_id)`，就会把 `h5` 设备算进来，系统性压低“人均停留时长”
 - 正确口径应为：`SUM(session_duration_sec) / COUNT(DISTINCT IF(platform != 'h5', prop_device_id, NULL))`
 - 这类问题要先区分“展示层实时修正”和“ADS 历史分区修正”：chart 可直接按 `dws_device_daily` 重算口径；`ads_daily_investor` 的历史数据若要同步，必须先确认回填后再改生产数据
+
+## Lark 日报推送不能直接挂在 `ads_daily.py` 的高频成功回调上
+
+- 当前远程服务器会高频执行主 ETL；如果把机器人推送直接挂在 `jobs/ads/ads_daily.py` 成功后，会在同一天重复发多次
+- 投资人报表机器人需求是“每天只推一次”，应拆成独立脚本和独立 cron，而不是复用主链路触发频率
+- 推送查询的 `dt` 也不能按上海自然日昨天理解，必须按 `America/Toronto` 的昨天取数
+
+## 上海固定 12 点不一定等于多伦多昨天已经结束
+
+- `America/Toronto` 有夏令时，和上海的时差不是全年固定 12 小时
+- 冬令时下，上海 `12:00` 时多伦多前一自然日可能还没有结束，直接推会拿到未成熟数据
+- 如果用固定上海时刻发“多伦多昨天”日报，建议把 cron 放到上海 `13:00` 之后，再叠加你们实际 ETL 完成时间留缓冲

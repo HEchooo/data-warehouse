@@ -5,6 +5,7 @@
 - 表：`ads_daily_investor`
 - 粒度：`dt`
 - Dashboard：[投资人报表【核心业务报表】](https://bi.alvinclub.ca/superset/dashboard/101/)（id=101）
+- Lark 推送：独立脚本 `jobs/ads/ads_daily_investor_lark_push.py`，每日推送 `America/Toronto` 昨日一行明细数据；卡片附 dashboard 链接和数据口径 wiki 链接
 
 ### `dws_appsflyer_download_daily`
 
@@ -73,15 +74,20 @@
 - `dwd_event_log` 已提前展开 `args_spu` / `args_post`；同一原始事件若带多个 item，需要按 `raw_event_id + item_key` 统计，而不是只按 `raw_event_id`
 - 内容展示量的 feeds 事件只包含 item 级曝光：`v_home_feeds`, `v_shop_feeds`, `v_star_post_feeds`, `v_brand_post_feeds`, `v_kol_post_feeds`；不包含 `v_home_star`, `v_home_magazine`, `v_home_brand` 这类 module 曝光
 - 留存口径中的“注册用户”指 `prop_user_id` 非空且当日活跃的用户，不是 `is_new_user = TRUE` 的新增注册用户
+- Lark 推送不挂在 `jobs/ads/ads_daily.py` 成功回调上；当前远程服务器高频运行该主链路，若直接复用会重复发送
+- Lark 推送脚本默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的一行明细数据
+- Lark 卡片展示核心明细指标，不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
+- 推送时间若按上海固定时刻配置，需要考虑 `America/Toronto` 夏令时；要稳定拿到多伦多昨日完整数据，建议独立 cron 配到上海 `13:00` 之后
 
 ## 依赖
 
 - 外部来源：AppsFlyer Aggregate Pull API `daily_report/v5`
 - 配置：`env/appsflyer.json`
+- 配置：`env/lark_webhook.json`
 - 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `decom.dwd_event_log`, `decom.ods_appsflyer_download`
 - 中间表：`decom.dws_video_daily`, `decom.dws_appsflyer_download_daily`, `decom.dws_device_daily`, `decom.dws_user_daily`, `decom.dws_content_item_device_daily`
 - 报表表：`decom.ads_daily_investor`
 - Superset：物理 dataset `ads_daily_investor`（id=228），chart `投资人报表（日表）-明细表`（id=574）
-- 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_daily.py`, `jobs/ads/ads_daily_investor.py`
+- 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_daily.py`, `jobs/ads/ads_daily_investor.py`, `jobs/ads/ads_daily_investor_lark_push.py`
 - DDL：`ddl/ods/ods_appsflyer_download.sql`, `ddl/dws/dws_video_daily.sql`, `ddl/dws/dws_appsflyer_download_daily.sql`, `ddl/dws/dws_device_daily.sql`, `ddl/dws/dws_user_daily.sql`, `ddl/dws/dws_content_item_device_daily.sql`, `ddl/dwd/dwd_event_log.sql`, `ddl/ads/ads_daily_investor.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`, `jobs/dws/dws_daily.py`, `jobs/ads/ads_daily.py`
