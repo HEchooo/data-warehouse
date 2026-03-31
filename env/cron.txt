@@ -1,0 +1,3 @@
+# -------------------- ai-fashion定时任务 --------------------
+10,40 * * * * PATH_MODE_OVERRIDE=remote /usr/local/bin/python3.12 /home/echooo/sinn_project/data-warehouse/etl_run.py
+0 6 * * * cd /home/echooo/sinn_project/data-warehouse && PATH_MODE_OVERRIDE=remote /usr/local/bin/python3.12 jobs/ads/ads_daily_investor_lark_push.py >> /home/echooo/sinn_project/data-warehouse/logs/ads_daily_investor_lark_push.log 2>&1
