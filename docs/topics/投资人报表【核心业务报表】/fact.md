@@ -61,6 +61,7 @@
 | 视频平均下载转化数 | `decom.ads_daily_investor` | `avg_video_download_conversion_count` | `new_download_count / active_video_count` |
 
 补充说明：
+- 投资人报表里的视频相关指标当前复用 `decom.dws_video_daily`；其中 YouTube 需按 `docs/rules/video-mapping.md` 排除测试账号 `channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
 - 各渠道 `views / view_count` 为累计值，不是日增值
 - 每个视频每天取 `max(collected_at)` 对应的累计播放值，作为该视频该日的日末累计播放数
 - 某视频某日播放增量 = `当日日末累计播放数 - 前一日日末累计播放数`

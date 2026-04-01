@@ -12,6 +12,8 @@
 `videos.yt_video_analytics_log.views`
 ### 连接条件
 `videos.yt_videos.video_id = videos.yt_video_analytics_log.video_id`
+### 排除测试账号(上述两个表都有该字段)
+`channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
 
 ## tiktok
 

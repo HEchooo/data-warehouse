@@ -13,11 +13,19 @@ DATASET_ID = "decom"
 VIDEO_SOURCE_DATASET_ID = "videos"
 TORONTO_TZ = "America/Toronto"
 VIDEO_REBUILD_DAYS = 30
+YOUTUBE_TEST_CHANNEL_IDS = [
+    "UCynAg7WHdiy8SuQpESO__yw",
+    "UCgBJozWjiE0cqwv7UNalyog",
+]
 client = bigquery.Client(project=PROJECT_ID)
 
 
 def dates_to_sql_list(dates):
     return ", ".join([f"'{d}'" for d in dates])
+
+
+def strings_to_sql_list(values):
+    return ", ".join([f"'{value}'" for value in values])
 
 
 def get_video_dates_to_process(rebuild_days=VIDEO_REBUILD_DAYS):
@@ -45,6 +53,7 @@ def run_dws_video_daily(dates):
     dates_str = dates_to_sql_list(dates)
     min_date = min(dates)
     max_date = max(dates)
+    youtube_test_channel_ids_sql = strings_to_sql_list(YOUTUBE_TEST_CHANNEL_IDS)
 
     query = f"""
     DELETE FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily`
@@ -85,6 +94,7 @@ def run_dws_video_daily(dates):
                 CONCAT('youtube:', CAST(video_id AS STRING)) AS video_key,
                 DATE(TIMESTAMP(published_at, 'UTC'), '{TORONTO_TZ}') AS published_dt
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
+            WHERE channel_id NOT IN ({youtube_test_channel_ids_sql})
 
             UNION ALL
 
@@ -123,6 +133,7 @@ def run_dws_video_daily(dates):
                 TIMESTAMP(collected_at, 'UTC') AS collected_ts_utc,
                 SAFE_CAST(views AS INT64) AS cum_views
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_video_analytics_log`
+            WHERE channel_id NOT IN ({youtube_test_channel_ids_sql})
 
             UNION ALL
 

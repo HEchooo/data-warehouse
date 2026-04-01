@@ -1,5 +1,12 @@
 # 投资人报表踩坑记录
 
+## 视频相关指标要先排除 YouTube 测试账号
+
+- 投资人报表里的 `新增视频`、`活跃视频数`、`新增视频播放数` 都直接复用 `dws_video_daily`
+- `docs/rules/video-mapping.md` 已明确 YouTube 需要排除测试账号 `channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
+- 这类过滤不能只加在 `yt_videos` 或只加在 `yt_video_analytics_log` 单边；要同时过滤视频维表和播放快照源表
+- 如果只过滤单边，会出现维表被排除但快照仍参与计算，或快照被排除但维表仍进入 spine，最终让 `dws_video_daily` 和投资人报表的视频指标口径不一致
+
 - 视频播放相关源表的 `views / view_count` 是累计值，不是日增值；日报不能直接按当天采集值汇总。
 - 正确口径是先按 `America/Toronto` 切天，再取每个视频当天 `max(collected_at)` 对应的日末累计值，最后与前一日日末累计值做差。
 - 如果某视频次日没有采集记录，次日的日末累计值要沿用前一日，否则会把“无采集”误算成负增量或漏算。
