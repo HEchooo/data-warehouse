@@ -13,6 +13,8 @@
 `videos.yt_video_analytics_log.likes`
 ### 连接条件
 `videos.yt_videos.video_id = videos.yt_video_analytics_log.video_id`
+### 平均观看比例
+`videos.yt_video_analytics_log.avg_view_percentage`
 ### 渠道 
 `channel_id`
 #### 渠道分为video部门渠道和jhonson部门渠道
