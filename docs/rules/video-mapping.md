@@ -12,11 +12,14 @@
 `videos.yt_video_analytics_log.views`
 ### 连接条件
 `videos.yt_videos.video_id = videos.yt_video_analytics_log.video_id`
-## 渠道分为video部门渠道和jhonson部门渠道
-### video 部门测试账号
+### 渠道 
+`channel_id`
+#### 渠道分为video部门渠道和jhonson部门渠道
+#### video 部门测试渠道
 `channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
-### video 部门内部channel
+#### video 部门内部渠道
 `channel_id IN ('UC4rj_IlO3V-d5ebVhgagh1w','UC70Y2-yeuFOoTx6yNkqioKA','UCiX5DzRDNIb9fH_MQvoIN7w','UCLs3oc5eyptqVTEnXaIwHvQ','UCPAQ09Nusb_OZzwfWGAE_Aw','UCV5FBW_l8cayS8L_zAIvlkQ','UCVsLt_8hbY5nG5da8sslD_w','UCzIQMkLCHa63JekjxaA133w')`
+
 
 ## tiktok
 
@@ -28,6 +31,9 @@
 `videos.video_stats_log.view_count`
 ### 连接条件
 `videos.id = videos.video_stats_log.video_id`
+#### 博主
+`user_id`
+
 
 ## ins
 
@@ -39,3 +45,5 @@
 `videos.ig_media_stats_log.view_count`
 ### 连接条件
 `videos.ig_media.media_id = videos.ig_media_stats_log.media_id`
+### 博主
+`account_id`
