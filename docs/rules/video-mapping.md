@@ -6,10 +6,11 @@
 
 ### 发布时间
 `videos.yt_videos.published_at`
-### 每日每个视频观看次数
+### 每日每个视频观看次数和点赞次数
 `videos.yt_video_analytics_log.collected_at`
 `videos.yt_video_analytics_log.video_id`
 `videos.yt_video_analytics_log.views`
+`videos.yt_video_analytics_log.likes`
 ### 连接条件
 `videos.yt_videos.video_id = videos.yt_video_analytics_log.video_id`
 ### 渠道 
@@ -25,10 +26,11 @@
 
 ### 发布时间
 `videos.videos.create_time`(这个是时间戳，要转为时间)
-### 每日每个视频观看次数
+### 每日每个视频观看次数和点赞次数
 `videos.video_stats_log.collected_at`
 `videos.video_stats_log.video_id`
 `videos.video_stats_log.view_count`
+`videos.video_stats_log.like_count`
 ### 连接条件
 `videos.id = videos.video_stats_log.video_id`
 #### 博主
@@ -43,6 +45,7 @@
 `videos.ig_media_stats_log.collected_at`
 `videos.ig_media_stats_log.media_id`
 `videos.ig_media_stats_log.view_count`
+`videos.ig_media_stats_log.like_count`
 ### 连接条件
 `videos.ig_media.media_id = videos.ig_media_stats_log.media_id`
 ### 博主
