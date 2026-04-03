@@ -13,7 +13,7 @@
 `videos.yt_video_analytics_log.likes`
 ### 连接条件
 `videos.yt_videos.video_id = videos.yt_video_analytics_log.video_id`
-### 平均观看比例
+### 完播比
 `videos.yt_video_analytics_log.avg_view_percentage`
 ### 渠道 
 `channel_id`
@@ -35,6 +35,8 @@
 `videos.video_stats_log.like_count`
 ### 连接条件
 `videos.id = videos.video_stats_log.video_id`
+### 完播比
+`视频平均观看时长（服务端还没提供字段）/ videos.videos.duration`
 #### 博主
 `user_id`
 
@@ -50,5 +52,7 @@
 `videos.ig_media_stats_log.like_count`
 ### 连接条件
 `videos.ig_media.media_id = videos.ig_media_stats_log.media_id`
+### 完播比
+`ig_media_stats_log.avg_watch_time / 视频时长（服务端还没提供字段）`
 ### 博主
 `account_id`
