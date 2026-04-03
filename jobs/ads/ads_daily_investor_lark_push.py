@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from google.cloud import bigquery
 import requests
@@ -150,6 +150,15 @@ def format_decimal(value, scale: int = 2) -> str:
     return f"{float(value):,.{scale}f}"
 
 
+def format_rounded_int(value) -> str:
+    if value is None:
+        return "--"
+    rounded_value = Decimal(str(value)).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    )
+    return f"{int(rounded_value):,}"
+
+
 def format_percent(value, scale: int = 2) -> str:
     if value is None:
         return "--"
@@ -174,10 +183,10 @@ def build_card_payload(row: dict) -> dict:
             f"**新增视频**：{format_int(row['new_video_count'])}",
             f"**活跃视频数**：{format_int(row['active_video_count'])}",
             f"**新增视频播放数**：{format_int(row['new_video_view_count'])}",
-            f"**视频平均播放数**：{format_decimal(row['avg_video_view_count'])}",
+            f"**视频平均播放数**：{format_rounded_int(row['avg_video_view_count'])}",
             (
                 "**新增视频平均播放数**："
-                f"{format_decimal(row['avg_new_video_view_count'])}"
+                f"{format_rounded_int(row['avg_new_video_view_count'])}"
             ),
         ]
     )

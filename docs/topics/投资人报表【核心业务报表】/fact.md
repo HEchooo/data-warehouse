@@ -82,6 +82,7 @@
 - Lark 推送不挂在 `jobs/ads/ads_daily.py` 成功回调上；当前远程服务器高频运行该主链路，若直接复用会重复发送
 - Lark 推送脚本默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的一行明细数据
 - Lark 卡片展示核心明细指标，不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
+- Lark 卡片中的“视频平均播放数”“新增视频平均播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
 - 推送时间若按上海固定时刻配置，需要考虑 `America/Toronto` 夏令时；要稳定拿到多伦多昨日完整数据，建议独立 cron 配到上海 `13:00` 之后
 
 ## 依赖
