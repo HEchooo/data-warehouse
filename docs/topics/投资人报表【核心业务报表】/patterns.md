@@ -50,6 +50,13 @@
 - 如果写成 `SUM(IF(is_new_video, daily_view_increment, 0))`，会把分母错误收缩到“新增视频”，在 `is_new_video` 异常时进一步把播放增量也算成 `0`
 - 正确做法是按 `SUM(daily_view_increment)` 汇总，再基于该值计算平均播放数和播放下载转化率
 
+## 新增视频平均播放数分子不能复用“新增视频播放数”
+
+- “新增视频平均播放数”要看的不是当日全量视频新增了多少播放，而是新增视频首次被采到正播放量时，已经累计拿到了多少播放
+- 因此分子不能复用 `SUM(daily_view_increment)`，也不能写成 `SUM(IF(is_new_video, daily_view_increment, 0))`
+- 正确做法是仅在 `is_new_video = TRUE` 的当天取该视频的 `raw_day_end_views`，再按 `dt` 汇总后除以 `new_video_count`
+- 如果误用“新增视频播放数”做分子，结果会变成“全量视频日增播放 / 新增视频数”，口径和“新增视频带来的播放”不是一回事
+
 ## 人均停留时长分母不能包含 `h5`
 
 - `dws_device_daily` 会把活跃设备按 `platform` 落成 `iOS / Android / h5 / unknown`

@@ -25,7 +25,9 @@
 | 新增视频 | 某视频第一次被采集到且播放量大于 0 的那一天计为新增，后续日期不重复计数 |
 | 活跃视频数 | 当天有播放的视频数量 |
 | 新增视频播放数 | 当天新增播放次数 |
+| 新增视频产生的播放数 | 当天新增视频在首次被采到正播放量时，对应的累计播放数之和 |
 | 视频平均播放数 | 新增视频播放数 / 活跃视频数 |
+| 新增视频平均播放数 | 新增视频产生的播放数 / 新增视频 |
 | 新增下载 | 当日新增的下载数 |
 | 播放下载转化率 | 新增下载 / 新增视频播放数 |
 | 视频平均下载转化数 | 新增下载 / 活跃视频数量 |
@@ -46,7 +48,9 @@
 | 新增视频 | `decom.dws_video_daily` | `is_new_video` 聚合 | 按 `video_key` 全历史实际采集日中最早满足 `raw_day_end_views > 0` 的 `dt` 记为新增日；当日 `is_new_video = TRUE`，后续日期不重复计数 |
 | 活跃视频数 | `decom.dws_video_daily` | `is_active_video` 聚合 | `dt` 当天播放增量 `> 0` 的视频数 |
 | 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt` |
+| 新增视频产生的播放数 | `decom.dws_video_daily` | `new_video_contributed_view_count` 聚合 | 仅在 `is_new_video = TRUE` 的那天取该视频 `raw_day_end_views`，其余日期记 `0`；按 `dt` 汇总得到当日新增视频在首次正播放采集日对应的累计播放数之和 |
 | 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量 |
+| 新增视频平均播放数 | `decom.ads_daily_investor` | `avg_new_video_view_count` | `new_video_contributed_view_count / new_video_count`；其中分子不是“当天全量视频新增播放次数”，而是新增视频在首次正播放采集日对应的累计播放数 |
 | 新增下载 | `decom.dws_appsflyer_download_daily` | `new_download_count` | AppsFlyer `install` 口径的 iOS + Android 当日新增下载总数，按 `America/Toronto` 切天 |
 | 新增设备数 | `decom.ads_daily_investor` | `new_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT IF(is_new_device, prop_device_id, NULL))` 计算 |
 | 活跃设备数 | `decom.ads_daily_investor` | `active_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT prop_device_id)` 计算 |
@@ -66,6 +70,7 @@
 - 每个视频每天取 `max(collected_at)` 对应的累计播放值，作为该视频该日的日末累计播放数
 - 某视频某日播放增量 = `当日日末累计播放数 - 前一日日末累计播放数`
 - 若某视频次日没有采集记录，则次日的日末累计播放数沿用前一日，次日播放增量记为 `0`
+- 新增视频产生的播放数取 `is_new_video = TRUE` 当天的 `raw_day_end_views`，表示该视频首次被采到正播放量时已经累计拿到的播放数，不等于该日全量视频播放增量
 - AppsFlyer `daily_report/v5` 返回值按 `date + media source + campaign` 分组，同一天需先汇总 `Installs`
 - `ods_appsflyer_download` 需保留完整原始行，当前通过 `raw_row_json` 存储 AppsFlyer 每行返回字段
 - 投资人主题最终 ADS 粒度仍为 `dt`；复用 `dws_device_daily` / `dws_user_daily` 时，设备数和用户数要按 `id` 去重后再汇总，不能直接相加各 `platform`

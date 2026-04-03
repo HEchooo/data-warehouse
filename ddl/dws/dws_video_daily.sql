@@ -16,3 +16,6 @@ PARTITION BY
     dt
 CLUSTER BY
     channel, video_key;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_video_daily`
+ADD COLUMN IF NOT EXISTS new_video_contributed_view_count INT64;

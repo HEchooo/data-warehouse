@@ -21,6 +21,7 @@ def run_ads_daily_investor(dates: list[date]):
     """
     投资人主题日报（dt 一行）:
     - 视频侧指标直接复用 dws_video_daily，其中新增视频播放数按当天全量视频播放增量汇总
+    - 新增视频平均播放数按新增视频在首次正播放采集日的累计播放数 / 新增视频数计算
     - 新增下载直接复用 dws_appsflyer_download_daily
     - 设备/注册用户/时长直接复用 dws_device_daily / dws_user_daily
     - 人均停留时长分母排除 h5 设备，因为 h5 没有 session_duration 埋点
@@ -43,7 +44,9 @@ def run_ads_daily_investor(dates: list[date]):
         new_video_count,
         active_video_count,
         new_video_view_count,
+        new_video_contributed_view_count,
         avg_video_view_count,
+        avg_new_video_view_count,
         new_download_count,
         play_download_conversion_rate,
         avg_video_download_conversion_count,
@@ -59,20 +62,25 @@ def run_ads_daily_investor(dates: list[date]):
         update_time
     )
     WITH
+    -- 生成本次待刷的日期清单。
     date_list AS (
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
+    -- 汇总视频相关指标，区分全量日增播放与新增视频贡献播放。
     video_metrics AS (
         SELECT
             dt,
             COUNT(DISTINCT IF(is_new_video, video_key, NULL)) AS new_video_count,
             COUNT(DISTINCT IF(is_active_video, video_key, NULL)) AS active_video_count,
-            COALESCE(SUM(daily_view_increment), 0) AS new_video_view_count
+            COALESCE(SUM(daily_view_increment), 0) AS new_video_view_count,
+            COALESCE(SUM(new_video_contributed_view_count), 0)
+                AS new_video_contributed_view_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily`
         WHERE dt IN ({dates_str})
         GROUP BY dt
     ),
+    -- 汇总当日新增下载数。
     download_metrics AS (
         SELECT
             dt,
@@ -81,6 +89,7 @@ def run_ads_daily_investor(dates: list[date]):
         WHERE dt IN ({dates_str})
         GROUP BY dt
     ),
+    -- 汇总设备规模及停留时长分子分母。
     device_metrics AS (
         SELECT
             dt,
@@ -92,6 +101,7 @@ def run_ads_daily_investor(dates: list[date]):
         WHERE dt IN ({dates_str})
         GROUP BY dt
     ),
+    -- 汇总内容曝光与点击量。
     content_metrics AS (
         SELECT
             dt,
@@ -101,6 +111,7 @@ def run_ads_daily_investor(dates: list[date]):
         WHERE dt IN ({dates_str})
         GROUP BY dt
     ),
+    -- 准备留存口径所需的活跃注册用户明细。
     active_users AS (
         SELECT
             dt,
@@ -112,6 +123,7 @@ def run_ads_daily_investor(dates: list[date]):
         )
         GROUP BY dt, prop_user_id
     ),
+    -- 计算 1 日和 7 日留存的分子分母。
     retention_metrics AS (
         SELECT
             d.dt,
@@ -134,6 +146,8 @@ def run_ads_daily_investor(dates: list[date]):
         COALESCE(v.new_video_count, 0) AS new_video_count,
         COALESCE(v.active_video_count, 0) AS active_video_count,
         COALESCE(v.new_video_view_count, 0) AS new_video_view_count,
+        COALESCE(v.new_video_contributed_view_count, 0)
+            AS new_video_contributed_view_count,
         CAST(CASE
             WHEN COALESCE(v.active_video_count, 0) = 0 THEN 0
             ELSE ROUND(
@@ -142,6 +156,14 @@ def run_ads_daily_investor(dates: list[date]):
                 4
             )
         END AS NUMERIC) AS avg_video_view_count,
+        CAST(CASE
+            WHEN COALESCE(v.new_video_count, 0) = 0 THEN 0
+            ELSE ROUND(
+                CAST(COALESCE(v.new_video_contributed_view_count, 0) AS NUMERIC)
+                / CAST(v.new_video_count AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS avg_new_video_view_count,
         COALESCE(dl.new_download_count, 0) AS new_download_count,
         CAST(CASE
             WHEN COALESCE(v.new_video_view_count, 0) = 0 THEN 0

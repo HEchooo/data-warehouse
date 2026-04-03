@@ -72,15 +72,18 @@ def run_dws_video_daily(dates):
         has_snapshot,
         is_active_video,
         is_new_video,
+        new_video_contributed_view_count,
         update_time
     )
     WITH
+    -- 定义本次重刷窗口及其种子日期。
     params AS (
         SELECT
             DATE('{min_date}') AS min_dt,
             DATE('{max_date}') AS max_dt,
             DATE_SUB(DATE('{min_date}'), INTERVAL 1 DAY) AS seed_dt
     ),
+    -- 统一三端视频维表，并按多伦多时区取发布日期。
     video_dim AS (
         SELECT
             channel,
@@ -117,6 +120,7 @@ def run_dws_video_daily(dates):
         WHERE published_dt IS NOT NULL
             AND published_dt <= (SELECT max_dt FROM params)
     ),
+    -- 统一三端播放快照，并按多伦多时区切天。
     video_snapshot AS (
         SELECT
             channel,
@@ -159,6 +163,7 @@ def run_dws_video_daily(dates):
             AND cum_views IS NOT NULL
             AND DATE(collected_ts_utc, '{TORONTO_TZ}') <= (SELECT max_dt FROM params)
     ),
+    -- 取每个视频每天最后一次采集到的累计播放值。
     daily_latest AS (
         SELECT
             video_key,
@@ -177,6 +182,7 @@ def run_dws_video_daily(dates):
         )
         WHERE rn = 1
     ),
+    -- 识别每个视频首次被采到正播放量的日期。
     first_positive_snapshot AS (
         SELECT
             video_key,
@@ -185,6 +191,7 @@ def run_dws_video_daily(dates):
         WHERE raw_day_end_views > 0
         GROUP BY video_key
     ),
+    -- 为重刷窗口准备前一日种子累计播放值，保证缺采时能向前填充。
     seed_snapshot AS (
         SELECT
             video_key,
@@ -202,6 +209,7 @@ def run_dws_video_daily(dates):
         )
         WHERE rn = 1
     ),
+    -- 仅保留本次窗口真正相关的视频，避免无关历史视频进入 spine。
     relevant_videos AS (
         SELECT
             v.channel,
@@ -218,6 +226,7 @@ def run_dws_video_daily(dates):
                     AND s.dt >= (SELECT seed_dt FROM params)
             )
     ),
+    -- 为相关视频生成按天连续的日期骨架。
     date_spine AS (
         SELECT
             v.channel,
@@ -233,6 +242,7 @@ def run_dws_video_daily(dates):
             )
         ) AS dt
     ),
+    -- 把每日快照挂到日期骨架上，并为种子日补齐窗口前累计值。
     spine_with_snapshot AS (
         SELECT
             s.dt,
@@ -254,6 +264,7 @@ def run_dws_video_daily(dates):
         LEFT JOIN seed_snapshot ss
             ON s.video_key = ss.video_key
     ),
+    -- 对缺采日期沿用前一日累计播放值，得到连续日末累计值。
     filled_daily AS (
         SELECT
             dt,
@@ -273,6 +284,7 @@ def run_dws_video_daily(dates):
             has_snapshot
         FROM spine_with_snapshot
     ),
+    -- 计算每个视频每天的播放增量。
     final AS (
         SELECT
             dt,
@@ -301,6 +313,11 @@ def run_dws_video_daily(dates):
         f.has_snapshot,
         (f.daily_view_increment > 0) AS is_active_video,
         (fps.first_positive_view_dt = f.dt) AS is_new_video,
+        CASE
+            WHEN fps.first_positive_view_dt = f.dt
+            THEN COALESCE(f.raw_day_end_views, 0)
+            ELSE 0
+        END AS new_video_contributed_view_count,
         CURRENT_TIMESTAMP() AS update_time
     FROM final f
     LEFT JOIN first_positive_snapshot fps
