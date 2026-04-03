@@ -1,0 +1,79 @@
+# 【Social Content】社媒表现数据看板
+
+## 报表
+
+### 中间表：`dws_social_video_daily`
+
+- 表：`decom.dws_social_video_daily`
+- 粒度：`dt + channel + creator_id + video_key`
+- 作用：承接社媒视频从发布时间起的逐日累计值与日增量，供 `ads_daily_social_content` 聚合
+- 调度：由 `jobs/ads/ads_daily_social_content.py` 内部先执行 `jobs/dws/dws_social_video_daily.py`
+
+### 最终报表：`ads_daily_social_content`
+
+- 表：`decom.ads_daily_social_content`
+- 粒度：`dt + channel`
+- Dashboard：[【Social Content】社媒表现数据看板](https://bi.alvinclub.ca/superset/dashboard/102/)（id=102）
+- 调度：独立视频链路脚本 `jobs/ads/ads_daily_social_content.py`，不挂到 `jobs/ads/ads_daily.py`，也不接入 `jobs/dws/dws_daily.py`
+
+## 字段
+
+| 需求字段 | 定义 |
+|------|------|
+| 日期 | 报表日期，按 `America/Toronto` 切天 |
+| 渠道 | 主表直接产出 `全部渠道 / youtube / tiktok / ins` 4 个展示渠道值 |
+| 每日新增 views | 每个视频每天取 `max(collected_at)` 对应的累计播放值，与前一日日末累计播放值做差后按渠道汇总 |
+| 每日新增 likes | 每个视频每天取 `max(collected_at)` 对应的累计点赞值，与前一日日末累计点赞值做差后按渠道汇总 |
+| 前一天新增 views / 博主总数 | `dt` 当天新增 views / 截至 `dt-1` 已发布过视频的历史去重博主总数；YouTube 博主为 `channel_id`，TikTok 为 `user_id`，Ins 为 `account_id`；`全部渠道` 按 `channel + creator_id` 去重 |
+| 每个博主最新 3 条的平均赞播率 | 先限定“截至 `dt` 已经有采集数据”的视频，再对每个博主按发布时间倒序取其中最新 3 条，样本池整体按 `SUM(likes) / SUM(views)` 计算 |
+| 完播比 | 需求已确认但业务口径未定，暂不落地 |
+| 第一秒留存率 | 需求已确认但业务口径未定，暂不落地 |
+
+## 已落地字段
+
+### 中间表：`decom.dws_social_video_daily`
+
+| 需求字段 | 落地表 | 落地字段 | 口径 |
+|------|------|------|------|
+| 日期 | `decom.dws_social_video_daily` | `dt` | 按 `America/Toronto` 切天；每个视频从 `published_dt` 起到当前日期每天都有一行 |
+| 渠道 | `decom.dws_social_video_daily` | `channel` | 固定枚举 `youtube / tiktok / ins` |
+| 博主 | `decom.dws_social_video_daily` | `creator_id` | YouTube 用 `channel_id`，TikTok 用 `user_id`，Ins 用 `account_id` |
+| 视频主键 | `decom.dws_social_video_daily` | `video_key` | 渠道前缀 + 平台视频主键，如 `youtube:{video_id}` |
+| 日末累计 views | `decom.dws_social_video_daily` | `day_end_views` | 当天若有采集则取该日最后一次采集的累计值；否则沿用最近一次已知累计值 |
+| 日末累计 likes | `decom.dws_social_video_daily` | `day_end_likes` | 当天若有采集则取该日最后一次采集的累计值；否则沿用最近一次已知累计值 |
+| 每日新增 views | `decom.dws_social_video_daily` | `daily_view_increment` | `day_end_views - 前一天 day_end_views` |
+| 每日新增 likes | `decom.dws_social_video_daily` | `daily_like_increment` | `day_end_likes - 前一天 day_end_likes` |
+| 当天真实采集 views | `decom.dws_social_video_daily` | `raw_day_end_views` | 仅当 `dt` 当天真的有采集快照时写入；否则为 `NULL`，仅保留作审计 |
+| 当天真实采集 likes | `decom.dws_social_video_daily` | `raw_day_end_likes` | 仅当 `dt` 当天真的有采集快照时写入；否则为 `NULL`，仅保留作审计 |
+| 截至当天是否已有快照 | `decom.dws_social_video_daily` | `has_snapshot_to_dt` | 从发布时间到 `dt` 为止，是否已经至少出现过一次真实采集快照 |
+
+### 最终报表：`decom.ads_daily_social_content`
+
+| 需求字段 | 落地表 | 落地字段 | 口径 |
+|------|------|------|------|
+| 渠道 | `decom.ads_daily_social_content` | `channel` | 固定枚举 `全部渠道 / youtube / tiktok / ins` |
+| 每日新增 views | `decom.ads_daily_social_content` | `daily_view_increment` | 各渠道视频按 `America/Toronto` 切天，先取每日 `max(collected_at)` 对应累计播放值，再减前一日日末累计值后汇总 |
+| 每日新增 likes | `decom.ads_daily_social_content` | `daily_like_increment` | 各渠道视频按 `America/Toronto` 切天，先取每日 `max(collected_at)` 对应累计点赞值，再减前一日日末累计值后汇总 |
+| 前一天新增 views / 博主总数 | `decom.ads_daily_social_content` | `daily_view_increment_per_creator` | 分子为 `daily_view_increment`；分母为 `creator_count_to_prev_day`，即截至 `dt-1` 已发布过视频的历史去重博主数；`全部渠道` 用 `channel + creator_id` 去重 |
+| 每个博主最新 3 条的平均赞播率 | `decom.ads_daily_social_content` | `latest_3_avg_like_view_rate` | 先限定截至 `dt` 已有采集数据的视频，再按发布时间倒序取每个博主其中最新 3 条；汇总样本池的 `latest_3_sample_like_count / latest_3_sample_view_count`；`全部渠道` 仍按 `channel + creator_id` 分组取各博主最新 3 条 |
+
+补充说明：
+- YouTube 继续按 `docs/rules/video-mapping.md` 排除测试账号 `channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
+- `views / likes` 源字段都是累计值，不是日增值
+- 若某视频在 `dt` 没有新采集记录，则其 `dt` 日末累计值沿用最近一次已采集值，因此 `dt` 的日增量记为 `0`
+- `decom.dws_social_video_daily` 对下游承诺“从 `published_dt` 起每天一行”的 dense daily 语义；其中 `day_end_views / day_end_likes` 是主口径字段，`raw_day_end_views / raw_day_end_likes` 只保留作审计
+- `jobs/dws/dws_social_video_daily.py` 的实现采用“真实采集日快照 -> 生效区间 -> 一次性展开逐日明细”的批量方式，不再逐天启动查询任务
+- “博主总数”按发布时间判断，不依赖是否已经采集到播放快照
+- “最新 3 条”不是先取发布时间最新 3 条再判断有没有数据，而是先限定截至 `dt` 已有采集数据的视频，再从这些视频里按发布时间倒序取最新 3 条
+- `全部渠道` 不是额外视图字段，而是直接写入主表的展示渠道值
+- 看板先落地 4 个指标；`完播比`、`第一秒留存率` 先保留在需求范围内，不进入当前 ADS 字段
+
+## 依赖
+
+- 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`
+- 中间表：`decom.dws_social_video_daily`
+- 报表表：`decom.ads_daily_social_content`
+- Superset：主物理 dataset `ads_daily_social_content`（id=230），chart `Social Content（日表）-每日新增 Views 趋势`（id=575）、`Social Content（日表）-每日新增 Likes 趋势`（id=576）、`Social Content（日表）-前一天新增 Views / 博主总数趋势`（id=577）、`Social Content（日表）-每个博主最新 3 条平均赞播率趋势`（id=578），dashboard `【Social Content】社媒表现数据看板`（id=102）
+- 脚本：`jobs/dws/dws_social_video_daily.py`, `jobs/ads/ads_daily_social_content.py`
+- DDL：`ddl/dws/dws_social_video_daily.sql`, `ddl/ads/ads_daily_social_content.sql`
+- 编排：独立 cron 执行 `jobs/ads/ads_daily_social_content.py`；脚本内部按 `dws_social_video_daily -> ads_daily_social_content` 顺序执行
