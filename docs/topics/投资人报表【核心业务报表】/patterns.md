@@ -46,6 +46,7 @@
 ## 新增视频播放数不能错误绑定 `is_new_video`
 
 - `daily_view_increment` 表示视频在 `dt` 当天的播放增量，属于全量视频的日增量指标
+- 如果源头累计播放值当天较前一日回落，`daily_view_increment` 为负数属于正常现象；当前投资人报表保留该负值，不做截断
 - 投资人报表里的“新增视频播放数”实际要的是“当天新增播放数”，即 `dt` 当天全量视频 `daily_view_increment` 之和
 - 如果写成 `SUM(IF(is_new_video, daily_view_increment, 0))`，会把分母错误收缩到“新增视频”，在 `is_new_video` 异常时进一步把播放增量也算成 `0`
 - 正确做法是按 `SUM(daily_view_increment)` 汇总，再基于该值计算平均播放数和播放下载转化率

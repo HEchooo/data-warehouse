@@ -67,6 +67,7 @@
 - 各渠道 `views / view_count` 为累计值，不是日增值
 - 每个视频每天取 `max(collected_at)` 对应的累计播放值，作为该视频该日的日末累计播放数
 - 某视频某日播放增量 = `当日日末累计播放数 - 前一日日末累计播放数`
+- 若源头累计播放值较前一日回落，则播放增量出现负数属于正常情况，当前口径保留该负值，不做截断为 `0`
 - 若某视频次日没有采集记录，则次日的日末累计播放数沿用前一日，次日播放增量记为 `0`
 - 新增视频平均播放数的分子使用内部辅助字段 `new_video_contributed_view_count`：取 `is_new_video = TRUE` 当天的 `raw_day_end_views`，表示该视频首次被采到正播放量时已经累计拿到的播放数；该辅助字段不在展示层单独输出
 - AppsFlyer `daily_report/v5` 返回值按 `date + media source + campaign` 分组，同一天需先汇总 `Installs`
