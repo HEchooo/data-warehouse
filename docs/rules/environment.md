@@ -17,7 +17,8 @@
 - 未设置时，回落到 `env/etl_config.json` 里的 `path_mode`。
 - 本地测试时设置：`PATH_MODE_OVERRIDE="local"`
 - 生产环境设置：`PATH_MODE_OVERRIDE="remote"`
-- 生产环境的 cron / 定时任务必须显式传入 `PATH_MODE_OVERRIDE="remote"`，不能依赖 `env/etl_config.json` 默认值
+- 只有通过 `etl_run.py` 执行，或脚本本身显式读取了 `PATH_MODE_OVERRIDE` 的 cron / 定时任务，才要求显式传入 `PATH_MODE_OVERRIDE="remote"`，不能依赖 `env/etl_config.json` 默认值。
+- 对未读取 `PATH_MODE_OVERRIDE` 的独立脚本，是否传入该变量不影响运行结果，不要把它当成通用硬性要求。
 
 ## Superset
 
