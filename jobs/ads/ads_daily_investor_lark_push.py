@@ -106,7 +106,6 @@ def fetch_investor_row(target_date: date) -> dict:
         new_video_count,
         active_video_count,
         new_video_view_count,
-        new_video_contributed_view_count,
         avg_video_view_count,
         avg_new_video_view_count,
         new_download_count,
@@ -175,10 +174,6 @@ def build_card_payload(row: dict) -> dict:
             f"**新增视频**：{format_int(row['new_video_count'])}",
             f"**活跃视频数**：{format_int(row['active_video_count'])}",
             f"**新增视频播放数**：{format_int(row['new_video_view_count'])}",
-            (
-                "**新增视频产生的播放数**："
-                f"{format_int(row['new_video_contributed_view_count'])}"
-            ),
             f"**视频平均播放数**：{format_decimal(row['avg_video_view_count'])}",
             (
                 "**新增视频平均播放数**："
