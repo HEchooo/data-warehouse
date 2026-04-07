@@ -118,6 +118,7 @@ def fetch_investor_row(target_date: date) -> dict:
         avg_content_exposure_count,
         avg_content_click_count,
         content_ctr,
+        avg_product_detail_exposure_count,
         next_day_retention_rate,
         day_7_retention_rate,
         update_time
@@ -222,6 +223,10 @@ def build_card_payload(row: dict) -> dict:
                 f"{format_decimal(row['avg_content_click_count'], 4)}"
             ),
             f"**内容点击率**：{format_percent(row['content_ctr'])}",
+            (
+                "**人均商详页曝光**："
+                f"{format_decimal(row['avg_product_detail_exposure_count'], 4)}"
+            ),
         ]
     )
 
