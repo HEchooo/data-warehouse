@@ -22,6 +22,11 @@
 - 新增“专栏关注率”时，单独落字段 `column_follow_rate`
 - 该字段分母只包含 7 个专栏内容曝光事件：`v_kol_post_feeds`, `v_kol_post_detail`, `v_star_post_feeds`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_feeds`, `v_brand_post_detail`
 
+## 试穿口径不要只看 c_tryon
+
+- 平台整体内容表现里的“试穿”业务概念已扩成 `c_styleme + c_tryon`
+- 后续再做平台级试穿 UV / 渗透率时，先核对是否沿用这个统一口径，不要只抓旧的 `c_tryon`
+
 ## Superset chart 不能只更新 params，不更新 query_context
 
 - 这次 91 看板里“转化趋势 / 明细表”报 `Unexpected error`，先是因为 BigQuery 生产表缺少 `column_follow_rate`

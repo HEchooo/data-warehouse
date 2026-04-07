@@ -51,3 +51,18 @@ ADD COLUMN IF NOT EXISTS column_exposure_pv INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
 ADD COLUMN IF NOT EXISTS column_follow_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS product_detail_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS product_detail_exposure_pv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS tryon_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS follow_conversion_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS tryon_penetration_rate NUMERIC;
