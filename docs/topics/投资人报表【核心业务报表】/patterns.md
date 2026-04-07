@@ -66,6 +66,13 @@
 - 正确口径应为：`SUM(session_duration_sec) / COUNT(DISTINCT IF(platform != 'h5', prop_device_id, NULL))`
 - 这类问题要先区分“展示层实时修正”和“ADS 历史分区修正”：chart 可直接按 `dws_device_daily` 重算口径；`ads_daily_investor` 的历史数据若要同步，必须先确认回填后再改生产数据
 
+## 不能直接拿 `dt + platform` 报表回卷商详页曝光 UV
+
+- `ads_daily_content_performance` 已有 `product_detail_exposure_uv / pv`，但它的粒度是 `dt + platform`
+- 其中 `product_detail_exposure_uv` 的去重键是 `visitor_id = COALESCE(prop_user_id, prop_device_id)`，同一个访客可能跨平台出现
+- 如果在投资人报表里直接把各 `platform` 的 UV 相加，会把跨平台活跃的同一访客重复计算
+- 正确做法是在目标粒度 `dt` 上直接基于 `dwd_event_log` 重算去重 UV / PV，再派生 `人均商详页曝光`
+
 ## Lark 日报推送不能直接挂在 `ads_daily.py` 的高频成功回调上
 
 - 当前远程服务器会高频执行主 ETL；如果把机器人推送直接挂在 `jobs/ads/ads_daily.py` 成功后，会在同一天重复发多次

@@ -84,6 +84,12 @@ def get_dates_to_process():
             SELECT
                 COALESCE(MAX(update_time), TIMESTAMP('1970-01-01')) AS max_update_time
             FROM `{PROJECT_ID}.{DATASET_ID}.dws_content_item_device_daily`
+
+            UNION ALL
+
+            SELECT
+                COALESCE(MAX(update_time), TIMESTAMP('1970-01-01')) AS max_update_time
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_product_detail_daily`
         )
     )
     SELECT DISTINCT dt
@@ -548,6 +554,70 @@ def run_dws_content_item_device_daily(dates):
     logging.info(f"dws_content_item_device_daily 刷新完成, 处理日期: {dates}")
 
 
+def run_dws_product_detail_daily(dates):
+    """
+    纯 SQL 计算 dws_product_detail_daily，DELETE + INSERT 保证幂等。
+    指标：
+    - product_detail_exposure_uv: 商详页曝光 UV，按 visitor_id 去重
+    - product_detail_exposure_pv: 商详页曝光 PV，按 COALESCE(raw_event_id, hash_id) 去重
+    使用多伦多时间（America/Toronto）。
+    """
+    dates_str = ", ".join([f"'{d}'" for d in dates])
+    dates_array_sql = ", ".join([f"DATE '{d}'" for d in dates])
+    event_ts = event_ts_expr()
+
+    query = f"""
+    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.dws_product_detail_daily`
+    WHERE dt IN ({dates_str});
+
+    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.dws_product_detail_daily`
+    (
+        dt,
+        product_detail_exposure_uv,
+        product_detail_exposure_pv,
+        update_time
+    )
+    WITH
+    -- 生成本次待刷的日期清单，保证无曝光日期也有 0 值行。
+    date_list AS (
+        SELECT dt
+        FROM UNNEST([{dates_array_sql}]) AS dt
+    ),
+    -- 提取商详页曝光事件，统一日期、访客键与事件键。
+    product_detail_events AS (
+        SELECT
+            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
+            COALESCE(raw_event_id, hash_id) AS event_id
+        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+        WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND event_name = 'v_product_detail'
+    ),
+    -- 汇总商详页曝光 UV / PV。
+    product_detail_metrics AS (
+        SELECT
+            dt,
+            COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL))
+                AS product_detail_exposure_uv,
+            COUNT(DISTINCT IF(event_id IS NOT NULL, event_id, NULL))
+                AS product_detail_exposure_pv
+        FROM product_detail_events
+        GROUP BY dt
+    )
+    SELECT
+        d.dt,
+        COALESCE(m.product_detail_exposure_uv, 0) AS product_detail_exposure_uv,
+        COALESCE(m.product_detail_exposure_pv, 0) AS product_detail_exposure_pv,
+        CURRENT_TIMESTAMP() AS update_time
+    FROM date_list d
+    LEFT JOIN product_detail_metrics m USING (dt);
+    """
+    logging.info("开始处理: dws_product_detail_daily")
+    job = client.query(query)
+    job.result()
+    logging.info(f"dws_product_detail_daily 刷新完成, 处理日期: {dates}")
+
+
 def run_dws_download_daily(dates):
     """
     纯 SQL 计算 dws_download_daily，DELETE + INSERT 保证幂等。
@@ -610,6 +680,9 @@ if __name__ == "__main__":
         logging.info("-" * 50)
 
         run_dws_content_item_device_daily(event_dates)
+        logging.info("-" * 50)
+
+        run_dws_product_detail_daily(event_dates)
         logging.info("-" * 50)
 
     if download_dates:

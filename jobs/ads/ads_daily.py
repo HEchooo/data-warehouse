@@ -158,6 +158,10 @@ def get_dates_to_process():
                 "dws_content_item_device_daily",
                 "ads_daily_investor",
             ),
+            incremental_dates_sql(
+                "dws_product_detail_daily",
+                "ads_daily_investor",
+            ),
         ]
     )
     query += "\nORDER BY dt"

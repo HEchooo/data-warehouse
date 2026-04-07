@@ -16,7 +16,6 @@ def dates_to_sql_list(dates):
 def dates_to_array_sql(dates):
     return ", ".join([f"DATE '{d}'" for d in dates])
 
-
 def run_ads_daily_investor(dates: list[date]):
     """
     投资人主题日报（dt 一行）:
@@ -57,6 +56,9 @@ def run_ads_daily_investor(dates: list[date]):
         avg_content_exposure_count,
         avg_content_click_count,
         content_ctr,
+        product_detail_exposure_uv,
+        product_detail_exposure_pv,
+        avg_product_detail_exposure_count,
         next_day_retention_rate,
         day_7_retention_rate,
         update_time
@@ -108,6 +110,16 @@ def run_ads_daily_investor(dates: list[date]):
             COALESCE(SUM(exposure_item_count), 0) AS exposure_item_count,
             COALESCE(SUM(click_item_count), 0) AS click_item_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_content_item_device_daily`
+        WHERE dt IN ({dates_str})
+        GROUP BY dt
+    ),
+    -- 汇总商详页曝光 UV / PV，直接复用日级中间层。
+    product_detail_metrics AS (
+        SELECT
+            dt,
+            COALESCE(SUM(product_detail_exposure_uv), 0) AS product_detail_exposure_uv,
+            COALESCE(SUM(product_detail_exposure_pv), 0) AS product_detail_exposure_pv
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_product_detail_daily`
         WHERE dt IN ({dates_str})
         GROUP BY dt
     ),
@@ -216,6 +228,16 @@ def run_ads_daily_investor(dates: list[date]):
                 4
             )
         END AS NUMERIC) AS content_ctr,
+        COALESCE(pd.product_detail_exposure_uv, 0) AS product_detail_exposure_uv,
+        COALESCE(pd.product_detail_exposure_pv, 0) AS product_detail_exposure_pv,
+        CAST(CASE
+            WHEN COALESCE(pd.product_detail_exposure_uv, 0) = 0 THEN 0
+            ELSE ROUND(
+                CAST(COALESCE(pd.product_detail_exposure_pv, 0) AS NUMERIC)
+                / CAST(pd.product_detail_exposure_uv AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS avg_product_detail_exposure_count,
         CAST(CASE
             WHEN COALESCE(r.active_registered_user_count, 0) = 0 THEN 0
             WHEN DATE_ADD(d.dt, INTERVAL 1 DAY) > DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
@@ -242,6 +264,7 @@ def run_ads_daily_investor(dates: list[date]):
     LEFT JOIN download_metrics dl USING (dt)
     LEFT JOIN device_metrics dev USING (dt)
     LEFT JOIN content_metrics c USING (dt)
+    LEFT JOIN product_detail_metrics pd USING (dt)
     LEFT JOIN retention_metrics r USING (dt);
     """
 

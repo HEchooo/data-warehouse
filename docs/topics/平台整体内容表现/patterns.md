@@ -33,3 +33,10 @@
 - 补列并回刷后，如果只用 API 更新 chart 的 `params`，老 chart 仍可能继续执行旧 `query_context`，表现为新字段没生效，甚至继续报错
 - 保险做法是：补齐底表字段后，同时重建或重写 chart 的 `query_context`
 - 后续再遇到新增指标列时，不要只改展示参数，要同步检查并重写 chart 的 `query_context`
+
+## `INSERT` 列顺序和 `SELECT` 列顺序必须一起校对
+
+- 这次 `ads_daily_content_performance` 空表，不是 `tryon_total_count` 口径错了，而是 `INSERT INTO (...)` 的目标列顺序和最终 `SELECT` 的输出列顺序错位
+- 实际把 `follow_conversion_rate` 这个 `NUMERIC` 写到了 `tryon_total_count` 这个 `INT64` 位置，触发 BigQuery 类型报错
+- 脚本又采用了先 `DELETE` 再 `INSERT` 的写法，所以失败后目标分区已经删掉，91 看板直接读到空表
+- 后续新增、删除、重排展示字段时，必须把 `INSERT` 列清单和最终 `SELECT` 做逐列位次校对，不能只看字段名是否都存在
