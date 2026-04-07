@@ -330,8 +330,6 @@ def build_ads_daily_content_performance_select_query(dates):
         follow_column_count,
         follow_uv,
         dau_uv,
-        tryon_total_count,
-        tryon_uv,
         CAST(CASE
             WHEN dau_uv = 0 THEN 0
             ELSE ROUND(
@@ -353,6 +351,8 @@ def build_ads_daily_content_performance_select_query(dates):
                 4
             )
         END AS NUMERIC) AS read_follow_rate,
+        tryon_total_count,
+        tryon_uv,
         column_exposure_pv,
         CAST(CASE
             WHEN dau_uv = 0 THEN 0
