@@ -584,7 +584,12 @@ if __name__ == "__main__":
     video_dates = get_video_dates_to_process()
     appsflyer_dates = get_appsflyer_dates_to_process()
 
-    if not event_dates and not download_dates and not video_dates and not appsflyer_dates:
+    if (
+        not event_dates
+        and not download_dates
+        and not video_dates
+        and not appsflyer_dates
+    ):
         logging.info("没有新数据需要处理")
         exit(0)
 
