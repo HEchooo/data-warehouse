@@ -36,3 +36,19 @@
 
 - `v3_decom.community_post.post_code`
 - `-> v3_decom.community_post.creator`
+
+## post 创建时间
+- `v3_decom.community_post.gmt_create`
+
+## 试穿帖子
+- `json_extract(v3_decom.common_ext_ai_task.request_param,'$.postId')` && `task_type IN ('TRY_ON','STYLE_ME')`
+
+## 试穿人数
+- `v3_decom.common_ext_ai_task.request_param.user_id` && `task_type IN ('TRY_ON','STYLE_ME')`
+
+## 点赞
+- `v3_decom.community_post_like.post_id`, `v3_decom.community_post_like.user_id`, `v3_decom.community_post_like.gmt_create`
+
+## follow
+- `v3_decom.community_star_follow.user_id`, `v3_decom.community_star_follow.star_user_id`, `v3_decom.community_star_follow.gmt_create` 
+- star_user_id 就是专栏 id，不仅是 star 也包含 magazine, brand
