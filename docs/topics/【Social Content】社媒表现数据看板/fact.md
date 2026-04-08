@@ -58,7 +58,7 @@
 | 每个博主最新 3 条的平均赞播率 | `decom.ads_daily_social_content` | `latest_3_avg_like_view_rate` | 先限定截至 `dt` 已有采集数据的视频，再按发布时间倒序取每个博主其中最新 3 条；汇总样本池的 `latest_3_sample_like_count / latest_3_sample_view_count`；`全部渠道` 仍按 `channel + creator_id` 分组取各博主最新 3 条 |
 
 补充说明：
-- YouTube 继续按 `docs/rules/video-mapping.md` 排除测试账号 `channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
+- YouTube 统一按 `docs/rules/video-mapping.md` 排除 AI 团队渠道，即 `video 部门测试渠道 + video 部门内部渠道`
 - `views / likes` 源字段都是累计值，不是日增值
 - 若某视频在 `dt` 没有新采集记录，则其 `dt` 日末累计值沿用最近一次已采集值，因此 `dt` 的日增量记为 `0`
 - `decom.dws_social_video_daily` 对下游承诺“从 `published_dt` 起每天一行”的 dense daily 语义；其中 `day_end_views / day_end_likes` 是主口径字段，`raw_day_end_views / raw_day_end_likes` 只保留作审计

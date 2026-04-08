@@ -13,10 +13,23 @@ DATASET_ID = "decom"
 VIDEO_SOURCE_DATASET_ID = "videos"
 TORONTO_TZ = "America/Toronto"
 SOCIAL_VIDEO_REBUILD_DAYS = 30
-YOUTUBE_TEST_CHANNEL_IDS = [
+YOUTUBE_AI_TEAM_TEST_CHANNEL_IDS = [
     "UCynAg7WHdiy8SuQpESO__yw",
     "UCgBJozWjiE0cqwv7UNalyog",
 ]
+YOUTUBE_AI_TEAM_INTERNAL_CHANNEL_IDS = [
+    "UC4rj_IlO3V-d5ebVhgagh1w",
+    "UC70Y2-yeuFOoTx6yNkqioKA",
+    "UCiX5DzRDNIb9fH_MQvoIN7w",
+    "UCLs3oc5eyptqVTEnXaIwHvQ",
+    "UCPAQ09Nusb_OZzwfWGAE_Aw",
+    "UCV5FBW_l8cayS8L_zAIvlkQ",
+    "UCVsLt_8hbY5nG5da8sslD_w",
+    "UCzIQMkLCHa63JekjxaA133w",
+]
+YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS = (
+    YOUTUBE_AI_TEAM_TEST_CHANNEL_IDS + YOUTUBE_AI_TEAM_INTERNAL_CHANNEL_IDS
+)
 client = bigquery.Client(project=PROJECT_ID)
 
 
@@ -58,7 +71,7 @@ def get_social_video_full_dates_to_process():
     WITH published_dates AS (
         SELECT MIN(DATE(TIMESTAMP(published_at, 'UTC'), '{TORONTO_TZ}')) AS min_dt
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
-        WHERE channel_id NOT IN ({strings_to_sql_list(YOUTUBE_TEST_CHANNEL_IDS)})
+        WHERE channel_id NOT IN ({strings_to_sql_list(YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS)})
 
         UNION ALL
 
@@ -90,7 +103,9 @@ def build_social_video_daily_select_sql(dates: list[date]) -> str:
     dates_str = dates_to_sql_list(dates)
     min_date = min(dates)
     max_date = max(dates)
-    youtube_test_channel_ids_sql = strings_to_sql_list(YOUTUBE_TEST_CHANNEL_IDS)
+    youtube_ai_team_excluded_channel_ids_sql = strings_to_sql_list(
+        YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS
+    )
 
     return f"""
     WITH
@@ -118,7 +133,7 @@ def build_social_video_daily_select_sql(dates: list[date]) -> str:
                 CONCAT('youtube:', CAST(video_id AS STRING)) AS video_key,
                 TIMESTAMP(published_at, 'UTC') AS published_ts_utc
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
-            WHERE channel_id NOT IN ({youtube_test_channel_ids_sql})
+            WHERE channel_id NOT IN ({youtube_ai_team_excluded_channel_ids_sql})
 
             UNION ALL
 
@@ -158,7 +173,7 @@ def build_social_video_daily_select_sql(dates: list[date]) -> str:
                 SAFE_CAST(views AS INT64) AS cum_views,
                 SAFE_CAST(likes AS INT64) AS cum_likes
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_video_analytics_log`
-            WHERE channel_id NOT IN ({youtube_test_channel_ids_sql})
+            WHERE channel_id NOT IN ({youtube_ai_team_excluded_channel_ids_sql})
 
             UNION ALL
 

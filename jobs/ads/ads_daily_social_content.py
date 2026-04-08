@@ -11,7 +11,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from jobs.dws.dws_social_video_daily import run_dws_social_video_daily
+from jobs.dws.dws_social_video_daily import (
+    YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS,
+    run_dws_social_video_daily,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -23,10 +26,6 @@ VIDEO_SOURCE_DATASET_ID = "videos"
 TORONTO_TZ = "America/Toronto"
 SOCIAL_CONTENT_REBUILD_DAYS = 30
 DISPLAY_CHANNELS = ["全部渠道", "youtube", "tiktok", "ins"]
-YOUTUBE_TEST_CHANNEL_IDS = [
-    "UCynAg7WHdiy8SuQpESO__yw",
-    "UCgBJozWjiE0cqwv7UNalyog",
-]
 client = bigquery.Client(project=PROJECT_ID)
 
 
@@ -76,7 +75,7 @@ def get_social_content_full_dates_to_process():
     WITH published_dates AS (
         SELECT MIN(DATE(TIMESTAMP(published_at, 'UTC'), '{TORONTO_TZ}')) AS min_dt
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
-        WHERE channel_id NOT IN ({strings_to_sql_list(YOUTUBE_TEST_CHANNEL_IDS)})
+        WHERE channel_id NOT IN ({strings_to_sql_list(YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS)})
 
         UNION ALL
 

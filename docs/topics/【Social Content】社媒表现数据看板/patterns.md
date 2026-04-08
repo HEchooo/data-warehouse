@@ -1,5 +1,12 @@
 # 【Social Content】社媒表现数据看板踩坑记录
 
+## YouTube 排除名单不能只过滤测试渠道
+
+- 这条链路最初只排除了 `YOUTUBE_TEST_CHANNEL_IDS`，结果 AI 团队的内部渠道仍会落入 `dws_social_video_daily` 和 `ads_daily_social_content`
+- 当前口径已经明确：Social Content 需要统一排除 `docs/rules/video-mapping.md` 中定义的全部 AI 团队渠道，也就是 `video 部门测试渠道 + video 部门内部渠道`
+- 实现上不要在上下游脚本里各维护一份名单；当前以 `jobs/dws/dws_social_video_daily.py` 的共享常量作为代码侧单点来源，下游 ADS 脚本直接复用
+- 排查这类问题时，先对照 `docs/rules/video-mapping.md` 检查规则 SSOT，再检查主题链路里是否存在“文档已更新、脚本仍保留旧名单”的漂移
+
 ## 历史博主总数不能直接从最近分区的 `dws_video_daily` 推
 
 - `dws_video_daily` 当前按最近窗口重刷，近期分区里只保证“近期发布”或“近期仍有快照”的视频会出现
