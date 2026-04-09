@@ -42,6 +42,8 @@
 
 - 事件链路：
   - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily / dws_content_item_device_daily -> ads_*`
+- 专栏帖子快照链路：
+  - `v3_decom.community_post(status=1) -> dws_column_post_daily -> ads_daily_column_performance`
 - 下载链路：
   - `ods_ios_download + ods_android_download -> dws_download_daily -> ads_*`
 - AppsFlyer 下载链路：

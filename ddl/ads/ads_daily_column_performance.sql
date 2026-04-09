@@ -14,4 +14,34 @@ PARTITION BY
     dt;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
-ADD COLUMN IF NOT EXISTS creator STRING;
+DROP COLUMN IF EXISTS creator;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS post_total_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS tryon_post_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS tryon_click_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS tryon_uv_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS ai_tryon_penetration_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS like_post_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS like_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS new_follow_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+DROP COLUMN IF EXISTS follow_conversion_rate;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS follow_conversion_rate_7d NUMERIC;

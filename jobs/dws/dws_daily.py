@@ -653,7 +653,6 @@ if __name__ == "__main__":
     download_dates = get_download_dates_to_process()
     video_dates = get_video_dates_to_process()
     appsflyer_dates = get_appsflyer_dates_to_process()
-
     if (
         not event_dates
         and not download_dates
@@ -698,6 +697,7 @@ if __name__ == "__main__":
     if appsflyer_dates:
         logging.info(f"AppsFlyer 下载待处理日期: {appsflyer_dates}")
         run_dws_appsflyer_download_daily(appsflyer_dates)
+        logging.info("-" * 50)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"DWS ETL 完成, 耗时: {elapsed:.1f} 秒")

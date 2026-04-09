@@ -24,3 +24,16 @@
 
 - 加了 `creator` 之后多个 CTE 都带同名字段
 - 应改成显式 `ON cm.module = k.module AND cm.column_id = k.column_id`
+
+## UV 口径不能再直接 `COALESCE(user_id, device_id)`
+
+- 新需求要求“同日游客后续登录只算 1 个 UV”，直接 `COALESCE` 会把同一人拆成两个主体
+- 正确做法是先做同日 `device_id -> user_id` 归并，再生成统一 `visitor_id`
+- 对“同日同 device 关联多个 user_id”的边界，人数口径应按 `COUNT(DISTINCT user_id)`，游客态不再额外计 UV
+
+## 在线帖子存量快照不能和试穿日指标混表
+
+- 不要把“在线帖子存量快照”和“试穿日发生指标”混在一张快照表里
+- `dws_column_post_daily` 只负责 `community_post.status = 1` 的在线帖子存量快照
+- `common_ext_ai_task` 的试穿帖子数 / 试穿点击人数属于日发生指标，应直接在 ADS 当天计算
+- 这类快照脚本也不要挂到高频 `jobs/dws/dws_daily.py`，应独立日调度；否则会把“多伦多 0 点后固化昨日快照”的语义跑歪
