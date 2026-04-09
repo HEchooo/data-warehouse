@@ -40,6 +40,12 @@
 ## post 创建时间
 - `v3_decom.community_post.gmt_create`
 
+## post 状态
+- `v3_decom.community_post.status`
+- 0-隐藏 
+- 1-展示
+- 2-审核中
+
 ## 试穿帖子
 - `json_extract(v3_decom.common_ext_ai_task.request_param,'$.postId')` && `task_type IN ('TRY_ON','STYLE_ME')`
 
