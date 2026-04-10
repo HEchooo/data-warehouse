@@ -13,3 +13,12 @@ PARTITION BY
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_new`
 ADD COLUMN new_download_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_new`
+ADD COLUMN new_user_login_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_new`
+ADD COLUMN anonymous_device_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_new`
+ADD COLUMN anonymous_old_device_rate NUMERIC;
