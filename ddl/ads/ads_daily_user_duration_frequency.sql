@@ -13,3 +13,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_user_duration_frequency` (
     update_time TIMESTAMP
 )
 PARTITION BY dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_user_duration_frequency`
+ADD COLUMN IF NOT EXISTS user_segment STRING;
