@@ -110,7 +110,6 @@ def fetch_investor_row(target_date: date) -> dict:
         avg_new_video_view_count,
         new_download_count,
         play_download_conversion_rate,
-        avg_video_download_conversion_count,
         new_device_count,
         active_device_count,
         active_registered_user_count,
@@ -195,10 +194,6 @@ def build_card_payload(row: dict) -> dict:
         [
             f"**新增下载**：{format_int(row['new_download_count'])}",
             f"**播放下载转化率**：{format_percent(row['play_download_conversion_rate'])}",
-            (
-                "**视频平均下载转化数**："
-                f"{format_decimal(row['avg_video_download_conversion_count'], 4)}"
-            ),
         ]
     )
     metrics_user = "\n".join(
@@ -224,7 +219,7 @@ def build_card_payload(row: dict) -> dict:
             ),
             f"**内容点击率**：{format_percent(row['content_ctr'])}",
             (
-                "**人均商详页曝光**："
+                "**人均商详页点击量**："
                 f"{format_decimal(row['avg_product_detail_exposure_count'], 4)}"
             ),
         ]

@@ -1,11 +1,11 @@
 # 投资人报表踩坑记录
 
-## 视频相关指标要先排除 YouTube 测试账号
+## 视频相关指标要先按 jhonson 团队过滤 YouTube 渠道
 
 - 投资人报表里的 `新增视频`、`活跃视频数`、`新增视频播放数` 都直接复用 `dws_video_daily`
-- `docs/rules/video-mapping.md` 已明确 YouTube 需要排除测试账号 `channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
-- 这类过滤不能只加在 `yt_videos` 或只加在 `yt_video_analytics_log` 单边；要同时过滤视频维表和播放快照源表
-- 如果只过滤单边，会出现维表被排除但快照仍参与计算，或快照被排除但维表仍进入 spine，最终让 `dws_video_daily` 和投资人报表的视频指标口径不一致
+- `docs/rules/video-mapping.md` 已明确 YouTube 的 bob 团队包含测试渠道和内部渠道；投资人报表要的 jhonson 团队口径，需要把这两组渠道一起排除
+- 如果只排除测试渠道、不排除内部渠道，报表会继续混入 bob 团队视频
+- 当前文档没有给出 TikTok / Ins 的团队边界，因此实现上只能先把 YouTube 按渠道过滤，TikTok / Ins 维持原口径；后续若补了白名单，再统一收口
 
 - 视频播放相关源表的 `views / view_count` 是累计值，不是日增值；日报不能直接按当天采集值汇总。
 - 正确口径是先按 `America/Toronto` 切天，再取每个视频当天 `max(collected_at)` 对应的日末累计值，最后与前一日日末累计值做差。
@@ -65,6 +65,13 @@
 - 如果分子仍取 `SUM(session_duration_sec)`，但分母用全量 `COUNT(DISTINCT prop_device_id)`，就会把 `h5` 设备算进来，系统性压低“人均停留时长”
 - 正确口径应为：`SUM(session_duration_sec) / COUNT(DISTINCT IF(platform != 'h5', prop_device_id, NULL))`
 - 这类问题要先区分“展示层实时修正”和“ADS 历史分区修正”：chart 可直接按 `dws_device_daily` 重算口径；`ads_daily_investor` 的历史数据若要同步，必须先确认回填后再改生产数据
+
+## app 已注册用户口径不能继续复用未过滤的 DWS 聚合表
+
+- 本次需求把 `人均停留时长`、`人均内容展示量`、`人均内容点击量`、`内容点击率`、`人均商详页点击量`、`次日留存`、`7日留存` 都收敛到 `prop_url IS NULL OR prop_url = ''` 且 `prop_user_id` 非空
+- `dws_content_item_device_daily`、`dws_product_detail_daily` 这类现有中间层没有保存“是否 app”“是否已注册”这两个过滤维度
+- 如果直接拿这些未过滤聚合结果再在 ADS 层拼，会出现分子用了全量流量、分母想看注册用户，结果系统性偏大或偏小
+- 正确做法是：能在 `dws_user_daily` / `dws_device_daily` 上安全过滤的指标继续复用；缺过滤维度的内容 / 商详 / 时长指标则回到 `dwd_event_log`，按目标口径重算
 
 ## 不能直接拿 `dt + platform` 报表回卷商详页曝光 UV
 

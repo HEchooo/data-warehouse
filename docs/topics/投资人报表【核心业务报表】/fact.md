@@ -34,7 +34,6 @@
 | 新增视频平均播放数 | 新增视频产生的播放数 / 新增视频 |
 | 新增下载 | 当日新增的下载数 |
 | 播放下载转化率 | 新增下载 / 新增视频播放数 |
-| 视频平均下载转化数 | 新增下载 / 活跃视频数量 |
 | 新增设备数 | 当日新增的设备数 |
 | 活跃设备数 | 当日到访的设备数 |
 | 活跃注册用户数 | 当日到访的注册用户 |
@@ -44,7 +43,7 @@
 | 内容点击率 | 人均内容点击量 / 人均内容展示量 |
 | 商详页曝光 UV | 当日访问过商详页的去重访客数 |
 | 商详页曝光 PV | 当日商详页曝光次数 |
-| 人均商详页曝光 | 商详页曝光 PV / 商详页曝光 UV |
+| 人均商详页点击量 | 商详页曝光 PV / 商详页曝光 UV |
 | 次日留存 | 当日活跃注册用户次日留存率 |
 | 7日留存 | 当日活跃注册用户第7日留存率 |
 
@@ -52,29 +51,28 @@
 
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |------|------|------|------|
-| 新增视频 | `decom.dws_video_daily` | `is_new_video` 聚合 | 按 `video_key` 全历史实际采集日中最早满足 `raw_day_end_views > 0` 的 `dt` 记为新增日；当日 `is_new_video = TRUE`，后续日期不重复计数 |
-| 活跃视频数 | `decom.dws_video_daily` | `is_active_video` 聚合 | `dt` 当天播放增量 `> 0` 的视频数 |
-| 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt` |
-| 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量 |
+| 新增视频 | `decom.dws_video_daily` | `is_new_video` 聚合 | 按 `video_key` 全历史实际采集日中最早满足 `raw_day_end_views > 0` 的 `dt` 记为新增日；当日 `is_new_video = TRUE`，后续日期不重复计数；当前仅保留 jhonson 团队视频 |
+| 活跃视频数 | `decom.dws_video_daily` | `is_active_video` 聚合 | `dt` 当天播放增量 `> 0` 的视频数；当前仅保留 jhonson 团队视频 |
+| 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt`；当前仅保留 jhonson 团队视频 |
+| 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量；当前仅保留 jhonson 团队视频 |
 | 新增视频平均播放数 | `decom.ads_daily_investor` | `avg_new_video_view_count` | `new_video_contributed_view_count / new_video_count`；其中 `new_video_contributed_view_count` 是内部辅助字段，仅用于计算该指标，不在展示层单独输出 |
 | 新增下载 | `decom.dws_appsflyer_download_daily` | `new_download_count` | AppsFlyer `install` 口径的 iOS + Android 当日新增下载总数，按 `America/Toronto` 切天 |
-| 新增设备数 | `decom.ads_daily_investor` | `new_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT IF(is_new_device, prop_device_id, NULL))` 计算 |
-| 活跃设备数 | `decom.ads_daily_investor` | `active_device_count` | 来自 `decom.dws_device_daily`，按 `COUNT(DISTINCT prop_device_id)` 计算 |
-| 活跃注册用户数 | `decom.ads_daily_investor` | `active_registered_user_count` | 来自 `decom.dws_user_daily`，按 `COUNT(DISTINCT prop_user_id)` 计算 |
-| 人均停留时长 | `decom.ads_daily_investor` | `avg_duration_sec` | 来自 `decom.dws_device_daily`，`SUM(session_duration_sec) / 非 h5 活跃设备数`；`h5` 无时长埋点，不能进入分母 |
-| 人均内容展示量 | `decom.ads_daily_investor` | `avg_content_exposure_count` | 来自 `decom.dws_content_item_device_daily`，`SUM(exposure_item_count) / 活跃设备数` |
-| 人均内容点击量 | `decom.ads_daily_investor` | `avg_content_click_count` | 来自 `decom.dws_content_item_device_daily`，`SUM(click_item_count) / 活跃设备数` |
-| 内容点击率 | `decom.ads_daily_investor` | `content_ctr` | 来自 `decom.dws_content_item_device_daily`，`SUM(click_item_count) / SUM(exposure_item_count)` |
-| 商详页曝光 UV | `decom.ads_daily_investor` | `product_detail_exposure_uv` | 来自 `decom.dws_product_detail_daily`，字段 `product_detail_exposure_uv` |
-| 商详页曝光 PV | `decom.ads_daily_investor` | `product_detail_exposure_pv` | 来自 `decom.dws_product_detail_daily`，字段 `product_detail_exposure_pv` |
-| 人均商详页曝光 | `decom.ads_daily_investor` | `avg_product_detail_exposure_count` | `product_detail_exposure_pv / product_detail_exposure_uv` |
-| 次日留存 | `decom.ads_daily_investor` | `next_day_retention_rate` | 来自 `decom.dws_user_daily`，以当日活跃注册用户 cohort 为分母，统计 `dt+1` 仍活跃的去重用户数 / cohort 用户数；若 `dt+1` 未成熟返回 `NULL` |
-| 7日留存 | `decom.ads_daily_investor` | `day_7_retention_rate` | 来自 `decom.dws_user_daily`，以当日活跃注册用户 cohort 为分母，统计 `dt+7` 仍活跃的去重用户数 / cohort 用户数；若 `dt+7` 未成熟返回 `NULL` |
+| 新增设备数 | `decom.ads_daily_investor` | `new_device_count` | 基于 `decom.dws_device_daily` 的 app 设备明细重算 app 首活日，按 `COUNT(DISTINCT IF(first_app_active_dt = dt, prop_device_id, NULL))` 计算；仅保留 `prop_url IS NULL OR prop_url = ''` 的 app 数据 |
+| 活跃设备数 | `decom.ads_daily_investor` | `active_device_count` | 基于 `decom.dws_device_daily` 的 app 设备明细，按 `COUNT(DISTINCT prop_device_id)` 计算；仅保留 `prop_url IS NULL OR prop_url = ''` 的 app 数据 |
+| 活跃注册用户数 | `decom.ads_daily_investor` | `active_registered_user_count` | 来自 `decom.dws_user_daily` 的 app 活跃注册用户，按 `COUNT(DISTINCT prop_user_id)` 计算；仅保留 `prop_url IS NULL OR prop_url = ''` 的 app 数据 |
+| 人均停留时长 | `decom.ads_daily_investor` | `avg_duration_sec` | 直接基于 `decom.dwd_event_log` 重算 app 已注册用户的 `app_launch.args_session_duration` 去重和 / app 已注册活跃设备数；仅保留 `(prop_url IS NULL OR prop_url = '') AND prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 人均内容展示量 | `decom.ads_daily_investor` | `avg_content_exposure_count` | 直接基于 `decom.dwd_event_log` 重算 app 已注册用户 item 级曝光数 / app 已注册活跃设备数；仅保留 `(prop_url IS NULL OR prop_url = '') AND prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 人均内容点击量 | `decom.ads_daily_investor` | `avg_content_click_count` | 直接基于 `decom.dwd_event_log` 重算 app 已注册用户 item 级点击数 / app 已注册活跃设备数；仅保留 `(prop_url IS NULL OR prop_url = '') AND prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 内容点击率 | `decom.ads_daily_investor` | `content_ctr` | 直接基于 `decom.dwd_event_log` 重算 app 已注册用户 `SUM(click_item_count) / SUM(exposure_item_count)`；仅保留 `(prop_url IS NULL OR prop_url = '') AND prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 商详页曝光 UV | `decom.ads_daily_investor` | `product_detail_exposure_uv` | 直接基于 `decom.dwd_event_log` 重算 app 已注册用户商详页 UV；仅保留 `(prop_url IS NULL OR prop_url = '') AND prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 商详页曝光 PV | `decom.ads_daily_investor` | `product_detail_exposure_pv` | 直接基于 `decom.dwd_event_log` 重算 app 已注册用户商详页 PV；仅保留 `(prop_url IS NULL OR prop_url = '') AND prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 人均商详页点击量 | `decom.ads_daily_investor` | `avg_product_detail_exposure_count` | 逻辑不变，仍为 `product_detail_exposure_pv / product_detail_exposure_uv`；仅改展示名称为“人均商详页点击量”，并仅保留 app 已注册用户数据 |
+| 次日留存 | `decom.ads_daily_investor` | `next_day_retention_rate` | 来自 `decom.dws_user_daily` 的 app 活跃注册用户 cohort，以当日活跃注册用户为分母，统计 `dt+1` 仍在 app 活跃的去重用户数 / cohort 用户数；若 `dt+1` 未成熟返回 `NULL` |
+| 7日留存 | `decom.ads_daily_investor` | `day_7_retention_rate` | 来自 `decom.dws_user_daily` 的 app 活跃注册用户 cohort，以当日活跃注册用户为分母，统计 `dt+7` 仍在 app 活跃的去重用户数 / cohort 用户数；若 `dt+7` 未成熟返回 `NULL` |
 | 播放下载转化率 | `decom.ads_daily_investor` | `play_download_conversion_rate` | `new_download_count / new_video_view_count`，其中 `new_video_view_count` 为当日全量视频播放增量 |
-| 视频平均下载转化数 | `decom.ads_daily_investor` | `avg_video_download_conversion_count` | `new_download_count / active_video_count` |
 
 补充说明：
-- 投资人报表里的视频相关指标当前复用 `decom.dws_video_daily`；其中 YouTube 需按 `docs/rules/video-mapping.md` 排除测试账号 `channel_id IN ('UCynAg7WHdiy8SuQpESO__yw','UCgBJozWjiE0cqwv7UNalyog')`
+- 投资人报表里的视频相关指标当前复用 `decom.dws_video_daily`；根据 `docs/rules/video-mapping.md`，当前 jhonson 团队口径按 YouTube 排除 bob 团队测试渠道和内部渠道实现；TikTok / Ins 在该文档中未定义团队边界，因此暂维持原有全量口径
 - 各渠道 `views / view_count` 为累计值，不是日增值
 - 每个视频每天取 `max(collected_at)` 对应的累计播放值，作为该视频该日的日末累计播放数
 - 某视频某日播放增量 = `当日日末累计播放数 - 前一日日末累计播放数`
@@ -84,17 +82,19 @@
 - AppsFlyer `daily_report/v5` 返回值按 `date + media source + campaign` 分组，同一天需先汇总 `Installs`
 - `ods_appsflyer_download` 需保留完整原始行，当前通过 `raw_row_json` 存储 AppsFlyer 每行返回字段
 - 投资人主题最终 ADS 粒度仍为 `dt`；复用 `dws_device_daily` / `dws_user_daily` 时，设备数和用户数要按 `id` 去重后再汇总，不能直接相加各 `platform`
-- 人均停留时长的分母要排除 `platform = 'h5'` 的设备；`h5` 没有 `app_launch.args_session_duration` 埋点，把它算进分母会系统性压低结果
+- `新增设备数`、`活跃设备数`、`活跃注册用户数` 当前仅保留 app 数据，也就是 `prop_url IS NULL OR prop_url = ''`
+- 人均停留时长的分母要收敛到 app 已注册活跃设备；如果继续复用未过滤的 app 全量设备，会把游客设备错误算进分母
 - `ads_daily_investor` 已按该口径完成全量回填；当前 `投资人报表（日表）-明细表` 直接读取物理 dataset `ads_daily_investor`（Superset dataset id=228）
-- 内容展示量 / 点击量不能复用 `content_consume_count`；它们是 `post / spu` item 级指标，需基于 `dwd_event_log.product_code`、`dwd_event_log.post_code` 重新计数
-- 商详页曝光中间层 `dws_product_detail_daily` 采用 `v_product_detail` 事件；UV 按 `visitor_id = COALESCE(prop_user_id, prop_device_id)` 去重，PV 按 `COALESCE(raw_event_id, hash_id)` 去重
+- 内容展示量 / 点击量不能复用 `content_consume_count`；它们是 `post / spu` item 级指标，且本次需求要求只保留 app 已注册用户，因此需基于 `dwd_event_log.product_code`、`dwd_event_log.post_code` 重新计数
+- 商详页曝光中间层 `dws_product_detail_daily` 采用 `v_product_detail` 事件；但本次需求要求只保留 app 已注册用户，因此投资人报表直接基于 `dwd_event_log` 按 `prop_user_id` / `COALESCE(raw_event_id, hash_id)` 重算 UV / PV
 - `dwd_event_log` 已提前展开 `args_spu` / `args_post`；同一原始事件若带多个 item，需要按 `raw_event_id + item_key` 统计，而不是只按 `raw_event_id`
 - 内容展示量的 feeds 事件只包含 item 级曝光：`v_home_feeds`, `v_shop_feeds`, `v_star_post_feeds`, `v_brand_post_feeds`, `v_kol_post_feeds`；不包含 `v_home_star`, `v_home_magazine`, `v_home_brand` 这类 module 曝光
-- 留存口径中的“注册用户”指 `prop_user_id` 非空且当日活跃的用户，不是 `is_new_user = TRUE` 的新增注册用户
+- 留存口径中的“注册用户”指 `prop_user_id` 非空且当日在 app 活跃的用户，不是 `is_new_user = TRUE` 的新增注册用户
 - Lark 推送不挂在 `jobs/ads/ads_daily.py` 成功回调上；当前远程服务器高频运行该主链路，若直接复用会重复发送
 - Lark 推送脚本默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的一行明细数据
-- Lark 卡片展示核心明细指标，当前包含 `人均商详页曝光`，但仍不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
+- Lark 卡片展示核心明细指标，当前包含 `人均商详页点击量`，且不再展示 `视频平均下载转化数`；仍不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
 - Lark 卡片中的“视频平均播放数”“新增视频平均播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
+- 本次仅修改逻辑与展示层，不包含历史分区回填；若要让历史日期统一新口径，需要单独确认回填方案
 - 推送时间若按上海固定时刻配置，需要考虑 `America/Toronto` 夏令时；要稳定拿到多伦多昨日完整数据，建议独立 cron 配到上海 `13:00` 之后
 
 ## 依赖
