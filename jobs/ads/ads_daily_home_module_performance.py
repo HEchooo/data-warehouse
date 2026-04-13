@@ -32,10 +32,10 @@ def dates_to_array_sql(dates):
 def run_ads_daily_home_module_performance(dates):
     """
     首页模块表现日报（每日每模块一行）:
-    - module_exposure_uv: 模块曝光 UV
-    - module_click_uv: 模块点击 UV
+    - module_exposure_uv: 已登录用户的模块曝光 UV
+    - module_click_uv: 已登录用户的模块点击 UV
     - click_rate: 点击率（点击 UV / 曝光 UV）
-    - click_pv: 模块点击 PV（按 raw_event_id 去重）
+    - click_pv: 已登录用户的模块点击 PV（按 raw_event_id 去重）
     - avg_click_count_per_user: 点击人均次数（点击 PV / 点击 UV）
     使用多伦多时间（America/Toronto）。
     """
@@ -53,22 +53,22 @@ def run_ads_daily_home_module_performance(dates):
     (dt, module, module_exposure_uv, module_click_uv,
      click_rate, click_pv, avg_click_count_per_user, update_time)
     WITH
+    -- 固定首页模块与曝光/点击事件映射。
     module_map AS (
         {MODULE_MAP_SQL}
     ),
+    -- 提取目标日期范围内的首页模块事件，只保留已登录用户。
     base AS (
         SELECT
             dt,
             event_name,
             prop_user_id,
-            prop_device_id,
             raw_event_id
         FROM (
             SELECT
                 DATE({event_ts}, '{TORONTO_TZ}') AS dt,
                 event_name,
                 prop_user_id,
-                prop_device_id,
                 raw_event_id
             FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
             WHERE DATE(logAt_timestamp) BETWEEN DATE_SUB(DATE '{min_date}', INTERVAL 1 DAY)
@@ -80,11 +80,14 @@ def run_ads_daily_home_module_performance(dates):
                 )
         )
         WHERE dt IN ({dates_str})
+            AND prop_user_id IS NOT NULL
+            AND prop_user_id != ''
     ),
+    -- 将事件映射到模块，并标记曝光/点击类型。
     events AS (
         SELECT
             b.dt,
-            COALESCE(NULLIF(b.prop_user_id, ''), NULLIF(b.prop_device_id, '')) AS visitor_id,
+            b.prop_user_id AS user_id,
             m.module,
             b.event_name = m.exposure_event AS is_exposure,
             b.event_name = m.click_event AS is_click,
@@ -93,21 +96,24 @@ def run_ads_daily_home_module_performance(dates):
         INNER JOIN module_map m
             ON b.event_name IN (m.exposure_event, m.click_event)
     ),
+    -- 生成目标日期清单，用于补齐零值日期。
     date_list AS (
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
+    -- 生成目标日期与固定模块的全量组合。
     metric_keys AS (
         SELECT d.dt, m.module
         FROM date_list d
         CROSS JOIN (SELECT module FROM module_map) m
     ),
+    -- 汇总已登录用户口径下的曝光 UV、点击 UV 和点击 PV。
     metric_daily AS (
         SELECT
             dt,
             module,
-            COUNT(DISTINCT IF(is_exposure, visitor_id, NULL)) AS module_exposure_uv,
-            COUNT(DISTINCT IF(is_click, visitor_id, NULL)) AS module_click_uv,
+            COUNT(DISTINCT IF(is_exposure, user_id, NULL)) AS module_exposure_uv,
+            COUNT(DISTINCT IF(is_click, user_id, NULL)) AS module_click_uv,
             COUNT(DISTINCT IF(is_click, raw_event_id, NULL)) AS click_pv
         FROM events
         GROUP BY dt, module

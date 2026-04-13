@@ -10,15 +10,15 @@
 
 | 字段 | 口径 |
 |------|------|
-| module_exposure_uv | 模块曝光 UV；`COUNT(DISTINCT visitor_id)` |
-| module_click_uv | 模块点击 UV；`COUNT(DISTINCT visitor_id)` |
+| module_exposure_uv | 已登录用户模块曝光 UV；`COUNT(DISTINCT prop_user_id)`，且仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的曝光事件 |
+| module_click_uv | 已登录用户模块点击 UV；`COUNT(DISTINCT prop_user_id)`，且仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的点击事件 |
 | click_rate | 点击 UV / 曝光 UV |
-| click_pv | 模块点击 PV；按 `raw_event_id` 去重 |
+| click_pv | 已登录用户模块点击 PV；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的点击事件，并按 `raw_event_id` 去重 |
 | avg_click_count_per_user | 点击 PV / 点击 UV |
 
 补充说明：
 - 固定模块：`star`, `magazine`, `brand`, `feeds`
-- 访客去重：`visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))`
+- 登录用户口径：所有指标仅纳入 `prop_user_id` 非空的事件
 - 事件映射：`v_home_* / c_home_*`
 
 ## 依赖

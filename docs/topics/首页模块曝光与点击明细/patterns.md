@@ -12,4 +12,10 @@
 
 ## 这张表直接读 `dwd_event_log`
 
-- 模块口径异常时，先回看事件名映射、`visitor_id` 和 `raw_event_id` 去重，不要先去翻 `dws_*`
+- 模块口径异常时，先回看事件名映射、`prop_user_id` 登录过滤和 `raw_event_id` 去重，不要先去翻 `dws_*`
+
+## 登录口径要先区分“去重键”与“事件纳入范围”
+
+- 如果需求改成“只看已登录用户”，不能只把 UV 的去重键改成 `prop_user_id`
+- 还要先把事件输入范围收口到 `prop_user_id IS NOT NULL AND prop_user_id != ''`
+- 否则会出现 UV 已按登录用户统计，但点击 PV 仍混入匿名用户事件，导致点击率、人均点击次数口径不一致
