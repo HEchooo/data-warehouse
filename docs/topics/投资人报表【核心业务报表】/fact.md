@@ -27,8 +27,8 @@
 | 需求字段 | 定义 |
 |------|------|
 | 日期 | 报表日期 |
-| 新增视频 | 某视频第一次被采集到且播放量大于 0 的那一天计为新增，后续日期不重复计数 |
-| 活跃视频数 | 当天有播放的视频数量 |
+| 新增视频 | 某视频第一次被采集到且播放量大于 0 的那一天计为新增，后续日期不重复计数；自动发布跨平台复用同一 `task_id` 时，只要成功发布的平台数 `>= 1` 就按一个视频计算，手动发布不去重 |
+| 活跃视频数 | 当天有播放的视频数量；自动发布跨平台复用同一 `task_id` 时，只要成功发布的平台数 `>= 1` 就按一个视频计算，手动发布不去重 |
 | 新增视频播放数 | 当天新增播放次数 |
 | 视频平均播放数 | 新增视频播放数 / 活跃视频数 |
 | 新增视频平均播放数 | 新增视频产生的播放数 / 新增视频 |
@@ -51,8 +51,8 @@
 
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |------|------|------|------|
-| 新增视频 | `decom.dws_video_daily` | `is_new_video` 聚合 | 按 `video_key` 全历史实际采集日中最早满足 `raw_day_end_views > 0` 的 `dt` 记为新增日；当日 `is_new_video = TRUE`，后续日期不重复计数；当前仅保留 jhonson 团队视频 |
-| 活跃视频数 | `decom.dws_video_daily` | `is_active_video` 聚合 | `dt` 当天播放增量 `> 0` 的视频数；当前仅保留 jhonson 团队视频 |
+| 新增视频 | `decom.ads_daily_investor` | `new_video_count` | 先按 `decom.dws_video_daily.is_new_video` 识别各平台视频首次正播放日期，再在投资人报表聚合层把自动发布且跨平台复用同一 `task_id` 的成功发布平台视频收敛成一个统一视频键；同一 `task_id` 只要成功平台数 `>= 1`，就只在该统一键最早的首次正播放日计 `1`；手动发布视频仍按原始 `video_key` 计数；当前仅保留 jhonson 团队视频 |
+| 活跃视频数 | `decom.ads_daily_investor` | `active_video_count` | 先按 `decom.dws_video_daily.is_active_video` 识别当天有播放增量的视频，再在投资人报表聚合层把自动发布且跨平台复用同一 `task_id` 的成功发布平台视频收敛成一个统一视频键做去重；同一 `task_id` 只要当天任一成功平台活跃，就记 `1`；手动发布视频仍按原始 `video_key` 计数；当前仅保留 jhonson 团队视频 |
 | 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt`；当前仅保留 jhonson 团队视频 |
 | 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量；当前仅保留 jhonson 团队视频 |
 | 新增视频平均播放数 | `decom.ads_daily_investor` | `avg_new_video_view_count` | `new_video_contributed_view_count / new_video_count`；其中 `new_video_contributed_view_count` 是内部辅助字段，仅用于计算该指标，不在展示层单独输出 |
@@ -72,7 +72,9 @@
 | 播放下载转化率 | `decom.ads_daily_investor` | `play_download_conversion_rate` | `new_download_count / new_video_view_count`，其中 `new_video_view_count` 为当日全量视频播放增量 |
 
 补充说明：
-- 投资人报表里的视频相关指标当前复用 `decom.dws_video_daily`；根据 `docs/rules/video-mapping.md`，当前 jhonson 团队口径按 YouTube 排除 bob 团队测试渠道和内部渠道实现；TikTok / Ins 在该文档中未定义团队边界，因此暂维持原有全量口径
+- 投资人报表里的视频播放类指标仍复用 `decom.dws_video_daily`；根据 `docs/rules/video-mapping.md`，当前 jhonson 团队口径按 YouTube 排除 bob 团队测试渠道和内部渠道实现；TikTok / Ins 在该文档中未定义团队边界，因此暂维持原有全量口径
+- `新增视频`、`活跃视频数` 额外在 `ads_daily_investor` 聚合层按自动发布 `task_id` 做跨平台去重；只有能稳定映射到上传表 `COMPLETED + task_id` 的自动发布视频会去重，同一 `task_id` 只要存在至少一个成功平台就作为一个统一视频参与计数；手动发布视频不去重
+- 自动发布跨平台去重只作用于视频数量类指标，不改 `new_video_view_count`、`new_video_contributed_view_count` 这类播放量分子
 - 各渠道 `views / view_count` 为累计值，不是日增值
 - 每个视频每天取 `max(collected_at)` 对应的累计播放值，作为该视频该日的日末累计播放数
 - 某视频某日播放增量 = `当日日末累计播放数 - 前一日日末累计播放数`

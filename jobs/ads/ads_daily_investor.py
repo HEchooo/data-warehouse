@@ -107,19 +107,134 @@ def run_ads_daily_investor(dates: list[date]):
         SELECT CONCAT('ins:', CAST(media_id AS STRING)) AS video_key
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media`
     ),
-    -- 汇总 jhonson 团队的视频相关指标，区分全量日增播放与新增视频贡献播放。
-    video_metrics AS (
+    -- 提取自动发布成功的视频与任务映射，仅用于投资人报表的视频数量去重。
+    -- 同一 task_id 只要存在至少一个成功发布的平台，就应该作为一个统一视频参与计数；
+    -- 失败平台不参与统一键映射。
+    completed_auto_publish_video_task AS (
+        SELECT DISTINCT
+            CONCAT('youtube:', CAST(v.video_id AS STRING)) AS video_key,
+            u.task_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_uploads` u
+        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos` v
+            ON u.channel_id = v.channel_id
+            AND u.youtube_video_id = CAST(v.video_id AS STRING)
+        WHERE u.status = 'COMPLETED'
+            AND u.task_id IS NOT NULL
+            AND u.task_id != ''
+            AND u.channel_id IS NOT NULL
+            AND u.channel_id != ''
+            AND u.youtube_video_id IS NOT NULL
+            AND u.youtube_video_id != ''
+
+        UNION DISTINCT
+
+        SELECT DISTINCT
+            CONCAT('tiktok:', CAST(v.id AS STRING)) AS video_key,
+            u.task_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.video_uploads` u
+        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos` v
+            ON CAST(u.user_id AS STRING) = CAST(v.user_id AS STRING)
+            AND u.tiktok_video_id = CAST(v.id AS STRING)
+        WHERE u.status = 'COMPLETED'
+            AND u.task_id IS NOT NULL
+            AND u.task_id != ''
+            AND u.user_id IS NOT NULL
+            AND CAST(u.user_id AS STRING) != ''
+            AND u.tiktok_video_id IS NOT NULL
+            AND u.tiktok_video_id != ''
+
+        UNION DISTINCT
+
+        SELECT DISTINCT
+            CONCAT('ins:', CAST(v.media_id AS STRING)) AS video_key,
+            u.task_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_uploads` u
+        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media` v
+            ON CAST(u.channel_id AS STRING) = CAST(v.account_id AS STRING)
+            AND u.instagram_media_id = CAST(v.media_id AS STRING)
+        WHERE u.status = 'COMPLETED'
+            AND u.task_id IS NOT NULL
+            AND u.task_id != ''
+            AND u.channel_id IS NOT NULL
+            AND CAST(u.channel_id AS STRING) != ''
+            AND u.instagram_media_id IS NOT NULL
+            AND u.instagram_media_id != ''
+    ),
+    -- 把每个视频键收敛到唯一自动发布任务，存在多 task_id 时放弃去重，避免误并。
+    auto_publish_video_task_map AS (
+        SELECT
+            video_key,
+            IF(COUNT(DISTINCT task_id) = 1, MAX(task_id), NULL) AS auto_publish_task_id
+        FROM completed_auto_publish_video_task
+        GROUP BY video_key
+    ),
+    -- 准备待刷日期内投资人报表的视频明细，并映射自动发布统一视频键。
+    investor_video_base AS (
         SELECT
             v.dt,
-            COUNT(DISTINCT IF(v.is_new_video, v.video_key, NULL)) AS new_video_count,
-            COUNT(DISTINCT IF(v.is_active_video, v.video_key, NULL)) AS active_video_count,
-            COALESCE(SUM(v.daily_view_increment), 0) AS new_video_view_count,
-            COALESCE(SUM(v.new_video_contributed_view_count), 0)
-                AS new_video_contributed_view_count
+            v.video_key,
+            v.is_new_video,
+            v.is_active_video,
+            v.daily_view_increment,
+            v.new_video_contributed_view_count,
+            COALESCE(
+                CONCAT('auto_task:', m.auto_publish_task_id),
+                v.video_key
+            ) AS investor_video_key
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily` v
         INNER JOIN johnson_video_keys j
             ON v.video_key = j.video_key
+        LEFT JOIN auto_publish_video_task_map m
+            ON v.video_key = m.video_key
         WHERE v.dt IN ({dates_str})
+    ),
+    -- 取待刷窗口涉及的统一视频键，后续只回看这些键的历史新增日，控制扫描范围。
+    relevant_investor_video_keys AS (
+        SELECT DISTINCT investor_video_key
+        FROM investor_video_base
+    ),
+    -- 回看统一视频键的历史新增日，确保自动发布跨平台视频只在最早首次正播放日期记一次新增。
+    investor_video_first_positive_dt AS (
+        SELECT
+            COALESCE(
+                CONCAT('auto_task:', m.auto_publish_task_id),
+                v.video_key
+            ) AS investor_video_key,
+            MIN(v.dt) AS first_positive_view_dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily` v
+        INNER JOIN johnson_video_keys j
+            ON v.video_key = j.video_key
+        LEFT JOIN auto_publish_video_task_map m
+            ON v.video_key = m.video_key
+        INNER JOIN relevant_investor_video_keys r
+            ON COALESCE(
+                CONCAT('auto_task:', m.auto_publish_task_id),
+                v.video_key
+            ) = r.investor_video_key
+        WHERE v.is_new_video
+            AND v.dt <= DATE '{max_date}'
+        GROUP BY investor_video_key
+    ),
+    -- 汇总 jhonson 团队的视频相关指标；仅视频数量按自动发布 task_id 去重，播放量保持原口径。
+    video_metrics AS (
+        SELECT
+            v.dt,
+            COUNT(
+                DISTINCT IF(
+                    f.first_positive_view_dt = v.dt,
+                    v.investor_video_key,
+                    NULL
+                )
+            ) AS new_video_count,
+            COUNT(
+                DISTINCT IF(v.is_active_video, v.investor_video_key, NULL)
+            ) AS active_video_count,
+            COALESCE(SUM(v.daily_view_increment), 0) AS new_video_view_count,
+            COALESCE(SUM(v.new_video_contributed_view_count), 0)
+                AS new_video_contributed_view_count
+        FROM investor_video_base v
+        LEFT JOIN investor_video_first_positive_dt f
+            ON v.investor_video_key = f.investor_video_key
         GROUP BY v.dt
     ),
     -- 汇总当日新增下载数。
