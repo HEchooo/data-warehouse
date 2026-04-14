@@ -57,3 +57,17 @@
 `ig_media_stats_log.avg_watch_time / 视频时长（服务端还没提供字段）`
 ### 博主
 `account_id`
+
+
+## 自动发布统一视频到不同平台的去重逻辑
+1. youtube
+`yt_uploads.task_id + yt_uploads.status = "COMPLETED"`
+`yt_uploads.channel_id + yt_uploads.youtube_video_id -> yt_video_analytics_log.channel_id + yt_video_analytics_log.video_id`
+
+2. ins
+`ig_uploads.task_id + ig_uploads.status = "COMPLETED"`
+`ig_uploads.channel_id + ig_uploads.instagram_media_id -> ig_media_stats_log.account_id + ig_media_stats_log.media_id`
+
+3. tiktok
+`video_uploads.task_id + video_uploads.status = "COMPLETED"`
+`video_uploads.user_id + video_uploads.tiktok_video_id -> video_stats_log.user_id + video_stats_log.video_id`
