@@ -218,6 +218,15 @@ def build_social_video_daily_select_sql(dates: list[date]) -> str:
         )
         WHERE rn = 1
     ),
+    -- 识别每个视频首次被采到正播放量的日期，作为新增视频的全历史属性
+    first_positive_snapshot AS (
+        SELECT
+            video_key,
+            MIN(dt) AS first_positive_view_dt
+        FROM daily_latest_snapshot
+        WHERE raw_day_end_views > 0
+        GROUP BY video_key
+    ),
     -- 取窗口开始前最近一次快照，作为 seed_dt 这一天的承接累计值
     carry_in_snapshot AS (
         SELECT
@@ -429,24 +438,32 @@ def build_social_video_daily_select_sql(dates: list[date]) -> str:
         FROM expanded_video_daily
     )
     SELECT
-        dt,
-        channel,
-        creator_id,
-        video_id,
-        video_key,
-        published_ts_utc,
-        published_dt,
-        day_end_views,
-        day_end_likes,
-        daily_view_increment,
-        daily_like_increment,
-        has_snapshot,
-        has_snapshot_to_dt,
-        raw_day_end_views,
-        raw_day_end_likes,
+        f.dt,
+        f.channel,
+        f.creator_id,
+        f.video_id,
+        f.video_key,
+        f.published_ts_utc,
+        f.published_dt,
+        f.day_end_views,
+        f.day_end_likes,
+        f.daily_view_increment,
+        f.daily_like_increment,
+        f.has_snapshot,
+        f.has_snapshot_to_dt,
+        (fps.first_positive_view_dt = f.dt) AS is_new_video,
+        CASE
+            WHEN fps.first_positive_view_dt = f.dt
+            THEN COALESCE(f.raw_day_end_views, 0)
+            ELSE 0
+        END AS new_video_contributed_view_count,
+        f.raw_day_end_views,
+        f.raw_day_end_likes,
         CURRENT_TIMESTAMP() AS update_time
-    FROM final_daily
-    WHERE dt IN ({dates_str})
+    FROM final_daily f
+    LEFT JOIN first_positive_snapshot fps
+        ON f.video_key = fps.video_key
+    WHERE f.dt IN ({dates_str})
     """
 
 
@@ -457,7 +474,7 @@ def run_dws_social_video_daily(dates: list[date]):
     - 再把每个累计值转成“生效区间”，最后一次性展开成逐日明细
     - 如果当天没有采集记录，就沿用最近一次已知累计值
     - `day_end_views / day_end_likes` 是下游主口径；`raw_day_end_*` 仅保留作审计
-    - 产出每天的累计 views / likes 以及对应日增量
+    - 产出每天的累计 views / likes、对应日增量，以及新增视频标记
     """
     if not dates:
         logging.info("dws_social_video_daily 无待处理日期，跳过")
@@ -487,6 +504,8 @@ def run_dws_social_video_daily(dates: list[date]):
         daily_like_increment,
         has_snapshot,
         has_snapshot_to_dt,
+        is_new_video,
+        new_video_contributed_view_count,
         raw_day_end_views,
         raw_day_end_likes,
         update_time

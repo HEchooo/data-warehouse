@@ -133,7 +133,9 @@ def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
             day_end_likes,
             daily_view_increment,
             daily_like_increment,
-            has_snapshot_to_dt
+            has_snapshot_to_dt,
+            is_new_video,
+            new_video_contributed_view_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily`
         WHERE dt IN ({dates_str})
     ),
@@ -166,6 +168,37 @@ def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
             COALESCE(SUM(daily_like_increment), 0) AS daily_like_increment
         FROM social_video_daily
         WHERE dt IN ({dates_str})
+        GROUP BY dt
+    ),
+    -- 先汇总真实渠道的每日新增视频数与新增视频贡献播放数
+    base_new_video_channel_metrics AS (
+        SELECT
+            dt,
+            channel,
+            COUNT(DISTINCT IF(is_new_video, video_key, NULL)) AS new_video_count,
+            COALESCE(SUM(new_video_contributed_view_count), 0)
+                AS new_video_contributed_view_count
+        FROM social_video_daily
+        GROUP BY dt, channel
+    ),
+    -- 在真实渠道结果基础上补出“全部渠道”的新增视频聚合行
+    new_video_channel_metrics AS (
+        SELECT
+            dt,
+            channel,
+            new_video_count,
+            new_video_contributed_view_count
+        FROM base_new_video_channel_metrics
+
+        UNION ALL
+
+        SELECT
+            dt,
+            '全部渠道' AS channel,
+            COUNT(DISTINCT IF(is_new_video, video_key, NULL)) AS new_video_count,
+            COALESCE(SUM(new_video_contributed_view_count), 0)
+                AS new_video_contributed_view_count
+        FROM social_video_daily
         GROUP BY dt
     ),
     -- 统计各真实渠道截至前一天已发布过视频的历史去重博主数
@@ -267,6 +300,17 @@ def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
         c.channel,
         COALESCE(m.daily_view_increment, 0) AS daily_view_increment,
         COALESCE(m.daily_like_increment, 0) AS daily_like_increment,
+        COALESCE(n.new_video_count, 0) AS new_video_count,
+        COALESCE(n.new_video_contributed_view_count, 0)
+            AS new_video_contributed_view_count,
+        CAST(CASE
+            WHEN COALESCE(n.new_video_count, 0) = 0 THEN 0
+            ELSE ROUND(
+                CAST(COALESCE(n.new_video_contributed_view_count, 0) AS NUMERIC)
+                / CAST(n.new_video_count AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS avg_new_video_view_count,
         COALESCE(b.creator_count_to_prev_day, 0) AS creator_count_to_prev_day,
         CAST(CASE
             WHEN COALESCE(b.creator_count_to_prev_day, 0) = 0 THEN 0
@@ -294,6 +338,9 @@ def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
     LEFT JOIN daily_channel_metrics m
         ON d.dt = m.dt
         AND c.channel = m.channel
+    LEFT JOIN new_video_channel_metrics n
+        ON d.dt = n.dt
+        AND c.channel = n.channel
     LEFT JOIN creator_base b
         ON d.dt = b.dt
         AND c.channel = b.channel
@@ -307,7 +354,7 @@ def run_ads_daily_social_content(dates: list[date]):
     """
     Social Content 主题日报（dt × 展示渠道）:
     - 先刷新 dws_social_video_daily，统一承接视频补日期、补累计、算日增
-    - 再从 dws_social_video_daily 聚合渠道指标、历史博主分母和最新 3 条样本池
+    - 再从 dws_social_video_daily 聚合渠道指标、新增视频指标、历史博主分母和最新 3 条样本池
     - `全部渠道` 直接写入主表，博主去重 key 使用 `channel + creator_id`
     """
     if not dates:
@@ -334,6 +381,9 @@ def run_ads_daily_social_content(dates: list[date]):
         channel,
         daily_view_increment,
         daily_like_increment,
+        new_video_count,
+        new_video_contributed_view_count,
+        avg_new_video_view_count,
         creator_count_to_prev_day,
         daily_view_increment_per_creator,
         latest_3_sample_creator_count,
