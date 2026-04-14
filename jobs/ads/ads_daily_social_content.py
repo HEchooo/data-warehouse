@@ -107,6 +107,7 @@ def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
     channels_array_sql = strings_to_array_sql(DISPLAY_CHANNELS)
+    max_date = max(dates)
 
     return f"""
     WITH
@@ -138,6 +139,107 @@ def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
             new_video_contributed_view_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily`
         WHERE dt IN ({dates_str})
+    ),
+    -- 提取自动发布成功的视频与任务映射，仅用于“全部渠道”的新增视频数量去重
+    -- 同一 task_id 只要存在至少一个成功发布的平台，就应作为一个统一视频参与计数
+    completed_auto_publish_video_task AS (
+        SELECT DISTINCT
+            CONCAT('youtube:', CAST(v.video_id AS STRING)) AS video_key,
+            u.task_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_uploads` u
+        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos` v
+            ON u.channel_id = v.channel_id
+            AND u.youtube_video_id = CAST(v.video_id AS STRING)
+        WHERE u.status = 'COMPLETED'
+            AND u.task_id IS NOT NULL
+            AND u.task_id != ''
+            AND u.channel_id IS NOT NULL
+            AND u.channel_id != ''
+            AND u.youtube_video_id IS NOT NULL
+            AND u.youtube_video_id != ''
+
+        UNION DISTINCT
+
+        SELECT DISTINCT
+            CONCAT('tiktok:', CAST(v.id AS STRING)) AS video_key,
+            u.task_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.video_uploads` u
+        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos` v
+            ON CAST(u.user_id AS STRING) = CAST(v.user_id AS STRING)
+            AND u.tiktok_video_id = CAST(v.id AS STRING)
+        WHERE u.status = 'COMPLETED'
+            AND u.task_id IS NOT NULL
+            AND u.task_id != ''
+            AND u.user_id IS NOT NULL
+            AND CAST(u.user_id AS STRING) != ''
+            AND u.tiktok_video_id IS NOT NULL
+            AND u.tiktok_video_id != ''
+
+        UNION DISTINCT
+
+        SELECT DISTINCT
+            CONCAT('ins:', CAST(v.media_id AS STRING)) AS video_key,
+            u.task_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_uploads` u
+        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media` v
+            ON CAST(u.channel_id AS STRING) = CAST(v.account_id AS STRING)
+            AND u.instagram_media_id = CAST(v.media_id AS STRING)
+        WHERE u.status = 'COMPLETED'
+            AND u.task_id IS NOT NULL
+            AND u.task_id != ''
+            AND u.channel_id IS NOT NULL
+            AND CAST(u.channel_id AS STRING) != ''
+            AND u.instagram_media_id IS NOT NULL
+            AND u.instagram_media_id != ''
+    ),
+    -- 把每个视频键收敛到唯一自动发布任务，存在多 task_id 时放弃去重，避免误并
+    auto_publish_video_task_map AS (
+        SELECT
+            video_key,
+            IF(COUNT(DISTINCT task_id) = 1, MAX(task_id), NULL) AS auto_publish_task_id
+        FROM completed_auto_publish_video_task
+        GROUP BY video_key
+    ),
+    -- 为待刷窗口内的新增视频准备“全部渠道”统一视频键
+    -- 单渠道仍保持原始 video_key 口径，不做跨平台去重
+    all_channel_new_video_base AS (
+        SELECT
+            s.dt,
+            s.video_key,
+            s.new_video_contributed_view_count,
+            COALESCE(
+                CONCAT('auto_task:', m.auto_publish_task_id),
+                s.video_key
+            ) AS all_channel_video_key
+        FROM social_video_daily s
+        LEFT JOIN auto_publish_video_task_map m
+            ON s.video_key = m.video_key
+        WHERE s.is_new_video
+    ),
+    -- 取待刷窗口涉及的统一视频键，后续只回看这些键的历史新增日，控制扫描范围
+    relevant_all_channel_video_keys AS (
+        SELECT DISTINCT all_channel_video_key
+        FROM all_channel_new_video_base
+    ),
+    -- 回看统一视频键的历史新增日，确保自动发布跨平台视频只在最早首次正播放日期记一次新增
+    all_channel_video_first_positive_dt AS (
+        SELECT
+            COALESCE(
+                CONCAT('auto_task:', m.auto_publish_task_id),
+                v.video_key
+            ) AS all_channel_video_key,
+            MIN(v.dt) AS first_positive_view_dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily` v
+        LEFT JOIN auto_publish_video_task_map m
+            ON v.video_key = m.video_key
+        INNER JOIN relevant_all_channel_video_keys r
+            ON COALESCE(
+                CONCAT('auto_task:', m.auto_publish_task_id),
+                v.video_key
+            ) = r.all_channel_video_key
+        WHERE v.is_new_video
+            AND v.dt <= DATE '{max_date}'
+        GROUP BY all_channel_video_key
     ),
     -- 先汇总真实渠道的每日新增 views / likes
     base_daily_channel_metrics AS (
@@ -193,13 +295,21 @@ def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
         UNION ALL
 
         SELECT
-            dt,
+            b.dt,
             '全部渠道' AS channel,
-            COUNT(DISTINCT IF(is_new_video, video_key, NULL)) AS new_video_count,
-            COALESCE(SUM(new_video_contributed_view_count), 0)
+            COUNT(
+                DISTINCT IF(
+                    f.first_positive_view_dt = b.dt,
+                    b.all_channel_video_key,
+                    NULL
+                )
+            ) AS new_video_count,
+            COALESCE(SUM(b.new_video_contributed_view_count), 0)
                 AS new_video_contributed_view_count
-        FROM social_video_daily
-        GROUP BY dt
+        FROM all_channel_new_video_base b
+        LEFT JOIN all_channel_video_first_positive_dt f
+            ON b.all_channel_video_key = f.all_channel_video_key
+        GROUP BY b.dt
     ),
     -- 统计各真实渠道截至前一天已发布过视频的历史去重博主数
     base_creator_base AS (

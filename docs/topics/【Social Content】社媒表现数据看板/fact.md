@@ -24,7 +24,7 @@
 | 渠道 | 主表直接产出 `全部渠道 / youtube / tiktok / ins` 4 个展示渠道值 |
 | 每日新增 views | 每个视频每天取 `max(collected_at)` 对应的累计播放值，与前一日日末累计播放值做差后按渠道汇总 |
 | 每日新增 likes | 每个视频每天取 `max(collected_at)` 对应的累计点赞值，与前一日日末累计点赞值做差后按渠道汇总 |
-| 每天新增视频数 | 某视频第一次被采集到且播放量大于 0 的那一天计为新增，后续日期不重复计数；按渠道汇总 |
+| 每天新增视频数 | 某视频第一次被采集到且播放量大于 0 的那一天计为新增，后续日期不重复计数；单渠道按原始视频汇总，`全部渠道` 在自动发布场景下按统一任务去重 |
 | 新增视频平均播放数 | 当天新增视频首次被采到正播放量时的累计播放数之和 / 当天新增视频数 |
 | 前一天新增 views / 博主总数 | `dt` 当天新增 views / 截至 `dt-1` 已发布过视频的历史去重博主总数；YouTube 博主为 `channel_id`，TikTok 为 `user_id`，Ins 为 `account_id`；`全部渠道` 按 `channel + creator_id` 去重 |
 | 每个博主最新 3 条的平均赞播率 | 先限定“截至 `dt` 已经有采集数据”的视频，再对每个博主按发布时间倒序取其中最新 3 条，样本池整体按 `SUM(likes) / SUM(views)` 计算 |
@@ -58,7 +58,7 @@
 | 渠道 | `decom.ads_daily_social_content` | `channel` | 固定枚举 `全部渠道 / youtube / tiktok / ins` |
 | 每日新增 views | `decom.ads_daily_social_content` | `daily_view_increment` | 各渠道视频按 `America/Toronto` 切天，先取每日 `max(collected_at)` 对应累计播放值，再减前一日日末累计值后汇总 |
 | 每日新增 likes | `decom.ads_daily_social_content` | `daily_like_increment` | 各渠道视频按 `America/Toronto` 切天，先取每日 `max(collected_at)` 对应累计点赞值，再减前一日日末累计值后汇总 |
-| 每天新增视频数 | `decom.ads_daily_social_content` | `new_video_count` | 各渠道按 `COUNT(DISTINCT IF(is_new_video, video_key, NULL))` 汇总；`全部渠道` 直接按带渠道前缀的 `video_key` 去重 |
+| 每天新增视频数 | `decom.ads_daily_social_content` | `new_video_count` | `youtube / tiktok / ins` 仍按 `COUNT(DISTINCT IF(is_new_video, video_key, NULL))` 汇总；`全部渠道` 额外按自动发布统一视频键去重：自动发布且跨平台复用同一 `task_id` 的成功发布视频，只在该统一键全历史最早首次正播放日计 `1`；手动发布视频仍按原始 `video_key` 计数 |
 | 新增视频平均播放数 | `decom.ads_daily_social_content` | `avg_new_video_view_count` | `new_video_contributed_view_count / new_video_count`；其中 `new_video_contributed_view_count` 是内部辅助字段，仅用于计算该指标，不在展示层单独强调 |
 | 前一天新增 views / 博主总数 | `decom.ads_daily_social_content` | `daily_view_increment_per_creator` | 分子为 `daily_view_increment`；分母为 `creator_count_to_prev_day`，即截至 `dt-1` 已发布过视频的历史去重博主数；`全部渠道` 用 `channel + creator_id` 去重 |
 | 每个博主最新 3 条的平均赞播率 | `decom.ads_daily_social_content` | `latest_3_avg_like_view_rate` | 先限定截至 `dt` 已有采集数据的视频，再按发布时间倒序取每个博主其中最新 3 条；汇总样本池的 `latest_3_sample_like_count / latest_3_sample_view_count`；`全部渠道` 仍按 `channel + creator_id` 分组取各博主最新 3 条 |
@@ -69,6 +69,7 @@
 - 若某视频在 `dt` 没有新采集记录，则其 `dt` 日末累计值沿用最近一次已采集值，因此 `dt` 的日增量记为 `0`
 - `decom.dws_social_video_daily` 对下游承诺“从 `published_dt` 起每天一行”的 dense daily 语义；其中 `day_end_views / day_end_likes` 是主口径字段，`raw_day_end_views / raw_day_end_likes` 只保留作审计
 - “每天新增视频数”沿用投资人报表的视频新增口径：按 `video_key` 全历史最早满足 `raw_day_end_views > 0` 的日期记为新增日，不依赖 `published_dt = dt`
+- 因为 dashboard 支持 `channel` filter，自动发布跨平台去重只作用于 `channel = 全部渠道`；筛到单渠道时仍保留各平台原始视频数量口径
 - “新增视频平均播放数”的分子不是当天全量视频播放增量，而是新增视频在首次被采到正播放量当天的 `raw_day_end_views` 之和
 - `jobs/dws/dws_social_video_daily.py` 的实现采用“真实采集日快照 -> 生效区间 -> 一次性展开逐日明细”的批量方式，不再逐天启动查询任务
 - “博主总数”按发布时间判断，不依赖是否已经采集到播放快照

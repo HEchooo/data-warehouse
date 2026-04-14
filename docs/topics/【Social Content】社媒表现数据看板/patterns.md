@@ -25,6 +25,15 @@
 - 如果 `全部渠道` 直接按裸 `creator_id` 去重，跨平台同字符串 ID 会被误判成同一博主
 - 当前保守口径是 `channel + creator_id`，同时用于“前一天新增 views / 博主总数”的分母和“每个博主最新 3 条”的博主分组
 
+## 自动发布跨平台视频只在“全部渠道”里按 `task_id` 去重
+
+- `docs/rules/video-mapping.md` 已定义自动发布统一视频映射：YouTube 看 `yt_uploads.task_id + status = COMPLETED`，TikTok 看 `video_uploads.task_id + status = COMPLETED`，Ins 看 `ig_uploads.task_id + status = COMPLETED`
+- 同一个自动发布任务会把同一条视频发到多个平台；这些平台视频在上传表里共享同一个 `task_id`
+- 如果 `全部渠道` 继续按原始 `video_key` 统计“新增视频”，同一个自动发布任务会被重复算多次
+- 因为 dashboard 支持 `channel` filter，去重只应作用于 `channel = 全部渠道` 这条展示线；单渠道筛选时必须保留平台自身原始视频数，不能把跨平台规则误带进去
+- 正确做法是在 `ads_daily_social_content` 聚合层把自动发布视频映射成统一视频键 `auto_task:{task_id}`，并回看该统一键全历史最早 `views > 0` 的日期，只在这一天记 `1`
+- 为避免误并，只有当同一个 `video_key` 能稳定映射到唯一 `task_id` 时才参与去重；如果一个视频键出现多个不同 `task_id`，宁可退回原始 `video_key`
+
 ## 默认展示 4 条线时，不要额外绕一层 `channel_filter` 展示视图
 
 - 这次为了同时满足“默认显示全部渠道 + 支持单渠道筛选”，一度做过 `ads_daily_social_content_filter` 视图和 Superset dataset `231`
