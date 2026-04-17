@@ -17,6 +17,7 @@
 - `ads_daily_home_module_performance`
 - `ads_daily_user_duration_frequency`
 - `ads_daily_investor`
+- `ads_daily_retention_user_feature`
 
 ### 执行流程
 
@@ -36,6 +37,7 @@
 11. 执行 `jobs/ads/ads_daily_home_module_performance.py`
 12. 执行 `jobs/ads/ads_daily_user_duration_frequency.py`
 13. 执行 `jobs/ads/ads_daily_investor.py`
+14. 执行 `jobs/ads/ads_daily_retention_user_feature.py`
 
 
 ## 主链路

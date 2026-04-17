@@ -27,6 +27,7 @@ from ads_daily_post_performance import run_ads_daily_post_performance
 from ads_daily_column_performance import run_ads_daily_column_performance
 from ads_daily_product_tryon_performance import run_ads_daily_product_tryon_performance
 from ads_daily_investor import run_ads_daily_investor
+from ads_daily_retention_user_feature import run_ads_daily_retention_user_feature
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
@@ -134,6 +135,20 @@ def get_dates_to_process():
             ),
             incremental_dates_sql(
                 "dws_user_daily",
+                "ads_daily_retention_user_feature",
+            ),
+            incremental_dates_sql(
+                "dws_user_daily",
+                "ads_daily_retention_user_feature",
+                "DATE_SUB(dt, INTERVAL 1 DAY)",
+            ),
+            incremental_dates_sql(
+                "dws_user_daily",
+                "ads_daily_retention_user_feature",
+                "DATE_SUB(dt, INTERVAL 7 DAY)",
+            ),
+            incremental_dates_sql(
+                "dws_user_daily",
                 "ads_daily_investor",
             ),
             incremental_dates_sql(
@@ -213,6 +228,9 @@ if __name__ == "__main__":
     logging.info("-" * 50)
 
     run_ads_daily_investor(dates)
+    logging.info("-" * 50)
+
+    run_ads_daily_retention_user_feature(dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"ADS ETL 完成, 耗时: {elapsed:.1f} 秒")
