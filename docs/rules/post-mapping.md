@@ -49,6 +49,9 @@
 ## 试穿帖子
 - `json_extract(v3_decom.common_ext_ai_task.request_param,'$.postId')` && `task_type IN ('TRY_ON','STYLE_ME')`
 
+## 创建模特
+- `v3_decom.common_ext_ai_task.task_type = 'MODEL'`
+
 ## 试穿人数
 - `v3_decom.common_ext_ai_task.request_param.user_id` && `task_type IN ('TRY_ON','STYLE_ME')`
 
