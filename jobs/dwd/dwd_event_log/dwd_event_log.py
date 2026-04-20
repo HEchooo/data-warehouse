@@ -228,6 +228,57 @@ def normalize_nullable_string(value):
     return str(value)
 
 
+def normalize_distinct_non_empty_array(value):
+    """
+    将 BigQuery 取出的 JSON 数组字段标准化为“去重后的非空字符串列表”。
+    过滤 None / NaN / 空字符串 / 'null'，避免拆行时产出空 item。
+    """
+    if value is None:
+        return []
+
+    try:
+        if pd.isna(value):
+            return []
+    except Exception:
+        pass
+
+    parsed_values = value
+    if isinstance(parsed_values, str):
+        stripped_value = parsed_values.strip()
+        if stripped_value in {"", "null", "[]"}:
+            return []
+        if stripped_value.startswith("["):
+            parsed_values = json.loads(stripped_value)
+        else:
+            if stripped_value.startswith('"') and stripped_value.endswith('"'):
+                stripped_value = stripped_value[1:-1]
+            parsed_values = [stripped_value]
+    elif not isinstance(parsed_values, list):
+        parsed_values = [parsed_values]
+
+    normalized_values = []
+    seen_values = set()
+    for item in parsed_values:
+        if item is None:
+            continue
+        try:
+            if pd.isna(item):
+                continue
+        except Exception:
+            pass
+
+        normalized_item = str(item).strip()
+        if normalized_item in {"", "null"}:
+            continue
+        if normalized_item in seen_values:
+            continue
+
+        seen_values.add(normalized_item)
+        normalized_values.append(normalized_item)
+
+    return normalized_values
+
+
 def normalize_dataframe_for_bigquery(df: pd.DataFrame) -> pd.DataFrame:
     normalized = df.copy()
     for column in TEMP_DWD_EVENT_LOG_STRING_COLUMNS:
@@ -379,65 +430,9 @@ def transform_data(query: str) -> pd.DataFrame:
         if index % 1000 == 0:
             logging.info(f"正在处理数据 {index}/{total_rows}...")
         try:
-            # 处理 args_spu - 拆分为 spu 列表
-            args_spu_list = row.args_spu
-
-            if (
-                args_spu_list is None
-                or pd.isna(args_spu_list)
-                or str(args_spu_list).strip() == ""
-                or str(args_spu_list).strip() == "null"
-                or str(args_spu_list).strip() == "[]"
-            ):
-                args_spu_list = []
-            elif isinstance(args_spu_list, str):
-                if args_spu_list.startswith("["):
-                    args_spu_list = json.loads(args_spu_list)
-                else:
-                    if args_spu_list.startswith('"') and args_spu_list.endswith('"'):
-                        args_spu_list = args_spu_list[1:-1]
-                    args_spu_list = [args_spu_list]
-            else:
-                args_spu_list = [str(args_spu_list)]
-
-            # 去重 spu
-            seen_spu = set()
-            unique_spu_list = []
-            for spu in args_spu_list:
-                if spu not in seen_spu:
-                    seen_spu.add(spu)
-                    unique_spu_list.append(spu)
-            args_spu_list = unique_spu_list
-
-            # 处理 args_post - 拆分为 post 列表
-            args_post_list = row.args_post
-
-            if (
-                args_post_list is None
-                or pd.isna(args_post_list)
-                or str(args_post_list).strip() == ""
-                or str(args_post_list).strip() == "null"
-                or str(args_post_list).strip() == "[]"
-            ):
-                args_post_list = []
-            elif isinstance(args_post_list, str):
-                if args_post_list.startswith("["):
-                    args_post_list = json.loads(args_post_list)
-                else:
-                    if args_post_list.startswith('"') and args_post_list.endswith('"'):
-                        args_post_list = args_post_list[1:-1]
-                    args_post_list = [args_post_list]
-            else:
-                args_post_list = [str(args_post_list)]
-
-            # 去重 post
-            seen_post = set()
-            unique_post_list = []
-            for post in args_post_list:
-                if post not in seen_post:
-                    seen_post.add(post)
-                    unique_post_list.append(post)
-            args_post_list = unique_post_list
+            # 处理 args_spu / args_post：过滤空元素后再独立拆行
+            args_spu_list = normalize_distinct_non_empty_array(row.args_spu)
+            args_post_list = normalize_distinct_non_empty_array(row.args_post)
 
             # 如果两者都为空，创建一条记录（两个都为 None）
             if not args_spu_list and not args_post_list:
