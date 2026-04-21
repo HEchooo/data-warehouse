@@ -47,37 +47,61 @@ def incremental_dates_sql(source_table, target_table, select_expr="dt"):
     """
 
 
-def get_dates_to_process():
+def device_t0_dates_sql():
     """
-    找出 DWS 层有新数据但 ADS 层尚未处理的日期。
-    同时包含前一天用于回刷次日留存率。
-    同时纳入下载 DWS 与内容表现日报的增量日期。
-    使用多伦多时间（America/Toronto）。
+    支持 T+0 展示：只要 dws_device_daily 已有多伦多当天/昨天分区，就强制纳入。
+    这样可以避免同日数据已到但因 update_time 对比未触发 ADS 刷新。
+    """
+    return f"""
+    SELECT DISTINCT dt
+    FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+    WHERE dt IN (
+        CURRENT_DATE('{TORONTO_TZ}'),
+        DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
+    )
+    """
 
-    说明：
-    - 允许处理到多伦多当天 dt（当天数据可能不完整，适合看趋势与实时观察）。
-    - 留存/到期类指标是否产出，仍由各子任务内部的“成熟度”逻辑决定（不强制当天出结果）。
+
+def execute_dates_query(parts):
     """
-    query = "\nUNION DISTINCT\n".join(
+    把多段日期 SQL 做 UNION DISTINCT，返回排序后的日期列表。
+    空列表直接返回空，避免生成非法 SQL。
+    """
+    if not parts:
+        return []
+
+    query = "\nUNION DISTINCT\n".join(parts)
+    query += "\nORDER BY dt"
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
+def get_total_dates_to_process():
+    """
+    ads_daily_total 的日期集合。
+    依赖 dws_device_daily，并额外回刷前一天以支撑次留类指标成熟。
+    """
+    return execute_dates_query(
         [
-            # 支持 T+0 展示：只要 DWS 已有多伦多“当天/昨天”的分区，就强制纳入这两天 dt。
-            # 这样可以避免因为 update_time 对比（DWS <= ADS）导致“当天有数据但 ADS 不刷新”的情况，
-            # 同时保证“昨天”的次日留存等需要 T+1 才成熟的指标能在今天回刷。
-            f"""
-            SELECT DISTINCT dt
-            FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
-            WHERE dt IN (
-                CURRENT_DATE('{TORONTO_TZ}'),
-                DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
-            )
-            """,
+            device_t0_dates_sql(),
             incremental_dates_sql("dws_device_daily", "ads_daily_total"),
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_total",
                 "DATE_SUB(dt, INTERVAL 1 DAY)",
             ),
-            incremental_dates_sql("dws_download_daily", "ads_daily_new"),
+        ]
+    )
+
+
+def get_content_dates_to_process():
+    """
+    事件内容类 ADS 的日期集合。
+    只依赖 dws_device_daily，不再混入下载链路日期。
+    """
+    return execute_dates_query(
+        [
+            device_t0_dates_sql(),
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_content_performance",
@@ -110,6 +134,30 @@ def get_dates_to_process():
                 "dws_device_daily",
                 "ads_daily_home_module_performance",
             ),
+        ]
+    )
+
+
+def get_download_dates_to_process():
+    """
+    ads_daily_new 的日期集合。
+    下载链路回刷只影响新增报表，不再拖动其他事件类 ADS。
+    """
+    return execute_dates_query(
+        [
+            incremental_dates_sql("dws_download_daily", "ads_daily_new"),
+        ]
+    )
+
+
+def get_frequency_dates_to_process():
+    """
+    ads_daily_user_duration_frequency 的日期集合。
+    依赖 dws_device_daily，并保留 1/7/30 天回看窗口。
+    """
+    return execute_dates_query(
+        [
+            device_t0_dates_sql(),
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_user_duration_frequency",
@@ -129,10 +177,17 @@ def get_dates_to_process():
                 "ads_daily_user_duration_frequency",
                 "DATE_SUB(dt, INTERVAL 30 DAY)",
             ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_investor",
-            ),
+        ]
+    )
+
+
+def get_retention_dates_to_process():
+    """
+    ads_daily_retention_user_feature 的日期集合。
+    依赖 dws_user_daily，并保留 1/7 天回看窗口。
+    """
+    return execute_dates_query(
+        [
             incremental_dates_sql(
                 "dws_user_daily",
                 "ads_daily_retention_user_feature",
@@ -146,6 +201,21 @@ def get_dates_to_process():
                 "dws_user_daily",
                 "ads_daily_retention_user_feature",
                 "DATE_SUB(dt, INTERVAL 7 DAY)",
+            ),
+        ]
+    )
+
+
+def get_investor_dates_to_process():
+    """
+    ads_daily_investor 的日期集合。
+    投资人报表跨事件、用户、视频、Appsflyer 与内容 DWS，多链路合并处理。
+    """
+    return execute_dates_query(
+        [
+            incremental_dates_sql(
+                "dws_device_daily",
+                "ads_daily_investor",
             ),
             incremental_dates_sql(
                 "dws_user_daily",
@@ -179,58 +249,86 @@ def get_dates_to_process():
             ),
         ]
     )
-    query += "\nORDER BY dt"
-    results = client.query(query).result()
-    return [row.dt for row in results]
+
+
+def log_dates(label, dates):
+    """统一打印每组待处理日期，空组也显式记录。"""
+    logging.info(f"{label}待处理日期: {dates if dates else '[]'}")
 
 
 if __name__ == "__main__":
     start_time = datetime.now(timezone.utc)
 
-    dates = get_dates_to_process()
-    if not dates:
+    total_dates = get_total_dates_to_process()
+    content_dates = get_content_dates_to_process()
+    download_dates = get_download_dates_to_process()
+    frequency_dates = get_frequency_dates_to_process()
+    investor_dates = get_investor_dates_to_process()
+    retention_dates = get_retention_dates_to_process()
+
+    if not any(
+        [
+            total_dates,
+            content_dates,
+            download_dates,
+            frequency_dates,
+            investor_dates,
+            retention_dates,
+        ]
+    ):
         logging.info("没有新数据需要处理")
         exit(0)
 
-    logging.info(f"待处理日期: {dates}")
+    log_dates("总量类", total_dates)
+    log_dates("内容事件类", content_dates)
+    log_dates("下载类", download_dates)
+    log_dates("时长频次类", frequency_dates)
+    log_dates("投资人类", investor_dates)
+    log_dates("留存类", retention_dates)
 
-    run_ads_daily_new(dates)
-    logging.info("-" * 50)
+    if download_dates:
+        run_ads_daily_new(download_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_total(dates)
-    logging.info("-" * 50)
+    if total_dates:
+        run_ads_daily_total(total_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_content_performance(dates)
-    logging.info("-" * 50)
+    if content_dates:
+        run_ads_daily_content_performance(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_tryon_confirm(dates)
-    logging.info("-" * 50)
+        run_ads_daily_tryon_confirm(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_tryon_add_cart_conversion(dates)
-    logging.info("-" * 50)
+        run_ads_daily_tryon_add_cart_conversion(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_post_tryon_confirm(dates)
-    logging.info("-" * 50)
+        run_ads_daily_post_tryon_confirm(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_post_performance(dates)
-    logging.info("-" * 50)
+        run_ads_daily_post_performance(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_column_performance(dates)
-    logging.info("-" * 50)
+        run_ads_daily_column_performance(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_product_tryon_performance(dates)
-    logging.info("-" * 50)
+        run_ads_daily_product_tryon_performance(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_home_module_performance(dates)
-    logging.info("-" * 50)
+        run_ads_daily_home_module_performance(content_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_user_duration_frequency(dates)
-    logging.info("-" * 50)
+    if frequency_dates:
+        run_ads_daily_user_duration_frequency(frequency_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_investor(dates)
-    logging.info("-" * 50)
+    if investor_dates:
+        run_ads_daily_investor(investor_dates)
+        logging.info("-" * 50)
 
-    run_ads_daily_retention_user_feature(dates)
+    if retention_dates:
+        run_ads_daily_retention_user_feature(retention_dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"ADS ETL 完成, 耗时: {elapsed:.1f} 秒")
