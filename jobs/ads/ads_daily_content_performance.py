@@ -295,7 +295,7 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM follow_service_with_platform
         GROUP BY dt, platform
     ),
-    -- 服务端试穿原始记录：只保留带 postId 的内容场景试穿任务。
+    -- 服务端试穿原始记录：统计平台级 TRY_ON / OUTFIT 任务。
     tryon_task_base AS (
         SELECT
             GENERATE_UUID() AS action_id,
@@ -309,8 +309,7 @@ def build_ads_daily_content_performance_select_query(dates):
             ) AS user_id
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND task_type IN ('TRY_ON', 'STYLE_ME')
-            AND NULLIF(JSON_VALUE(request_param, '$.postId'), '') IS NOT NULL
+            AND task_type IN ('TRY_ON', 'OUTFIT')
     ),
     -- 服务端试穿记录按同日最近登录事件归因平台；未命中则记为 unknown。
     tryon_task_with_platform AS (
@@ -332,7 +331,7 @@ def build_ads_daily_content_performance_select_query(dates):
                 p.event_ts DESC
         ) = 1
     ),
-    -- 服务端试穿日聚合：产出内容场景试穿次数与试穿用户数。
+    -- 服务端试穿日聚合：产出平台级试穿次数与试穿用户数。
     tryon_daily AS (
         SELECT
             dt,
@@ -486,8 +485,8 @@ def run_ads_daily_content_performance(dates):
     - follow_uv: 关注 UV（服务端新增关注用户数）
     - dau_uv: 日活 UV（任意事件活跃 visitor_id）
     - follow_rate: 关注率（关注 UV / 日活 UV）
-    - tryon_total_count: 试穿总次数（服务端内容场景试穿任务次数）
-    - tryon_uv: 试穿 UV（服务端内容场景试穿用户数）
+    - tryon_total_count: 试穿总次数（服务端平台级试穿任务次数）
+    - tryon_uv: 试穿 UV（服务端平台级试穿用户数）
     - tryon_penetration_rate: 试穿渗透率（tryon_uv / dau_uv）
     - follow_conversion_rate: 关注转化率（follow_uv / like_uv）
     - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
@@ -496,7 +495,7 @@ def run_ads_daily_content_performance(dates):
     补充说明：
     - 点赞 / 关注 / 试穿改取服务端表：`community_post_like`、`community_star_follow`、`common_ext_ai_task`
     - 服务端行为的平台维度，按同日同用户最近的登录事件平台归因；未命中记为 `unknown`
-    - 试穿只统计内容场景：`task_type IN ('TRY_ON', 'STYLE_ME')` 且 `request_param.postId` 非空
+    - 试穿统计平台级任务：`task_type IN ('TRY_ON', 'OUTFIT')`，不限定 `request_param.postId`
     使用多伦多时间（America/Toronto）。
     """
     dates_str = dates_to_sql_list(dates)

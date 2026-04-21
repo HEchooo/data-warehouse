@@ -24,19 +24,14 @@
 
 ## 试穿口径不要只看 c_tryon
 
-- 平台整体内容表现里的“试穿”业务概念已扩成 `c_styleme + c_tryon`
-- 后续再做平台级试穿 UV / 渗透率时，先核对是否沿用这个统一口径，不要只抓旧的 `c_tryon`
+- 平台整体内容表现里的“试穿”当前以服务端 `common_ext_ai_task` 为准
+- 91 报表当前统计 `task_type IN ('TRY_ON', 'OUTFIT')` 的平台级试穿任务，不再限定 `request_param.postId`
 
 ## 服务端行为映射平台不能直接连 `dws_user_daily`
 
 - `dws_user_daily` 的粒度是 `dt × prop_user_id × platform`，同一用户同日跨平台活跃时会有多行
 - 平台整体内容表现如果直接把 `community_post_like` / `community_star_follow` / `common_ext_ai_task` 连到 `dws_user_daily`，同一条服务端行为会被重复分摊到多个平台
 - 正确做法是回到同日登录事件，按行为时间匹配同用户最近的登录事件平台；未命中再回落到 `unknown`
-
-## 内容场景试穿要限定 `postId`
-
-- `common_ext_ai_task` 里不带 `request_param.postId` 的 TRY_ON / STYLE_ME 不能直接并入“平台整体内容表现”
-- 这张报表的试穿口径是内容场景试穿，不是全平台所有 AI 试穿任务
 
 ## Superset chart 不能只更新 params，不更新 query_context
 
