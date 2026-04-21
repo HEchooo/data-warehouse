@@ -94,8 +94,8 @@ def run_ads_daily_column_performance(dates):
     - read_post_count：同一人同天同专栏曝光到的去重帖子数
     - avg_read_post_count_per_user：read_post_count / column_exposure_uv
     - post_total_count：服务端当天创建且可映射到专栏的帖子总数
-    - tryon_post_count：当天发生 TRY_ON / STYLE_ME 的去重帖子数
-    - tryon_click_uv：当天发生 TRY_ON / STYLE_ME 的去重用户数
+    - tryon_post_count：当天发生 TRY_ON / OUTFIT 的去重帖子数
+    - tryon_click_uv：当天发生 TRY_ON / OUTFIT 的去重用户数
     - tryon_uv_rate：tryon_click_uv / column_exposure_uv
     - ai_tryon_penetration_rate：tryon_post_count / post_total_count
     - like_post_count：同一专栏中，当天获得过点赞的去重帖子数
@@ -287,7 +287,7 @@ def run_ads_daily_column_performance(dates):
             ) AS tryon_user_id
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN (SELECT dt FROM target_dates)
-            AND task_type IN ('TRY_ON', 'STYLE_ME')
+            AND task_type IN ('TRY_ON', 'OUTFIT')
     ),
     -- 把试穿任务映射到帖子所属专栏。
     tryon_task_enriched AS (
