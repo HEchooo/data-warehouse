@@ -17,34 +17,36 @@
 | product_detail_exposure_uv | 商详页曝光 UV；事件：`v_product_detail`；按 `visitor_id` 去重 |
 | product_detail_exposure_pv | 商详页曝光 PV；事件：`v_product_detail`；按 `COALESCE(raw_event_id, hash_id)` 去重 |
 | avg_browse_content_count_per_user | `content_exposure_pv / content_exposure_uv` |
-| like_total_count | 点赞成功次数（PV）；事件：`c_like` |
-| like_uv | 点赞 UV；事件：`c_like` |
+| like_total_count | 点赞成功次数（PV）；服务端表：`v3_decom.community_post_like`；按 `gmt_create` 切天后计数 |
+| like_uv | 点赞 UV；服务端表：`v3_decom.community_post_like`；按 `user_id` 去重 |
 | like_rate | `like_uv / content_exposure_uv` |
 | read_uv | 阅读 UV；阅读事件：`r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail` |
 | read_rate（报表中已删除） | 历史口径为 `read_uv / content_exposure_uv` |
-| follow_total_count（报表中已取消） | 关注专栏点击次数（PV）；事件：`c_follow`；按 `raw_event_id` 去重且需能识别 `column_id` |
-| follow_column_count | 关注专栏个数；当天被关注过的去重专栏数；事件：`c_follow`；按 `raw_event_id` 去重后对 `column_id` 去重 |
-| follow_uv | 关注专栏 UV；`c_follow` 去重访客数，且需能识别 `column_id` |
+| follow_total_count（报表中已取消） | 新增关注次数（PV）；服务端表：`v3_decom.community_star_follow`；按 `gmt_create` 切天后计数 |
+| follow_column_count | 关注专栏个数；当天新增关注过的去重专栏数；服务端表：`v3_decom.community_star_follow`；按 `star_user_id` 去重 |
+| follow_uv | 关注专栏 UV；服务端表：`v3_decom.community_star_follow`；按 `user_id` 去重 |
 | dau_uv | 当天日活 UV；任意事件活跃的 `COUNT(DISTINCT visitor_id)` |
 | follow_rate | `follow_uv / dau_uv` |
-| tryon_uv | 试穿 UV；事件：`c_styleme`, `c_tryon`；按 `COALESCE(raw_event_id, hash_id)` 去重事件后统计访客 |
+| tryon_uv | 试穿 UV；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('TRY_ON', 'STYLE_ME')` 且 `request_param.postId` 非空；按试穿用户去重 |
 | tryon_penetration_rate | 试穿渗透率；`tryon_uv / dau_uv` |
 | follow_conversion_rate | 关注转化率；`follow_uv / like_uv` |
 | column_follow_rate（报表中已删除） | 历史口径为 `follow_uv / column_follow_exposure_uv` |
 | read_follow_rate（报表中已取消） | 关注次数 / 专栏曝光次数；历史字段名保留 |
-| tryon_total_count | 试穿总次数（PV）；事件：`c_styleme`, `c_tryon`；按 `COALESCE(raw_event_id, hash_id)` 去重 |
+| tryon_total_count | 试穿总次数（PV）；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('TRY_ON', 'STYLE_ME')` 且 `request_param.postId` 非空；按任务行计数 |
 | column_exposure_pv | 专栏曝光 PV；用于重算曝光试穿率；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`, `v_star_post_feeds`, `v_brand_post_feeds` |
 | read_tryon_rate（报表中已删除） | 历史口径为 `tryon_total_count / column_exposure_pv` |
 
 补充说明：
 - 访客去重：`visitor_id = COALESCE(prop_user_id, prop_device_id)`
 - `follow_rate` 保持 `follow_uv / dau_uv`，不与 `column_follow_rate` 混用
-- “试穿”统一口径：`c_styleme` 与 `c_tryon`
+- `点赞 / 关注 / 试穿` 改取服务端事实：`community_post_like`、`community_star_follow`、`common_ext_ai_task`
+- 服务端行为的平台维度，按同日同用户最近的登录事件平台归因；未命中记为 `unknown`
+- “试穿”只统计内容场景：`task_type IN ('TRY_ON', 'STYLE_ME')` 且 `request_param.postId` 非空
 - 该表升级为 `dt + platform` 后，跨平台汇总时 UV / 去重类指标与旧版 `dt` 总览不完全一致；率类指标应以分子分母重新聚合，不直接 `AVG`
 
 ## 依赖
 
-- 上游：`dwd_event_log`
+- 上游：`dwd_event_log`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.common_ext_ai_task`
 - 脚本：`jobs/ads/ads_daily_content_performance.py`
 - DDL：`ddl/ads/ads_daily_content_performance.sql`
 - 编排：`jobs/ads/ads_daily.py`

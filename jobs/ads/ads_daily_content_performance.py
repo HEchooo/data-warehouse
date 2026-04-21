@@ -4,6 +4,7 @@ from google.cloud import bigquery
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
+V3_DATASET_ID = "v3_decom"
 TORONTO_TZ = "America/Toronto"
 
 HOME_EXPOSURE_EVENT_NAMES = (
@@ -24,7 +25,6 @@ READ_EVENT_NAMES = (
     "r_brand_post_detail",
     "r_kol_post_detail",
 )
-TRYON_EVENT_NAMES = ("c_styleme", "c_tryon")
 COLUMN_EXPOSURE_EVENT_NAMES = (
     "v_star_post_detail",
     "v_magazine_post_detail",
@@ -58,6 +58,11 @@ def event_ts_expr():
     )
 
 
+def service_ts_expr(field_name: str = "gmt_create") -> str:
+    """v3 服务表的 gmt_create 是 UTC DATETIME，这里统一转成 TIMESTAMP。"""
+    return f"TIMESTAMP({field_name}, 'UTC')"
+
+
 def platform_expr():
     return (
         "CASE "
@@ -72,13 +77,13 @@ def platform_expr():
 def build_ads_daily_content_performance_select_query(dates):
     dates_str = dates_to_sql_list(dates)
     event_ts = event_ts_expr()
+    service_ts = service_ts_expr()
     platform_case = platform_expr()
     home_exposure_events_sql = string_values_to_sql_list(HOME_EXPOSURE_EVENT_NAMES)
     post_content_exposure_events_sql = string_values_to_sql_list(
         POST_CONTENT_EXPOSURE_EVENT_NAMES
     )
     read_events_sql = string_values_to_sql_list(READ_EVENT_NAMES)
-    tryon_events_sql = string_values_to_sql_list(TRYON_EVENT_NAMES)
     column_exposure_events_sql = string_values_to_sql_list(COLUMN_EXPOSURE_EVENT_NAMES)
 
     return f"""
@@ -87,6 +92,7 @@ def build_ads_daily_content_performance_select_query(dates):
     base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            {event_ts} AS event_ts,
             {platform_case} AS platform,
             event_name,
             prop_user_id,
@@ -126,10 +132,15 @@ def build_ads_daily_content_performance_select_query(dates):
             ) AS column_id
         FROM base
     ),
-    -- 日期平台骨架：确保无指标的平台日期也能产出 0 值行。
-    date_platform_list AS (
-        SELECT DISTINCT dt, platform
+    -- 登录用户平台事件：用于把服务端行为唯一归因到同日平台。
+    logged_in_platform_events AS (
+        SELECT DISTINCT
+            dt,
+            event_ts,
+            platform,
+            NULLIF(prop_user_id, '') AS user_id
         FROM base
+        WHERE NULLIF(prop_user_id, '') IS NOT NULL
     ),
     -- 日活：按任意事件去重访客统计 DAU。
     dau_daily AS (
@@ -194,68 +205,141 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM events
         GROUP BY dt, platform
     ),
-    -- 点赞/关注动作：保留既有 raw_event_id 去重口径，避免其他指标漂移。
-    engagement_events AS (
+    -- 服务端点赞原始记录：按创建时间统计成功点赞事实。
+    like_service_base AS (
         SELECT
-            dt,
-            platform,
-            event_name,
-            raw_event_id,
-            ANY_VALUE(visitor_id) AS visitor_id,
-            ANY_VALUE(column_id) AS column_id
-        FROM events
-        WHERE raw_event_id IS NOT NULL
-            AND event_name IN ('c_like', 'c_follow')
-        GROUP BY dt, platform, event_name, raw_event_id
+            GENERATE_UUID() AS action_id,
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            {service_ts} AS action_ts,
+            CAST(post_id AS STRING) AS post_id,
+            CAST(user_id AS STRING) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post_like`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND post_id IS NOT NULL
+            AND user_id IS NOT NULL
+            AND CAST(user_id AS STRING) != ''
     ),
-    -- 点赞/关注日聚合：产出点赞、关注及其 UV/PV。
-    engagement_daily AS (
+    -- 服务端点赞记录按同日最近登录事件归因平台；未命中则记为 unknown。
+    like_service_with_platform AS (
+        SELECT
+            l.dt,
+            COALESCE(p.platform, 'unknown') AS platform,
+            l.post_id,
+            l.user_id
+        FROM like_service_base l
+        LEFT JOIN logged_in_platform_events p
+            ON p.dt = l.dt
+            AND p.user_id = l.user_id
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY l.action_id
+            ORDER BY
+                IF(p.event_ts IS NULL, 1, 0),
+                ABS(TIMESTAMP_DIFF(p.event_ts, l.action_ts, SECOND)),
+                IF(p.event_ts <= l.action_ts, 0, 1),
+                p.event_ts DESC
+        ) = 1
+    ),
+    -- 服务端点赞日聚合：产出点赞成功次数与点赞用户数。
+    like_daily AS (
         SELECT
             dt,
             platform,
-            COUNTIF(event_name = 'c_like') AS like_total_count,
-            COUNTIF(event_name = 'c_follow' AND column_id IS NOT NULL) AS follow_total_count,
-            COUNT(
-                DISTINCT IF(
-                    event_name = 'c_follow' AND column_id IS NOT NULL,
-                    column_id,
-                    NULL
-                )
-            ) AS follow_column_count,
-            COUNT(DISTINCT IF(event_name = 'c_like' AND visitor_id IS NOT NULL, visitor_id, NULL))
-                AS like_uv,
-            COUNT(
-                DISTINCT IF(
-                    event_name = 'c_follow'
-                    AND visitor_id IS NOT NULL
-                    AND column_id IS NOT NULL,
-                    visitor_id,
-                    NULL
-                )
-            ) AS follow_uv
-        FROM engagement_events
+            COUNT(*) AS like_total_count,
+            COUNT(DISTINCT user_id) AS like_uv
+        FROM like_service_with_platform
         GROUP BY dt, platform
     ),
-    -- 试穿动作：统一“试穿”概念，纳入 c_styleme 与 c_tryon。
-    tryon_events AS (
+    -- 服务端关注原始记录：按创建时间统计新增关注事实。
+    follow_service_base AS (
+        SELECT
+            GENERATE_UUID() AS action_id,
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            {service_ts} AS action_ts,
+            CAST(star_user_id AS STRING) AS column_id,
+            CAST(user_id AS STRING) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_star_follow`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND star_user_id IS NOT NULL
+            AND CAST(star_user_id AS STRING) != ''
+            AND user_id IS NOT NULL
+            AND CAST(user_id AS STRING) != ''
+    ),
+    -- 服务端关注记录按同日最近登录事件归因平台；未命中则记为 unknown。
+    follow_service_with_platform AS (
+        SELECT
+            f.dt,
+            COALESCE(p.platform, 'unknown') AS platform,
+            f.column_id,
+            f.user_id
+        FROM follow_service_base f
+        LEFT JOIN logged_in_platform_events p
+            ON p.dt = f.dt
+            AND p.user_id = f.user_id
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY f.action_id
+            ORDER BY
+                IF(p.event_ts IS NULL, 1, 0),
+                ABS(TIMESTAMP_DIFF(p.event_ts, f.action_ts, SECOND)),
+                IF(p.event_ts <= f.action_ts, 0, 1),
+                p.event_ts DESC
+        ) = 1
+    ),
+    -- 服务端关注日聚合：产出新增关注次数、专栏数和关注用户数。
+    follow_daily AS (
         SELECT
             dt,
             platform,
-            event_id,
-            ANY_VALUE(visitor_id) AS visitor_id
-        FROM events
-        WHERE event_name IN ({tryon_events_sql})
-            AND event_id IS NOT NULL
-        GROUP BY dt, platform, event_id
+            COUNT(*) AS follow_total_count,
+            COUNT(DISTINCT column_id) AS follow_column_count,
+            COUNT(DISTINCT user_id) AS follow_uv
+        FROM follow_service_with_platform
+        GROUP BY dt, platform
     ),
-    -- 试穿日聚合：同时产出试穿 PV 与试穿 UV。
+    -- 服务端试穿原始记录：只保留带 postId 的内容场景试穿任务。
+    tryon_task_base AS (
+        SELECT
+            GENERATE_UUID() AS action_id,
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            {service_ts} AS action_ts,
+            NULLIF(JSON_VALUE(request_param, '$.postId'), '') AS post_id,
+            COALESCE(
+                NULLIF(JSON_VALUE(request_param, '$.user_id'), ''),
+                NULLIF(JSON_VALUE(request_param, '$.userId'), ''),
+                NULLIF(CAST(user_id AS STRING), '')
+            ) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND task_type IN ('TRY_ON', 'STYLE_ME')
+            AND NULLIF(JSON_VALUE(request_param, '$.postId'), '') IS NOT NULL
+    ),
+    -- 服务端试穿记录按同日最近登录事件归因平台；未命中则记为 unknown。
+    tryon_task_with_platform AS (
+        SELECT
+            t.dt,
+            COALESCE(p.platform, 'unknown') AS platform,
+            t.post_id,
+            t.user_id
+        FROM tryon_task_base t
+        LEFT JOIN logged_in_platform_events p
+            ON p.dt = t.dt
+            AND p.user_id = t.user_id
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY t.action_id
+            ORDER BY
+                IF(p.event_ts IS NULL, 1, 0),
+                ABS(TIMESTAMP_DIFF(p.event_ts, t.action_ts, SECOND)),
+                IF(p.event_ts <= t.action_ts, 0, 1),
+                p.event_ts DESC
+        ) = 1
+    ),
+    -- 服务端试穿日聚合：产出内容场景试穿次数与试穿用户数。
     tryon_daily AS (
         SELECT
             dt,
             platform,
             COUNT(*) AS tryon_total_count,
-            COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS tryon_uv
-        FROM tryon_events
+            COUNT(DISTINCT IF(user_id IS NOT NULL, user_id, NULL)) AS tryon_uv
+        FROM tryon_task_with_platform
         GROUP BY dt, platform
     ),
     -- 阅读日聚合：保留阅读 UV 供报表展示。
@@ -273,6 +357,22 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM events
         GROUP BY dt, platform
     ),
+    -- 日期平台骨架：合并所有指标来源，确保纯服务端平台行也能产出 0 值补齐。
+    date_platform_list AS (
+        SELECT dt, platform FROM dau_daily
+        UNION DISTINCT
+        SELECT dt, platform FROM platform_daily
+        UNION DISTINCT
+        SELECT dt, platform FROM exposure_daily
+        UNION DISTINCT
+        SELECT dt, platform FROM like_daily
+        UNION DISTINCT
+        SELECT dt, platform FROM follow_daily
+        UNION DISTINCT
+        SELECT dt, platform FROM tryon_daily
+        UNION DISTINCT
+        SELECT dt, platform FROM read_daily
+    ),
     -- 日粒度汇总：将所有基础指标拼成最终计算输入。
     daily AS (
         SELECT
@@ -283,12 +383,12 @@ def build_ads_daily_content_performance_select_query(dates):
             COALESCE(e.content_exposure_pv, 0) AS content_exposure_pv,
             COALESCE(e.product_detail_exposure_uv, 0) AS product_detail_exposure_uv,
             COALESCE(e.product_detail_exposure_pv, 0) AS product_detail_exposure_pv,
-            COALESCE(a.like_total_count, 0) AS like_total_count,
-            COALESCE(a.like_uv, 0) AS like_uv,
+            COALESCE(l.like_total_count, 0) AS like_total_count,
+            COALESCE(l.like_uv, 0) AS like_uv,
             COALESCE(r.read_uv, 0) AS read_uv,
-            COALESCE(a.follow_total_count, 0) AS follow_total_count,
-            COALESCE(a.follow_column_count, 0) AS follow_column_count,
-            COALESCE(a.follow_uv, 0) AS follow_uv,
+            COALESCE(f.follow_total_count, 0) AS follow_total_count,
+            COALESCE(f.follow_column_count, 0) AS follow_column_count,
+            COALESCE(f.follow_uv, 0) AS follow_uv,
             COALESCE(u.dau_uv, 0) AS dau_uv,
             COALESCE(t.tryon_total_count, 0) AS tryon_total_count,
             COALESCE(t.tryon_uv, 0) AS tryon_uv,
@@ -297,7 +397,8 @@ def build_ads_daily_content_performance_select_query(dates):
         LEFT JOIN dau_daily u USING (dt, platform)
         LEFT JOIN platform_daily p USING (dt, platform)
         LEFT JOIN exposure_daily e USING (dt, platform)
-        LEFT JOIN engagement_daily a USING (dt, platform)
+        LEFT JOIN like_daily l USING (dt, platform)
+        LEFT JOIN follow_daily f USING (dt, platform)
         LEFT JOIN tryon_daily t USING (dt, platform)
         LEFT JOIN read_daily r USING (dt, platform)
     )
@@ -376,21 +477,26 @@ def run_ads_daily_content_performance(dates):
     - product_detail_exposure_uv: 商详页曝光 UV（v_product_detail 去重访客数）
     - product_detail_exposure_pv: 商详页曝光 PV（v_product_detail 按 COALESCE(raw_event_id, hash_id) 去重）
     - avg_browse_content_count_per_user: 人均帖子内容曝光数（进入帖子详情，历史字段名保留）
-    - like_total_count: 点赞总数（点赞成功次数）
-    - like_uv: 点赞 UV
+    - like_total_count: 点赞总数（服务端点赞成功次数）
+    - like_uv: 点赞 UV（服务端点赞用户数）
     - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
     - read_uv: 阅读 UV
-    - follow_total_count: 关注总数（关注专栏点击次数）
-    - follow_column_count: 关注专栏个数（当天被关注过的去重专栏数）
-    - follow_uv: 关注 UV（c_follow 去重访客数）
+    - follow_total_count: 关注总数（服务端新增关注次数）
+    - follow_column_count: 关注专栏个数（当天新增关注过的去重专栏数）
+    - follow_uv: 关注 UV（服务端新增关注用户数）
     - dau_uv: 日活 UV（任意事件活跃 visitor_id）
     - follow_rate: 关注率（关注 UV / 日活 UV）
-    - tryon_total_count: 试穿总次数（试穿事件 PV；统一包含 c_styleme、c_tryon）
-    - tryon_uv: 试穿 UV（试穿事件去重访客数；统一包含 c_styleme、c_tryon）
+    - tryon_total_count: 试穿总次数（服务端内容场景试穿任务次数）
+    - tryon_uv: 试穿 UV（服务端内容场景试穿用户数）
     - tryon_penetration_rate: 试穿渗透率（tryon_uv / dau_uv）
     - follow_conversion_rate: 关注转化率（follow_uv / like_uv）
     - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
     - column_exposure_pv: 专栏曝光 PV（当前用于曝光关注率重算）
+
+    补充说明：
+    - 点赞 / 关注 / 试穿改取服务端表：`community_post_like`、`community_star_follow`、`common_ext_ai_task`
+    - 服务端行为的平台维度，按同日同用户最近的登录事件平台归因；未命中记为 `unknown`
+    - 试穿只统计内容场景：`task_type IN ('TRY_ON', 'STYLE_ME')` 且 `request_param.postId` 非空
     使用多伦多时间（America/Toronto）。
     """
     dates_str = dates_to_sql_list(dates)
