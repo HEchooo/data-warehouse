@@ -1,0 +1,533 @@
+﻿事件ID,事件描述,事件上报时机,事件上报参数,UI触发点位截图,数据结构,文字备注,web 测试,ios 测试,android 测试
+数据结构,,,,,"// 公参
+// 1. App
+{
+    ""event_name"": ""xxx"",
+    ""args"": {
+        ""key1"": ""value1"",
+        ""key2"": ""value2"",
+        ""key3"": ""value3"",
+    },
+    ""ext"": {
+        ""key1"": ""value1"",
+        ""key2"": ""value2"",
+        ""key3"": ""value3"",
+    },
+    ""logAt"": 1720172242327,
+    ""session_id"": ""e_0001"",
+    ""properties"": {
+        ""user_id"": ""2407044705113"",
+        ""language"": ""en_US"",
+        ""network_id"": 1, (蜂窝网络：0，Wi-Fi：1)
+        ""device_id"": ""55f7e3f3-b69c-40b4-8593-865093285d62"",
+        ""app_version"": ""2.0.0"",
+        ""screen_width"": 1080,
+        ""screen_height"": 2258,
+        ""portal_code"": ""CA"",
+        ""os"": ""Android"",
+        ""os_version"": ""13"",
+        ""model"": ""21091116AC"",
+        ""brand"": ""REDMI"",
+        ""timezone"": ""America/New_York"",
+        ""version_type"": ""ai_fashion""
+    }
+}
+
+// 2. Web
+{
+    ""event_name"": ""xxx"",
+    ""args"": {
+        ""key1"": ""value1"",
+        ""key2"": ""value2"",
+        ""key3"": ""value3"",
+    },
+    ""ext"": {
+        ""key1"": ""value1"",
+        ""key2"": ""value2"",
+        ""key3"": ""value3"",
+    },
+    ""logAt"": 1720172242327,
+    ""session_id"": ""e_0001"",
+    ""properties"": {
+        ""url"" : ""https://xxx.xxx"",
+        ""param"":""xxxx"",
+        ""user_id"": ""2407044705113"",
+        ""language"": ""en_US"",
+        ""network_id"": 1, (蜂窝网络：0，Wi-Fi：1)
+        ""device_id"": ""55f7e3f3-b69c-40b4-8593-865093285d62"",
+        ""app_version"": ""1.1.0-debug"",
+        ""screen_width"": 1080,
+        ""screen_height"": 2258,
+        ""portal_code"": ""CA"",
+        ""os"": ""Android"",
+        ""os_version"": ""13"",
+        ""model"": ""21091116AC"",
+        ""brand"": ""REDMI"",
+        ""timezone"": ""America/New_York"",
+        ""version_type"": ""ai_fashion""
+    }
+}",,,,
+v_magazine_post_feeds,杂志帖子feeds曝光,进入杂志主页,"args.magazine
+args.post",image.png,"{
+    ""args"": {
+        ""magazine"": ""magazine_id_1"",
+        ""post"": [
+            ""post_code_1"",
+            ""post_code_2"",
+            ""post_code_3"",
+            ""post_code_4""
+        ]
+    }
+}",,,√,√
+c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,"image.png,image.png,image.png,image.png","// 1. 品牌商品页面
+{
+    ""args"": {
+        ""page_key"": ""brand_shop"",
+        ""brand"": ""brand_id""
+    }
+}
+// 2. 品牌帖子Feed流
+{
+    ""args"": {
+        ""page_key"": ""brand_feeds"",
+        ""brand"": ""brand_id""
+    }
+}
+// 3. kol详情
+{
+    ""args"": {
+        ""page_key"": ""kol_detail"",
+        ""kol"": ""kol_id""
+    }
+}
+// 4. 杂志帖子Feed流
+{
+    ""args"": {
+        ""page_key"": ""magazine_feeds"",
+        ""magazine"": ""magazine_id""
+    }
+}","图四：args.page_key = magazine_feeds
+图三：args.page_key = kol_detail
+图二：args.page_key = brand_feeds
+图一：args.page_key = brand_shop",,√,√
+,,,,,,,,,
+c_third_party_goods,,"打开第三方商品页面时进行上报；
+如这个弹窗勾选了不再显示，则点击跳转按钮后立即上报",,image.png,"{
+    ""args"": {
+        ""page_key"": ""page_key_1"",
+        ""spu"": ""spu_1"",
+        ""post"":""post_code_1""
+    }
+}","在弹窗里，点击了前往三方商品的埋点
+page_key：
+""home_feeds"",
+ //""category"" 
+//""tryon_result"" 
+//""shop_feeds""
+//""creator_home_shop""
+//""shop_style"", 
+//""shop_occasion"",
+//""shop_crowd"", 
+//""shop_brand"", 
+//""shop_season"", 
+
+//""kol"", 
+//""brand"", 
+//""magazine"", 
+//""star"", ",,√,√
+v_tryon_result_detail,试穿结果曝光,进入具体某个试穿详情时上报,args.spu（只统计AI Match的商品）,image.png,"{
+    ""args"": {
+        ""spu"": [""spu_id_1"",""spu_id_2""]
+    }
+}",不需要区分styleme、tryOn，或者outfit,,√,√
+v_tryon_result_list,试穿结果列表曝光,,,image.png,,进入四个结果页的中间场景页面，都需要上报,,√,√
+c_tryon_result_list,点击查看试穿结果,点击具体某个试穿场景的时候常宝,,image.png,,,,√,√
+c_tryon_change_model,,在试穿结果页，点击更换模特后，进入模特选择页面，选择了某个模特，点击底部的“试穿”,,"image.png,image.png",,不需要区分styleme、tryOn，或者outfit,,√,√
+,,,,,,,,,
+v_closet,衣橱首页曝光,,,image.png,,,,√,√
+c_add_item,添加衣橱,点击add的时候上报,,"image.png,image.png","{
+    ""args"": {
+        ""page_key"": ""photo"", //""email"" //""search"" //""tryon_history"" //""closet_feed""//""tryon_result""
+        ""quantity"": 1
+    }
+}","add的时候，加入数量是1个；
+add all的时候，需要上报加入的数量；
+
+tryon_result：试穿结果页加入衣橱",,√,√
+c_create_outfit,点击try on,在穿搭工作台进行试穿，点击底部的try On时上报,,"image.png,image.png,image.png",,本期增加closet，从衣橱里进行试穿,,√,√
+c_tryon_confirm,因为这个任务没有二次确认，所有合并到confirm的事件中,在穿搭工作台进行试穿，点击底部的try On时上报,,image.png,"// 1.1 首页 feeds 流（post）
+{
+    ""args"": {
+        ""page_key"": ""home_feeds"",
+        ""post"": ""post_code_1""
+    }
+}
+// 1.2 首页 feeds 流（spu）
+{
+    ""args"": {
+        ""page_key"": ""home_feeds"",
+        ""spu"": ""spu_1""
+    }
+}
+// 2.1 明星（post）
+{
+    ""args"": {
+        ""page_key"": ""star"",
+        ""post"": ""post_code_1""
+    }
+}
+// 3.1 杂志（post）
+{
+    ""args"": {
+        ""page_key"": ""magazine"",
+        ""post"": ""post_code_1""
+    }
+}
+// 4.1 品牌（post)
+{
+    ""args"": {
+        ""page_key"": ""brand"",
+        ""post"": ""post_code_1""
+    }
+}
+// 5.1 kol（kol)
+{
+    ""args"": {
+        ""page_key"": ""kol"",
+        ""post"": ""post_code_1""
+    }
+}
+// 6.1 商详页
+{
+    ""args"": {
+        ""page_key"": ""product_detail"",
+        ""spu"": ""spu_1"",
+        ""sku"": ""sku_1""
+    }
+}
+// 7.1 closet
+{
+    ""args"": {
+        ""page_key"": ""closet"",
+    }
+}",本期增加closet，从衣橱里进行试穿,,√,√
+v_calendar,查看日历,,,image.png,,,,,
+c_add_calendar,添加穿搭到日历,,,"image.png,image.png","{
+    ""args"": {
+        ""page_key"": ""tryon_result"",
+//""outfit_detail"" 
+    },
+}","图一：试穿结果页加入日历
+图二：outfit详情页加入日历",,√,√
+,,,,,,,,,
+c_add_cart,从衣橱加入购物车,加购按钮点击,"args: page\module\spu\sku
+ext: quantity（新增）","image.png,image.png","{
+    ""args"": {
+        ""page_key"": ""home_feeds"", //""category"" //""product_detail"" //""tryon_result"" //""product_post""//""shop_feeds""//""creator_home_shop"", ""//""shop_style"", //""shop_occasion"", //""shop_crowd"", //""shop_brand"", //""shop_season"", //""closet"", 
+        ""spu"": ""spu_1""
+        ""sku"": ""sku_1""
+    },
+    ""ext"": {
+        ""quantity"": 1
+    }
+}","4、5、13，这几项是页面有调整，需要重新检查埋点是否准确
+
+1、首页Feed流
+2、分类页
+3、商品详情
+4、试穿结果页
+5、帖子详情：kol、brand、magazine、star，用这几个，去掉了product_post
+6、shop Feed流
+7、品牌创作者商品主页：creator_home_shop
+8、shop_style
+9、shop_occasion
+10、shop_crowd
+11、shop_brand
+12、shop_season
+13、closet（新增）",,√,√
+c_tryon_confirm,点击try on confirm,,args.spu,image.png,"{
+    ""args"": {
+        ""post"": ""post_code_1""
+        ""spu"": [""spu_id_1"",""spu_id_2""]
+        ""sku"": [""sku_id_1"",""sku_id_2""]
+    }
+}",试穿确认弹窗之前调整过了，需要确认这个埋点是否依旧有效,,√,√
+,,,,,,,,,
+r_star_post_detail（删除该埋点）,明星帖子详情Feeds阅读,进入明星帖子页面,"args.star
+args.post",image.png,"{
+    ""args"": {
+        ""star"": ""star_id_1"",
+        ""topic: ""topic_1"",
+        ""post"": [""post_code_1""]
+    }
+}",,,,
+r_magazine_post_detail（删除该埋点）,杂志帖子阅读,进入杂志帖子页面,"args.magazine
+args.post",专题主页样式1.png,"{
+    ""args"": {
+        ""magazine"": ""magazine_id_1"",
+        ""post"": ""post_code_1""
+    }
+}",,,,
+r_brand_post_detail（删除该埋点）,品牌帖子详情Feeds阅读,进入页面,args: 品牌ID/帖子ID/主题ID,"image.png,品牌帖子.png","{
+    ""args"": {
+        ""brand"": ""brand_id_1"",
+        ""post"": [
+            ""post_code_1"",
+            ""post_code_2""
+        ]
+    }
+}",,,,
+r_kol_post_detail（删除该埋点）,KOL 帖子详情阅读,进入KOL帖子详情,"args.kol
+args.post",image.png,"{
+    ""args"": {
+        ""blogger"": ""kol_id_1"",
+        ""post"": [""post_code_1""]
+    }
+}",,,,
+,,,,,,,,,
+c_go_product_detail,,跳转至商详时进行上报,args: page\module\from\spu\sku,"img_v3_0210p_cca1b200-b3a0-44f3-88c4-d22355878fhu.jpg,image.png","{
+    ""args"": {
+        ""page_key"": ""page_key_1"",
+        ""spu"": ""spu_1"",
+        ""post"":""post_code_1""
+    }
+}","page_key：
+""home_feeds"",
+ //""category"" 
+//""tryon_result"" 
+//""shop_feeds""
+//""creator_home_shop""
+//""shop_style"", 
+//""shop_occasion"",
+//""shop_crowd"", 
+//""shop_brand"", 
+//""shop_season"", 
+//""closet"", 
+
+//""kol"", 
+//""brand"", 
+//""magazine"", 
+//""star"", 
+
+post：page_key =kol、brand、magazine、star时，位于帖子下方挂载的商品，点击需要带上postid",,√,√
+c_open_sku_popup,点击购物车按钮时，打开购物车弹窗,打开sku弹窗时进行上报,args: page\module\from\spu\sku,"img_v3_0210p_cca1b200-b3a0-44f3-88c4-d22355878fhu.jpg,image.png","{
+    ""args"": {
+        ""page_key"": ""page_key_1"",
+        ""spu"": ""spu_1"",
+        ""post"":""post_code_1""
+    }
+}","page_key：
+""home_feeds"",
+ //""category"" 
+//""tryon_result"" 
+//""shop_feeds""
+//""creator_home_shop""
+//""shop_style"", 
+//""shop_occasion"",
+//""shop_crowd"", 
+//""shop_brand"", 
+//""shop_season"", 
+
+//""kol"", 
+//""brand"", 
+//""magazine"", 
+//""star"", 
+
+post：page_key =kol、brand、magazine、star时，位于帖子下方挂载的商品，点击需要带上postid",,√,√
+v_shop_product,点击不同瓷片区，进入到对应feed流之后，曝光商品，上报feed流里的商品,在各个页面中，商详卡片曝光时上报,"args.spu
+ext.recommend.item_type
+ext.recommend.item_id
+ext.recommend.trace_info","image.png,image.png","{
+    ""args"": {
+        ""page_key"": ""page_key_1"",
+        ""spu"": [
+            ""spu_1"",
+            ""spu_2""
+        ]
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_2"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_2"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+    }
+}","page_key：
+
+//""shop_style"", 
+//""shop_occasion"",
+//""shop_crowd"", 
+//""shop_brand"", 
+//""shop_season"", ",,√,√
+v_post_product,,在帖子中，点击帖子下方挂载的图片，弹窗展示该图片对应的商品信息；展示后上报对应的商品spu,"args.spu
+ext.recommend.item_type
+ext.recommend.item_id
+ext.recommend.trace_info",image.png,"{
+    ""args"": {
+        ""page_key"": ""page_key_1"",
+        ""spu"": [
+            ""spu_1"",
+            ""spu_2""
+        ]
+        ""post"":""post_code_1""
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_2"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_2"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+    }
+}","page_key：
+//""kol"", 
+//""brand"", 
+//""magazine"", 
+//""star"", ",,√,√
+v_category_product,,在类目页面中，上报feed流里的商品,"args.spu
+ext.recommend.item_type
+ext.recommend.item_id
+ext.recommend.trace_info",image.png,"{
+    ""args"": {
+        ""spu"": [
+            ""spu_1"",
+            ""spu_2""
+        ]
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_2"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_2"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+    }
+}",,,√,√
+v_creator_home_shop_product,,上品牌店铺里，上报shop里的商品,"args.spu
+ext.recommend.item_type
+ext.recommend.item_id
+ext.recommend.trace_info",image.png,"{
+    ""args"": {
+        ""spu"": [
+            ""spu_1"",
+            ""spu_2""
+        ]
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_2"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_2"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+    }
+}",,,√,√
+v_closet_feeds,closet的feeds曝光,"衣橱首页底部feed流
+添加item页面底部feed流","args.post
+args.spu
+ext.recommend.item_type
+ext.recommend.item_id
+ext.recommend.trace_info","image.png,image.png","{
+    ""args"": {
+        ""post"": [
+            ""post_code_1"",
+            ""post_code_2""
+        ],
+        ""spu"": [
+            ""spu_1"",
+            ""spu_2""
+        ]
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""post"",
+                ""item_id"": ""post_code_2"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""product"",
+                ""item_id"": ""spu_2"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+    }
+}",,,√,√
+,,,,,,,,,
+,,,,,,,,,
+,,,,,,,,,
