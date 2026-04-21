@@ -18,7 +18,7 @@
 | 次日非留存用户 | `dt` 当日活跃、`dt+1` 未活跃的已登录用户 |
 | 7日非留存用户 | `dt` 当日活跃、`dt+7` 未活跃的已登录用户 |
 | 日均停留时长 | 对应 cohort 用户在 `dt` 当日的平均停留时长；仅统计 `app_launch.args_session_duration`，按 `COALESCE(raw_event_id, hash_id)` 去重后汇总，单位秒 |
-| AI试穿 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type IN ('TRY_ON', 'STYLE_ME')` 的去重用户数 |
+| AI试穿 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type IN ('TRY_ON', 'OUTFIT')` 的去重用户数 |
 | 关注账号 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.community_star_follow` 的去重用户数 |
 | 浏览商详 | 对应 cohort 用户中，在 `dt` 当日发生过 `event_name = 'v_product_detail'` 的去重用户数 |
 | 创建模特 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type = 'MODEL'` 的去重用户数 |

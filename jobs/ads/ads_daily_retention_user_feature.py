@@ -253,7 +253,7 @@ def build_ads_daily_retention_user_feature_query(dates: list[date]) -> str:
             ) AS user_id
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN (SELECT dt FROM target_dates)
-            AND task_type IN ('TRY_ON', 'STYLE_ME')
+            AND task_type IN ('TRY_ON', 'OUTFIT')
         GROUP BY dt, user_id
     ),
     -- 服务端创建模特行为，按天去重到用户级。
