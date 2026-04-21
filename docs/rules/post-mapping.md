@@ -53,7 +53,7 @@
 - `v3_decom.common_ext_ai_task.task_type = 'MODEL'`
 
 ## 试穿人数
-- `v3_decom.common_ext_ai_task.request_param.user_id` && `task_type IN ('TRY_ON','STYLE_ME')`
+- `v3_decom.common_ext_ai_task.request_param.user_id` && `task_type IN ('TRY_ON','OUTFIT')`
 
 ## 点赞
 - `v3_decom.community_post_like.post_id`, `v3_decom.community_post_like.user_id`, `v3_decom.community_post_like.gmt_create`
