@@ -47,7 +47,7 @@
 - 2-审核中
 
 ## 试穿帖子
-- `json_extract(v3_decom.common_ext_ai_task.request_param,'$.postId')` && `task_type IN ('TRY_ON','STYLE_ME')`
+- `json_extract(v3_decom.common_ext_ai_task.request_param,'$.postId')` && `task_type IN ('TRY_ON','OUTFIT')`
 
 ## 创建模特
 - `v3_decom.common_ext_ai_task.task_type = 'MODEL'`
