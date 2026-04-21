@@ -16,8 +16,8 @@
 | read_post_count | 去重帖子数；`COUNT(DISTINCT CONCAT(visitor_id, '-', post_code))` |
 | avg_read_post_count_per_user | `read_post_count / column_exposure_uv` |
 | post_total_count | 帖子总数；`dws_column_post_daily` 在多伦多时间 0 点后回写昨日的在线帖子存量快照；在线帖子定义为 `v3_decom.community_post.status = 1` |
-| tryon_post_count | 试穿帖子数；`v3_decom.common_ext_ai_task.task_type IN ('TRY_ON','STYLE_ME')` 且可映射专栏后的当日去重帖子数 |
-| tryon_click_uv | 试穿点击人数；`v3_decom.common_ext_ai_task.task_type IN ('TRY_ON','STYLE_ME')` 的当日去重用户数 |
+| tryon_post_count | 试穿帖子数；`v3_decom.common_ext_ai_task.task_type IN ('TRY_ON','OUTFIT')` 且可映射专栏后的当日去重帖子数 |
+| tryon_click_uv | 试穿点击人数；`v3_decom.common_ext_ai_task.task_type IN ('TRY_ON','OUTFIT')` 的当日去重用户数 |
 | tryon_uv_rate | 试穿率 UV 口径；`tryon_click_uv / column_exposure_uv` |
 | ai_tryon_penetration_rate | AI 试穿渗透率（内容维度）；`tryon_post_count / post_total_count` |
 | like_post_count | 新增点赞数（帖子口径）；同一专栏中当天获得过点赞的去重帖子数 |
