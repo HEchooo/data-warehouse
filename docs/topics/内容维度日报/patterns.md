@@ -5,6 +5,12 @@
 - 关注归因不能直接拿 `c_follow` 做帖子级统计
 - 必须按同一天内的帖子详情曝光做 last-touch 归因
 
+## 服务端 `community_star_follow` 切到帖子级时，也不能直接按专栏摊帖子
+
+- `community_star_follow` 只有 `user_id / star_user_id / gmt_create`，没有帖子主键
+- 帖子级关注口径仍然要按“同一天、同用户、同专栏、关注前最后一次帖子详情曝光”做 last-touch
+- 如果直接把专栏下当天所有帖子都记一遍，会把 `follow_total_count` 明显放大
+
 ## `post_id` 有值但 `column_id / column_name` 为空
 
 - 根因是 last-touch 命中的详情曝光缺少 `args_star / args_magazine / args_brand`

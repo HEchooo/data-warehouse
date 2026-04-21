@@ -39,6 +39,11 @@ def event_ts_expr():
     )
 
 
+def service_ts_expr(field_name: str = "gmt_create") -> str:
+    """v3 服务表的 gmt_create 是 UTC DATETIME，这里统一转成 TIMESTAMP。"""
+    return f"TIMESTAMP({field_name}, 'UTC')"
+
+
 def module_expr(event_name_field="event_name"):
     star_id = clean_id_expr("args_star")
     magazine_id = clean_id_expr("args_magazine")
@@ -87,23 +92,25 @@ def run_ads_daily_post_performance(dates):
 
     指标：
     - post_exposure_uv: 帖子曝光UV（进入帖子详情页的去重用户数）
-    - like_total_count: 帖子点赞数（点赞成功次数）
+    - like_total_count: 帖子点赞数（服务端点赞成功次数）
     - like_rate: 帖子点赞率（点赞UV / 帖子曝光UV；同一用户同一天同帖只要点赞过即计为1）
     - read_rate: 帖子完读率（阅读UV / 帖子曝光UV；同一用户同一天同帖只要阅读过即计为1）
-    - follow_total_count: 帖子相关关注数（关注成功次数，按 last-touch 归因到帖子详情曝光）
+    - follow_total_count: 帖子相关关注数（服务端关注成功次数，按 last-touch 归因到帖子详情曝光）
     - follow_rate: 帖子关注转化率（归因关注UV / 帖子曝光UV）
-    - tryon_total_count: 从该帖子发起的试穿次数（try on 成功次数）
+    - tryon_total_count: 从该帖子发起的试穿次数（服务端 try on 成功次数）
 
     说明：
     - post_code -> post_id/post_name：v3_decom.community_post (id, post_code, title)
     - post_code -> creator：v3_decom.community_post (post_code, creator)
-    - column_name：v3_decom.kol_rel (status=0, user_id, nickname, kol_type=2/3/4)
-    - 关注事件 c_follow 无 post_code，需用同一天内“此事件之前最后一次帖子详情曝光”归因
-    - dwd_event_log 会展开 args_post，PV 类指标统一按 raw_event_id 去重
+    - 点赞取服务端表：v3_decom.community_post_like
+    - 关注取服务端表：v3_decom.community_star_follow，仍需按同一天内“此事件之前最后一次帖子详情曝光”归因到帖子
+    - 试穿取服务端表：v3_decom.common_ext_ai_task，限定 task_type IN ('TRY_ON', 'STYLE_ME') 且 request_param.postId 非空
+    - column_name：v3_decom.kol_rel (user_id, nickname, kol_type=2/3/4；优先取 status=0)
     使用多伦多时间（America/Toronto）。
     """
     dates_str = dates_to_sql_list(dates)
     event_ts = event_ts_expr()
+    service_ts = service_ts_expr()
     module_sql = module_expr()
     column_id_sql = column_id_expr()
 
@@ -116,11 +123,13 @@ def run_ads_daily_post_performance(dates):
      post_exposure_uv, like_total_count, like_rate, read_rate,
      follow_total_count, follow_rate, tryon_total_count, update_time)
     WITH
+    -- 事件日志基础层：统一多伦多日期，并同时保留登录用户和访客口径。
     base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
             {event_ts} AS event_ts,
             event_name,
+            NULLIF(prop_user_id, '') AS user_id,
             COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
             raw_event_id,
             hash_id,
@@ -131,29 +140,54 @@ def run_ads_daily_post_performance(dates):
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
     ),
+    -- 帖子维表明细：统一帖子主键、编码、作者和所属专栏。
+    post_dim AS (
+        SELECT
+            CAST(id AS STRING) AS post_id,
+            SAFE_CAST(id AS INT64) AS post_id_int64,
+            CAST(post_code AS STRING) AS post_code,
+            title AS post_name,
+            CAST(creator AS STRING) AS creator,
+            CAST(poster_user_id AS STRING) AS poster_column_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post`
+        WHERE id IS NOT NULL
+            AND post_code IS NOT NULL
+    ),
+    -- 帖子编码映射：供最终结果补齐 post_id / post_name / creator。
     post_map AS (
         SELECT
-            CAST(post_code AS STRING) AS post_code,
-            ANY_VALUE(SAFE_CAST(id AS INT64)) AS post_id,
-            ANY_VALUE(title) AS post_name,
-            ANY_VALUE(CAST(creator AS STRING)) AS creator
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post`
-        WHERE post_code IS NOT NULL
+            post_code,
+            ANY_VALUE(post_id_int64) AS post_id,
+            ANY_VALUE(post_name) AS post_name,
+            ANY_VALUE(creator) AS creator
+        FROM post_dim
         GROUP BY post_code
     ),
+    -- 专栏映射：统一 column_id -> module / column_name，优先保留启用中的映射。
     column_map AS (
         SELECT
+            CASE
+                WHEN kol_type = 2 THEN 'star'
+                WHEN kol_type = 3 THEN 'magazine'
+                WHEN kol_type = 4 THEN 'brand'
+                ELSE NULL
+            END AS module,
             CAST(user_id AS STRING) AS column_id,
-            kol_type,
-            ANY_VALUE(nickname) AS column_name
+            nickname AS column_name
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.kol_rel`
-        WHERE status = 0
-        GROUP BY column_id, kol_type
+        WHERE user_id IS NOT NULL
+            AND kol_type IN (2, 3, 4)
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY CAST(user_id AS STRING)
+            ORDER BY IF(status = 0, 0, 1), kol_type
+        ) = 1
     ),
+    -- 帖子详情曝光明细：保留帖子、专栏和访客归因所需信息。
     exposure_events AS (
         SELECT
             dt,
             event_ts,
+            user_id,
             visitor_id,
             post_code,
             {module_sql} AS module,
@@ -164,6 +198,7 @@ def run_ads_daily_post_performance(dates):
             AND visitor_id IS NOT NULL
             AND post_code IS NOT NULL
     ),
+    -- 帖子详情曝光日聚合：作为帖子级率指标分母。
     exposure_daily AS (
         SELECT
             dt,
@@ -175,52 +210,33 @@ def run_ads_daily_post_performance(dates):
         WHERE module IS NOT NULL AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
     ),
-    like_events_raw AS (
+    -- 服务端点赞原始记录：按创建时间统计成功点赞事实。
+    like_service_base AS (
         SELECT
-            dt,
-            event_ts,
-            raw_event_id,
-            visitor_id,
-            post_code,
-            {module_sql} AS module,
-            {column_id_sql} AS column_id
-        FROM base
-        WHERE event_name = 'c_like'
-            AND raw_event_id IS NOT NULL
-            AND post_code IS NOT NULL
-            AND visitor_id IS NOT NULL
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            CAST(post_id AS STRING) AS post_id,
+            CAST(user_id AS STRING) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post_like`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND post_id IS NOT NULL
+            AND user_id IS NOT NULL
+            AND CAST(user_id AS STRING) != ''
     ),
-    like_events_dedup AS (
-        SELECT
-            dt,
-            raw_event_id,
-            post_code,
-            ANY_VALUE(visitor_id) AS visitor_id,
-            ANY_VALUE(event_ts) AS event_ts,
-            ANY_VALUE(module) AS module,
-            ANY_VALUE(column_id) AS column_id
-        FROM like_events_raw
-        GROUP BY dt, raw_event_id, post_code
-    ),
-    like_events_enriched AS (
+    -- 服务端点赞补齐帖子与专栏维度。
+    like_service_enriched AS (
         SELECT
             l.dt,
-            l.raw_event_id,
-            l.post_code,
-            l.visitor_id,
-            COALESCE(l.module, e.module) AS module,
-            COALESCE(l.column_id, e.column_id) AS column_id
-        FROM like_events_dedup l
-        LEFT JOIN exposure_events e
-            ON e.dt = l.dt
-            AND e.visitor_id = l.visitor_id
-            AND e.post_code = l.post_code
-            AND e.event_ts <= l.event_ts
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY l.dt, l.raw_event_id, l.post_code
-            ORDER BY e.event_ts DESC, e.hash_id DESC
-        ) = 1
+            p.post_code,
+            c.module,
+            c.column_id,
+            l.user_id
+        FROM like_service_base l
+        JOIN post_dim p
+            ON l.post_id = p.post_id
+        JOIN column_map c
+            ON p.poster_column_id = c.column_id
     ),
+    -- 服务端点赞日聚合：产出点赞次数与点赞 UV。
     like_daily AS (
         SELECT
             dt,
@@ -228,11 +244,11 @@ def run_ads_daily_post_performance(dates):
             module,
             column_id,
             COUNT(*) AS like_total_count,
-            COUNT(DISTINCT visitor_id) AS like_uv
-        FROM like_events_enriched
-        WHERE module IS NOT NULL AND column_id IS NOT NULL
+            COUNT(DISTINCT user_id) AS like_uv
+        FROM like_service_enriched
         GROUP BY dt, post_code, module, column_id
     ),
+    -- 阅读事件原始记录：保留事件内自带的帖子和专栏维度。
     read_events_raw AS (
         SELECT
             dt,
@@ -247,6 +263,7 @@ def run_ads_daily_post_performance(dates):
             AND post_code IS NOT NULL
             AND visitor_id IS NOT NULL
     ),
+    -- 阅读事件去重：按 raw_event_id + post_code 合并拆行后的明细。
     read_events_dedup AS (
         SELECT
             dt,
@@ -258,6 +275,7 @@ def run_ads_daily_post_performance(dates):
         FROM read_events_raw
         GROUP BY dt, raw_event_id, post_code
     ),
+    -- 阅读日聚合：产出阅读 UV。
     read_daily AS (
         SELECT
             dt,
@@ -269,52 +287,30 @@ def run_ads_daily_post_performance(dates):
         WHERE module IS NOT NULL AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
     ),
-    tryon_events_raw AS (
+    -- 服务端试穿原始记录：只保留带 postId 的内容场景试穿任务。
+    tryon_task_base AS (
         SELECT
-            dt,
-            event_ts,
-            raw_event_id,
-            visitor_id,
-            post_code,
-            {module_sql} AS module,
-            {column_id_sql} AS column_id
-        FROM base
-        WHERE event_name = 'c_tryon'
-            AND raw_event_id IS NOT NULL
-            AND post_code IS NOT NULL
-            AND visitor_id IS NOT NULL
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            NULLIF(JSON_VALUE(request_param, '$.postId'), '') AS post_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND task_type IN ('TRY_ON', 'STYLE_ME')
+            AND NULLIF(JSON_VALUE(request_param, '$.postId'), '') IS NOT NULL
     ),
-    tryon_events_dedup AS (
-        SELECT
-            dt,
-            raw_event_id,
-            post_code,
-            ANY_VALUE(visitor_id) AS visitor_id,
-            ANY_VALUE(event_ts) AS event_ts,
-            ANY_VALUE(module) AS module,
-            ANY_VALUE(column_id) AS column_id
-        FROM tryon_events_raw
-        GROUP BY dt, raw_event_id, post_code
-    ),
-    tryon_events_enriched AS (
+    -- 服务端试穿补齐帖子与专栏维度。
+    tryon_task_enriched AS (
         SELECT
             t.dt,
-            t.raw_event_id,
-            t.post_code,
-            t.visitor_id,
-            COALESCE(t.module, e.module) AS module,
-            COALESCE(t.column_id, e.column_id) AS column_id
-        FROM tryon_events_dedup t
-        LEFT JOIN exposure_events e
-            ON e.dt = t.dt
-            AND e.visitor_id = t.visitor_id
-            AND e.post_code = t.post_code
-            AND e.event_ts <= t.event_ts
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY t.dt, t.raw_event_id, t.post_code
-            ORDER BY e.event_ts DESC, e.hash_id DESC
-        ) = 1
+            p.post_code,
+            c.module,
+            c.column_id
+        FROM tryon_task_base t
+        JOIN post_dim p
+            ON t.post_id = p.post_id
+        JOIN column_map c
+            ON p.poster_column_id = c.column_id
     ),
+    -- 服务端试穿日聚合：产出从该帖子发起的试穿次数。
     tryon_daily AS (
         SELECT
             dt,
@@ -322,40 +318,49 @@ def run_ads_daily_post_performance(dates):
             module,
             column_id,
             COUNT(*) AS tryon_total_count
-        FROM tryon_events_enriched
-        WHERE module IS NOT NULL AND column_id IS NOT NULL
+        FROM tryon_task_enriched
         GROUP BY dt, post_code, module, column_id
     ),
-    follow_events_dedup AS (
+    -- 服务端关注原始记录：按创建时间统计新增关注事实，并带上专栏维度。
+    follow_service_base AS (
         SELECT
-            dt,
-            raw_event_id,
-            ANY_VALUE(event_ts) AS event_ts,
-            ANY_VALUE(visitor_id) AS visitor_id
-        FROM base
-        WHERE event_name = 'c_follow'
-            AND raw_event_id IS NOT NULL
-            AND visitor_id IS NOT NULL
-        GROUP BY dt, raw_event_id
+            GENERATE_UUID() AS action_id,
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            {service_ts} AS action_ts,
+            CAST(f.user_id AS STRING) AS user_id,
+            c.module,
+            c.column_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_star_follow` f
+        JOIN column_map c
+            ON CAST(f.star_user_id AS STRING) = c.column_id
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND f.star_user_id IS NOT NULL
+            AND CAST(f.star_user_id AS STRING) != ''
+            AND f.user_id IS NOT NULL
+            AND CAST(f.user_id AS STRING) != ''
     ),
+    -- 服务端关注归因到帖子：只在同日同专栏下，命中关注前最后一次帖子详情曝光。
     follow_attributed AS (
         SELECT
             f.dt,
-            f.raw_event_id,
-            f.visitor_id,
+            f.action_id,
+            f.user_id,
             e.post_code,
             e.module,
             e.column_id
-        FROM follow_events_dedup f
+        FROM follow_service_base f
         JOIN exposure_events e
             ON e.dt = f.dt
-            AND e.visitor_id = f.visitor_id
-            AND e.event_ts <= f.event_ts
+            AND e.user_id = f.user_id
+            AND e.module = f.module
+            AND e.column_id = f.column_id
+            AND e.event_ts <= f.action_ts
         QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY f.dt, f.raw_event_id
+            PARTITION BY f.action_id
             ORDER BY e.event_ts DESC, e.hash_id DESC
         ) = 1
     ),
+    -- 服务端关注日聚合：产出帖子级关注次数与关注 UV。
     follow_daily AS (
         SELECT
             dt,
@@ -363,11 +368,11 @@ def run_ads_daily_post_performance(dates):
             module,
             column_id,
             COUNT(*) AS follow_total_count,
-            COUNT(DISTINCT visitor_id) AS follow_uv
+            COUNT(DISTINCT user_id) AS follow_uv
         FROM follow_attributed
-        WHERE module IS NOT NULL AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
     ),
+    -- 指标主键骨架：合并所有可能产出指标的帖子维度键。
     keys AS (
         SELECT DISTINCT dt, post_code, module, column_id
         FROM exposure_daily
@@ -383,8 +388,8 @@ def run_ads_daily_post_performance(dates):
         UNION DISTINCT
         SELECT DISTINCT dt, post_code, module, column_id
         FROM follow_daily
-        WHERE module IS NOT NULL AND column_id IS NOT NULL
     ),
+    -- 最终指标拼接层：补齐帖子和专栏名称，并保留率指标分子分母。
     final AS (
         SELECT
             k.dt,
@@ -410,13 +415,8 @@ def run_ads_daily_post_performance(dates):
         LEFT JOIN tryon_daily t USING (dt, post_code, module, column_id)
         LEFT JOIN post_map pm USING (post_code)
         LEFT JOIN column_map cm
-            ON cm.column_id = k.column_id
-            AND cm.kol_type = CASE
-                WHEN k.module = 'star' THEN 2
-                WHEN k.module = 'magazine' THEN 3
-                WHEN k.module = 'brand' THEN 4
-                ELSE NULL
-            END
+            ON cm.module = k.module
+            AND cm.column_id = k.column_id
     )
     SELECT
         dt,
