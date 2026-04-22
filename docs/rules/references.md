@@ -7,3 +7,5 @@
   - 对应 `ods_event_log` 及其下游信息
 - `docs/references/数据埋点_2.1.0.csv`
   - 在 `2.0.0` 基础上新增的埋点
+- `docs/references/数据埋点_2.2.0.csv`
+  - 在 `2.1.0` 基础上新增的埋点
