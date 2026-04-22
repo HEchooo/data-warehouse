@@ -106,15 +106,14 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
     ),
-    -- 事件标准层：统一 visitor_id、事件去重键和专栏维度。
+    -- 已登录事件标准层：只保留 prop_user_id 非空事件，统一用户键、事件去重键和专栏维度。
     events AS (
         SELECT
             dt,
             platform,
             event_name,
-            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
+            NULLIF(prop_user_id, '') AS user_id,
             COALESCE(raw_event_id, hash_id) AS event_id,
-            raw_event_id,
             hash_id,
             COALESCE(
                 IF(NULLIF(args_star, '') IS NULL, NULL, CONCAT('star:', NULLIF(args_star, ''))),
@@ -131,6 +130,7 @@ def build_ads_daily_content_performance_select_query(dates):
                 )
             ) AS column_id
         FROM base
+        WHERE NULLIF(prop_user_id, '') IS NOT NULL
     ),
     -- 登录用户平台事件：用于把服务端行为唯一归因到同日平台。
     logged_in_platform_events AS (
@@ -142,12 +142,12 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM base
         WHERE NULLIF(prop_user_id, '') IS NOT NULL
     ),
-    -- 日活：按任意事件去重访客统计 DAU。
+    -- 日活：按任意事件去重已登录用户统计 DAU。
     dau_daily AS (
         SELECT
             dt,
             platform,
-            COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS dau_uv
+            COUNT(DISTINCT IF(user_id IS NOT NULL, user_id, NULL)) AS dau_uv
         FROM events
         GROUP BY dt, platform
     ),
@@ -157,7 +157,7 @@ def build_ads_daily_content_performance_select_query(dates):
             dt,
             platform,
             COUNT(
-                DISTINCT IF(event_name IN ({home_exposure_events_sql}), visitor_id, NULL)
+                DISTINCT IF(event_name IN ({home_exposure_events_sql}), user_id, NULL)
             ) AS platform_exposure_uv
         FROM events
         GROUP BY dt, platform
@@ -170,7 +170,7 @@ def build_ads_daily_content_performance_select_query(dates):
             COUNT(
                 DISTINCT IF(
                     event_name IN ({post_content_exposure_events_sql}),
-                    visitor_id,
+                    user_id,
                     NULL
                 )
             ) AS content_exposure_uv,
@@ -183,8 +183,8 @@ def build_ads_daily_content_performance_select_query(dates):
             ) AS content_exposure_pv,
             COUNT(
                 DISTINCT IF(
-                    event_name = 'v_product_detail' AND visitor_id IS NOT NULL,
-                    visitor_id,
+                    event_name = 'v_product_detail' AND user_id IS NOT NULL,
+                    user_id,
                     NULL
                 )
             ) AS product_detail_exposure_uv,
@@ -341,15 +341,15 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM tryon_task_with_platform
         GROUP BY dt, platform
     ),
-    -- 阅读日聚合：保留阅读 UV 供报表展示。
+    -- 阅读日聚合：保留已登录用户阅读 UV 供报表展示。
     read_daily AS (
         SELECT
             dt,
             platform,
             COUNT(
                 DISTINCT IF(
-                    event_name IN ({read_events_sql}) AND visitor_id IS NOT NULL,
-                    visitor_id,
+                    event_name IN ({read_events_sql}) AND user_id IS NOT NULL,
+                    user_id,
                     NULL
                 )
             ) AS read_uv
@@ -470,20 +470,20 @@ def run_ads_daily_content_performance(dates):
     """
     平台整体内容表现日报（每日每平台一行）:
     - platform: 设备类型（iOS / Android / H5 / unknown）
-    - platform_exposure_uv: 平台曝光 UV（Home 曝光 UV）
-    - content_exposure_uv: 帖子内容曝光 UV
-    - content_exposure_pv: 帖子内容曝光 PV（历史仍按 hash_id 统计）
-    - product_detail_exposure_uv: 商详页曝光 UV（v_product_detail 去重访客数）
-    - product_detail_exposure_pv: 商详页曝光 PV（v_product_detail 按 COALESCE(raw_event_id, hash_id) 去重）
-    - avg_browse_content_count_per_user: 人均帖子内容曝光数（进入帖子详情，历史字段名保留）
+    - platform_exposure_uv: 平台曝光 UV（Home 曝光 UV，仅统计已登录用户）
+    - content_exposure_uv: 帖子内容曝光 UV（仅统计已登录用户）
+    - content_exposure_pv: 帖子内容曝光 PV（仅统计已登录用户事件，仍按 hash_id 统计）
+    - product_detail_exposure_uv: 商详页曝光 UV（v_product_detail 已登录用户数）
+    - product_detail_exposure_pv: 商详页曝光 PV（仅统计已登录用户事件，按 COALESCE(raw_event_id, hash_id) 去重）
+    - avg_browse_content_count_per_user: 人均帖子内容曝光数（已登录用户内容 PV / UV，历史字段名保留）
     - like_total_count: 点赞总数（服务端点赞成功次数）
     - like_uv: 点赞 UV（服务端点赞用户数）
     - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
-    - read_uv: 阅读 UV
+    - read_uv: 阅读 UV（仅统计已登录用户）
     - follow_total_count: 关注总数（服务端新增关注次数）
     - follow_column_count: 关注专栏个数（当天新增关注过的去重专栏数）
     - follow_uv: 关注 UV（服务端新增关注用户数）
-    - dau_uv: 日活 UV（任意事件活跃 visitor_id）
+    - dau_uv: 日活 UV（任意事件活跃已登录用户数）
     - follow_rate: 关注率（关注 UV / 日活 UV）
     - tryon_total_count: 试穿总次数（服务端平台级试穿任务次数）
     - tryon_uv: 试穿 UV（服务端平台级试穿用户数）
@@ -493,6 +493,8 @@ def run_ads_daily_content_performance(dates):
     - column_exposure_pv: 专栏曝光 PV（当前用于曝光关注率重算）
 
     补充说明：
+    - 事件侧指标统一只纳入 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件
+    - 事件侧 UV 统一按 `COUNT(DISTINCT prop_user_id)` 统计
     - 点赞 / 关注 / 试穿改取服务端表：`community_post_like`、`community_star_follow`、`common_ext_ai_task`
     - 服务端行为的平台维度，按同日同用户最近的登录事件平台归因；未命中记为 `unknown`
     - 试穿统计平台级任务：`task_type IN ('TRY_ON', 'OUTFIT')`，不限定 `request_param.postId`

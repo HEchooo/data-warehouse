@@ -6,6 +6,12 @@
 - `avg_browse_content_count_per_user`、`like_rate`、`read_rate` 都应共用帖子内容曝光口径
 - 顺序上要先把 `v_product_detail` 从分母里排除，再补 `read_rate`
 
+## 改“已登录用户口径”时，不能只改 UV 不改关联 PV
+
+- 91 报表里 `platform_exposure_uv`、`content_exposure_uv`、`product_detail_exposure_uv`、`read_uv`、`dau_uv` 改成已登录用户后，关联的事件侧 PV 也要一起收口到 `prop_user_id` 非空事件
+- 否则会出现 `avg_browse_content_count_per_user = 全量 content_exposure_pv / 已登录 content_exposure_uv`、`product_detail_exposure_pv` 仍混入匿名事件的混合口径
+- 正确做法是：事件侧先统一过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`，再分别沿用各字段原本的 PV 去重键和 `COUNT(DISTINCT prop_user_id)` 的 UV 口径
+
 ## 先修正现有 dataset，不要平行再造 v2
 
 - Superset 里同名 dataset 曾错误指向 `decom.ads_daily_total`
