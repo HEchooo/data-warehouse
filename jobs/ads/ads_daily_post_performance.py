@@ -91,12 +91,12 @@ def run_ads_daily_post_performance(dates):
     粒度：dt × post × module × column
 
     指标：
-    - post_exposure_uv: 帖子曝光UV（进入帖子详情页的去重用户数）
+    - post_exposure_uv: 帖子曝光已登录用户数（进入帖子详情页的去重已登录用户数）
     - like_total_count: 帖子点赞数（服务端点赞成功次数）
-    - like_rate: 帖子点赞率（点赞UV / 帖子曝光UV；同一用户同一天同帖只要点赞过即计为1）
-    - read_rate: 帖子完读率（阅读UV / 帖子曝光UV；同一用户同一天同帖只要阅读过即计为1）
+    - like_rate: 帖子点赞率（点赞已登录用户数 / 帖子曝光已登录用户数；同一用户同一天同帖只要点赞过即计为1）
+    - read_rate: 帖子完读率（阅读已登录用户数 / 帖子曝光已登录用户数；同一用户同一天同帖只要阅读过即计为1）
     - follow_total_count: 帖子相关关注数（服务端关注成功次数，按 last-touch 归因到帖子详情曝光）
-    - follow_rate: 帖子关注转化率（归因关注UV / 帖子曝光UV）
+    - follow_rate: 帖子关注转化率（归因关注已登录用户数 / 帖子曝光已登录用户数）
     - tryon_total_count: 从该帖子发起的试穿次数（服务端 try on 成功次数）
 
     说明：
@@ -123,14 +123,13 @@ def run_ads_daily_post_performance(dates):
      post_exposure_uv, like_total_count, like_rate, read_rate,
      follow_total_count, follow_rate, tryon_total_count, update_time)
     WITH
-    -- 事件日志基础层：统一多伦多日期，并同时保留登录用户和访客口径。
+    -- 事件日志基础层：统一多伦多日期，并保留已登录用户口径所需字段。
     base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
             {event_ts} AS event_ts,
             event_name,
             NULLIF(prop_user_id, '') AS user_id,
-            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
             raw_event_id,
             hash_id,
             post_code,
@@ -182,30 +181,29 @@ def run_ads_daily_post_performance(dates):
             ORDER BY IF(status = 0, 0, 1), kol_type
         ) = 1
     ),
-    -- 帖子详情曝光明细：保留帖子、专栏和访客归因所需信息。
+    -- 帖子详情曝光明细：保留帖子、专栏和已登录用户归因所需信息。
     exposure_events AS (
         SELECT
             dt,
             event_ts,
             user_id,
-            visitor_id,
             post_code,
             {module_sql} AS module,
             {column_id_sql} AS column_id,
             hash_id
         FROM base
         WHERE event_name IN ({POST_DETAIL_EXPOSURE_EVENTS})
-            AND visitor_id IS NOT NULL
+            AND user_id IS NOT NULL
             AND post_code IS NOT NULL
     ),
-    -- 帖子详情曝光日聚合：作为帖子级率指标分母。
+    -- 帖子详情曝光日聚合：按已登录用户去重，作为帖子级率指标分母。
     exposure_daily AS (
         SELECT
             dt,
             post_code,
             module,
             column_id,
-            COUNT(DISTINCT visitor_id) AS post_exposure_uv
+            COUNT(DISTINCT user_id) AS post_exposure_uv
         FROM exposure_events
         WHERE module IS NOT NULL AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
@@ -248,12 +246,12 @@ def run_ads_daily_post_performance(dates):
         FROM like_service_enriched
         GROUP BY dt, post_code, module, column_id
     ),
-    -- 阅读事件原始记录：保留事件内自带的帖子和专栏维度。
+    -- 阅读事件原始记录：保留事件内自带的帖子、专栏和已登录用户维度。
     read_events_raw AS (
         SELECT
             dt,
             raw_event_id,
-            visitor_id,
+            user_id,
             post_code,
             {module_sql} AS module,
             {column_id_sql} AS column_id
@@ -261,7 +259,7 @@ def run_ads_daily_post_performance(dates):
         WHERE event_name IN ({READ_EVENTS})
             AND raw_event_id IS NOT NULL
             AND post_code IS NOT NULL
-            AND visitor_id IS NOT NULL
+            AND user_id IS NOT NULL
     ),
     -- 阅读事件去重：按 raw_event_id + post_code 合并拆行后的明细。
     read_events_dedup AS (
@@ -269,20 +267,20 @@ def run_ads_daily_post_performance(dates):
             dt,
             raw_event_id,
             post_code,
-            ANY_VALUE(visitor_id) AS visitor_id,
+            ANY_VALUE(user_id) AS user_id,
             ANY_VALUE(module) AS module,
             ANY_VALUE(column_id) AS column_id
         FROM read_events_raw
         GROUP BY dt, raw_event_id, post_code
     ),
-    -- 阅读日聚合：产出阅读 UV。
+    -- 阅读日聚合：按已登录用户去重，产出阅读 UV。
     read_daily AS (
         SELECT
             dt,
             post_code,
             module,
             column_id,
-            COUNT(DISTINCT visitor_id) AS read_uv
+            COUNT(DISTINCT user_id) AS read_uv
         FROM read_events_dedup
         WHERE module IS NOT NULL AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
