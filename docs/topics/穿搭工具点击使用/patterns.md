@@ -15,3 +15,10 @@
 
 - 排查"数据少了 / 没有某个帖子"时，先确认默认时间范围和原生筛选器
 - 同时确认自己查的是帖子明细表，而不是汇总表
+
+## 想把 UV 改成已登录用户时，不要直接在 dashboard 96 的 chart 层硬改
+
+- `ads_daily_post_tryon_confirm` 是 dashboard 96 的唯一 datasource，而且已经是 `dt × post_id` 聚合表
+- 这张表没有 `prop_user_id` 明细列，chart 层无法直接写 `COUNT(DISTINCT prop_user_id)`
+- 正确做法是先把 ADS 表产出逻辑改成：事件侧过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`，再按 `COUNT(DISTINCT prop_user_id)` 生成 `click_use_uv`
+- `avg_click_use_count_per_user` 这类分母依赖 UV 的指标也要同步收口到已登录用户口径

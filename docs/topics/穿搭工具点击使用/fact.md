@@ -35,8 +35,8 @@
 
 | 字段 | 口径 |
 |------|------|
-| click_use_pv | 点击使用次数；按 `dt × post_code × raw_event_id` 去重 |
-| click_use_uv | 点击使用用户数；`COUNT(DISTINCT visitor_id)` |
+| click_use_pv | 点击使用次数；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按 `dt × post_code × raw_event_id` 去重 |
+| click_use_uv | 点击使用用户数；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按 `COUNT(DISTINCT prop_user_id)` |
 | avg_click_use_count_per_user | `click_use_pv / click_use_uv` |
 
 ### 依赖
@@ -48,6 +48,7 @@
 ## 补充说明
 
 - 访客去重：`visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))`
+- `ads_daily_post_tryon_confirm` 和 dashboard 96 当前改为已登录用户口径：事件侧仅保留 `prop_user_id IS NOT NULL AND prop_user_id != ''`
 - 维度映射：`post_code → post_id/post_name/creator` 用 `v3_decom.community_post`
 - 按帖子分析用帖子明细表；全量日趋势用汇总表
 - 编排：`jobs/ads/ads_daily.py`

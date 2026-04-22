@@ -24,9 +24,9 @@ def run_ads_daily_post_tryon_confirm(dates):
     粒度：dt × post_id
 
     指标：
-    - click_use_pv: 点击使用次数（PV，按 raw_event_id 去重）
-    - click_use_uv: 点击使用用户数（UV，visitor_id 去重）
-    - avg_click_use_count_per_user: 人均点击使用次数（PV / UV）
+    - click_use_pv: 点击使用次数（PV，仅统计 prop_user_id 非空事件，按 raw_event_id 去重）
+    - click_use_uv: 点击使用用户数（UV，仅统计 prop_user_id 非空事件，按 prop_user_id 去重）
+    - avg_click_use_count_per_user: 人均点击使用次数（PV / 已登录 UV）
 
     事件：c_tryon_confirm
     时区：dt 使用 America/Toronto（多伦多时间）
@@ -44,28 +44,31 @@ def run_ads_daily_post_tryon_confirm(dates):
     (dt, post_id, post_code, post_name, creator,
      click_use_pv, click_use_uv, avg_click_use_count_per_user, update_time)
     WITH
+    -- 事件基础层：取点击使用事件，并拆出多伦多日期、登录用户和帖子编码。
     base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
-            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
+            NULLIF(prop_user_id, '') AS user_id,
             raw_event_id,
             post_code
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
             AND event_name = 'c_tryon_confirm'
     ),
+    -- 事件去重层：按原始事件去重，仅保留可归属到帖子且已登录的事件。
     events_dedup AS (
         SELECT
             dt,
             raw_event_id,
             post_code,
-            ANY_VALUE(visitor_id) AS visitor_id
+            ANY_VALUE(user_id) AS user_id
         FROM base
         WHERE raw_event_id IS NOT NULL
-            AND visitor_id IS NOT NULL
+            AND user_id IS NOT NULL
             AND post_code IS NOT NULL
         GROUP BY dt, raw_event_id, post_code
     ),
+    -- 帖子映射层：把 post_code 映射到帖子主键和展示维度。
     post_map AS (
         SELECT
             CAST(post_code AS STRING) AS post_code,
@@ -76,6 +79,7 @@ def run_ads_daily_post_tryon_confirm(dates):
         WHERE post_code IS NOT NULL
         GROUP BY post_code
     ),
+    -- 事件补维层：仅保留能成功映射到帖子主键的事件。
     events_enriched AS (
         SELECT
             e.dt,
@@ -84,11 +88,12 @@ def run_ads_daily_post_tryon_confirm(dates):
             pm.post_name,
             pm.creator,
             e.raw_event_id,
-            e.visitor_id
+            e.user_id
         FROM events_dedup e
         INNER JOIN post_map pm USING (post_code)
         WHERE pm.post_id IS NOT NULL
     ),
+    -- 日帖子聚合层：产出 PV、已登录 UV 与后续人均指标分母。
     daily AS (
         SELECT
             dt,
@@ -97,7 +102,7 @@ def run_ads_daily_post_tryon_confirm(dates):
             post_name,
             creator,
             COUNT(*) AS click_use_pv,
-            COUNT(DISTINCT visitor_id) AS click_use_uv
+            COUNT(DISTINCT user_id) AS click_use_uv
         FROM events_enriched
         GROUP BY dt, post_id, post_code, post_name, creator
     )
