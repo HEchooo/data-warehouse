@@ -10,25 +10,26 @@
 
 | 字段 | 口径 |
 |------|------|
-| column_exposure_uv | 专栏曝光 UV；事件：`v_star_post_feeds`, `v_brand_post_feeds`, `v_star_post_detail`, `v_brand_post_detail`, `v_magazine_post_detail` |
+| column_exposure_uv | 专栏曝光 UV；事件：`v_star_post_feeds`, `v_brand_post_feeds`, `v_star_post_detail`, `v_brand_post_detail`, `v_magazine_post_detail`；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按 `COUNT(DISTINCT prop_user_id)` |
 | follow_total_count | 关注点击次数；事件：`c_follow`；按 `raw_event_id` 去重 |
-| follow_rate | `follow_uv / column_exposure_uv` |
-| read_post_count | 去重帖子数；`COUNT(DISTINCT CONCAT(visitor_id, '-', post_code))` |
+| follow_rate | `follow_uv / column_exposure_uv`；其中 `follow_uv` 仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的 `c_follow` 事件，并按 `COUNT(DISTINCT prop_user_id)` |
+| read_post_count | 去重帖子数；仅统计已登录曝光事件，`COUNT(DISTINCT CONCAT(prop_user_id, '-', post_code))` |
 | avg_read_post_count_per_user | `read_post_count / column_exposure_uv` |
 | post_total_count | 帖子总数；`dws_column_post_daily` 在多伦多时间 0 点后回写昨日的在线帖子存量快照；在线帖子定义为 `v3_decom.community_post.status = 1` |
 | tryon_post_count | 试穿帖子数；`v3_decom.common_ext_ai_task.task_type IN ('TRY_ON','OUTFIT')` 且可映射专栏后的当日去重帖子数 |
-| tryon_click_uv | 试穿点击人数；`v3_decom.common_ext_ai_task.task_type IN ('TRY_ON','OUTFIT')` 的当日去重用户数 |
+| tryon_click_uv | 试穿点击人数；`v3_decom.common_ext_ai_task.task_type IN ('TRY_ON','OUTFIT')` 的当日已登录去重用户数 |
 | tryon_uv_rate | 试穿率 UV 口径；`tryon_click_uv / column_exposure_uv` |
 | ai_tryon_penetration_rate | AI 试穿渗透率（内容维度）；`tryon_post_count / post_total_count` |
 | like_post_count | 新增点赞数（帖子口径）；同一专栏中当天获得过点赞的去重帖子数 |
-| like_rate | 点赞率；`like_uv / column_exposure_uv` |
+| like_rate | 点赞率；`like_uv / column_exposure_uv`；其中 `like_uv` 为服务端当日已登录点赞去重用户数 |
 | new_follow_count | 新增关注数；`v3_decom.community_star_follow` 当天新增关注该专栏的去重用户数 |
 | follow_conversion_rate_7d | 近7日关注转化率；同日同专栏 `(今日关注用户 ∩ 近7日点赞用户)` 去重人数 / 近7日点赞去重人数（窗口为 `[dt-6, dt]`） |
 
 补充说明：
-- 人数类统一口径：
-  - 若同日同 `device_id` 仅关联一个 `user_id`，则游客态并到该 `user_id`
-  - 若同日同 `device_id` 关联多个 `user_id`，人数口径按 `COUNT(DISTINCT user_id)`，不再额外计游客态
+- UV 相关指标统一为“已登录用户”口径：
+  - 事件侧仅保留 `prop_user_id IS NOT NULL AND prop_user_id != ''`
+  - 人数类统一按 `COUNT(DISTINCT prop_user_id)` 统计
+- `follow_total_count`、`like_post_count`、`tryon_post_count` 仍保留原事件/帖子次数口径，不属于 UV 人数指标
 - `column_id → column_name` 映射：`v3_decom.kol_rel`（`status = 0`，`kol_type = 2/3/4`）
 - `dws_column_post_daily` 只承载帖子在线存量快照，不承载试穿日发生指标
 - 试穿相关指标直接在 ADS 当天按 `common_ext_ai_task` 计算

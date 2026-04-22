@@ -3,7 +3,8 @@
 ## `Unrecognized name: prop_user_id`
 
 - 根因是 CTE 从 `base` 读取，但仍引用了 `prop_user_id / prop_device_id`
-- follow 相关聚合应直接使用 `base` 中已经算好的 `visitor_id`
+- 历史 visitor 口径下，follow 相关聚合应直接使用 `base` 中已经算好的 `visitor_id`
+- 当前已登录口径下，对应地应直接使用 `base` 中已经过滤好的 `user_id`
 
 ## `column_id` 带双引号会让 `column_name` 映射为空
 
@@ -12,7 +13,7 @@
 
 ## 这类日报直接读 `dwd_event_log`，不要错回看 `dws`
 
-- 专栏曝光、关注或阅读异常时，先回看事件名、`visitor_id` 和 `raw_event_id` 去重
+- 专栏曝光、关注或阅读异常时，先回看事件名、`prop_user_id` 登录过滤和 `raw_event_id` 去重
 
 ## `creator` 粒度升级后，`follow_total_count` 不能顺手改口径
 
@@ -30,6 +31,12 @@
 - 新需求要求“同日游客后续登录只算 1 个 UV”，直接 `COALESCE` 会把同一人拆成两个主体
 - 正确做法是先做同日 `device_id -> user_id` 归并，再生成统一 `visitor_id`
 - 对“同日同 device 关联多个 user_id”的边界，人数口径应按 `COUNT(DISTINCT user_id)`，游客态不再额外计 UV
+
+## 改成“已登录用户口径”时，阅读类分子也要一起收口
+
+- 专栏报表如果把 `column_exposure_uv`、`follow_uv` 这类 UV 改成 `COUNT(DISTINCT prop_user_id)`，不能保留原来的 `visitor_id` 阅读分子
+- 否则会出现 `avg_read_post_count_per_user = 匿名+登录阅读帖子数 / 已登录曝光 UV` 的混合口径
+- 正确做法是事件侧先过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`，再按 `CONCAT(prop_user_id, '-', post_code)` 统计 `read_post_count`
 
 ## 在线帖子存量快照不能和试穿日指标混表
 

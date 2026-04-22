@@ -88,25 +88,24 @@ def run_ads_daily_column_performance(dates):
     粒度：dt × module × column_id
 
     指标口径：
-    - column_exposure_uv：专栏曝光 UV（同日同设备若后续登录则归并到 user_id）
+    - column_exposure_uv：专栏曝光 UV（仅统计 prop_user_id 非空事件，按 user_id 去重）
     - follow_total_count：关注点击次数（c_follow，按 raw_event_id 去重）
     - follow_rate：关注点击 UV / 专栏曝光 UV
-    - read_post_count：同一人同天同专栏曝光到的去重帖子数
+    - read_post_count：已登录用户同天同专栏曝光到的去重帖子数
     - avg_read_post_count_per_user：read_post_count / column_exposure_uv
     - post_total_count：服务端当天创建且可映射到专栏的帖子总数
     - tryon_post_count：当天发生 TRY_ON / OUTFIT 的去重帖子数
-    - tryon_click_uv：当天发生 TRY_ON / OUTFIT 的去重用户数
+    - tryon_click_uv：当天发生 TRY_ON / OUTFIT 的已登录去重用户数
     - tryon_uv_rate：tryon_click_uv / column_exposure_uv
     - ai_tryon_penetration_rate：tryon_post_count / post_total_count
     - like_post_count：同一专栏中，当天获得过点赞的去重帖子数
-    - like_rate：点赞人数 / 专栏曝光人数
+    - like_rate：已登录点赞人数 / 已登录专栏曝光人数
     - new_follow_count：当天新增关注该专栏的去重用户数
     - follow_conversion_rate_7d：近7日点赞用户中，今日发生关注行为的用户数 / 近7日点赞用户数
 
     说明：
     - 去掉 creator 粒度后，c_follow 不再做 creator 归因，只保留专栏级统计
-    - 若同日同 device 只关联 1 个 user_id，则游客态并到该 user_id
-    - 若同日同 device 关联多个 user_id，则人数口径按 distinct user_id 统计，游客态不再额外计 UV
+    - UV 相关指标统一收口到已登录用户，事件侧仅保留 prop_user_id 非空记录
     """
     dates_str = dates_to_sql_list(dates)
     event_ts = event_ts_expr()
@@ -139,58 +138,35 @@ def run_ads_daily_column_performance(dates):
             MAX(dt) AS max_dt
         FROM target_dates
     ),
-    -- 事件日志原始层：先把 user/device 分开保留，后续再统一 UV 归并。
+    -- 事件日志原始层：保留已登录事件，统一使用 user_id 作为人数主体。
     base_raw AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
             {event_ts} AS event_ts,
             event_name,
             NULLIF(prop_user_id, '') AS user_id,
-            NULLIF(prop_device_id, '') AS device_id,
             raw_event_id,
-            hash_id,
             post_code,
             args_star,
             args_magazine,
             args_brand
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE({event_ts}, '{TORONTO_TZ}') IN (SELECT dt FROM target_dates)
+            AND NULLIF(prop_user_id, '') IS NOT NULL
     ),
-    -- 每天每个 device 命中的登录用户集合，用于修正游客后续登录的 UV 归并口径。
-    device_user_daily AS (
-        SELECT
-            dt,
-            device_id,
-            COUNT(DISTINCT user_id) AS user_id_count,
-            ANY_VALUE(user_id) AS single_user_id
-        FROM base_raw
-        WHERE device_id IS NOT NULL
-            AND user_id IS NOT NULL
-        GROUP BY dt, device_id
-    ),
-    -- 应用统一访客口径后的事件层。
+    -- 应用已登录用户口径后的事件层。
     base AS (
         SELECT
-            b.dt,
-            b.event_ts,
-            b.event_name,
-            CASE
-                WHEN b.user_id IS NOT NULL THEN CONCAT('u:', b.user_id)
-                WHEN b.device_id IS NULL THEN NULL
-                WHEN COALESCE(d.user_id_count, 0) = 0 THEN CONCAT('d:', b.device_id)
-                WHEN d.user_id_count = 1 THEN CONCAT('u:', d.single_user_id)
-                ELSE NULL
-            END AS visitor_id,
-            b.raw_event_id,
-            b.hash_id,
-            b.post_code,
-            b.args_star,
-            b.args_magazine,
-            b.args_brand
+            dt,
+            event_ts,
+            event_name,
+            user_id,
+            raw_event_id,
+            post_code,
+            args_star,
+            args_magazine,
+            args_brand
         FROM base_raw b
-        LEFT JOIN device_user_daily d
-            ON b.dt = d.dt
-            AND b.device_id = d.device_id
     ),
     -- 专栏维表映射：把 kol_type 统一成报表使用的 module。
     column_map AS (
@@ -213,7 +189,7 @@ def run_ads_daily_column_performance(dates):
     exposure_events AS (
         SELECT
             dt,
-            visitor_id,
+            user_id,
             post_code,
             {module_sql} AS module,
             {column_id_sql} AS column_id
@@ -226,11 +202,11 @@ def run_ads_daily_column_performance(dates):
             dt,
             module,
             column_id,
-            COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS column_exposure_uv,
+            COUNT(DISTINCT user_id) AS column_exposure_uv,
             COUNT(
                 DISTINCT IF(
-                    visitor_id IS NOT NULL AND post_code IS NOT NULL,
-                    CONCAT(visitor_id, '-', CAST(post_code AS STRING)),
+                    post_code IS NOT NULL,
+                    CONCAT(user_id, '-', CAST(post_code AS STRING)),
                     NULL
                 )
             ) AS read_post_count
@@ -244,7 +220,7 @@ def run_ads_daily_column_performance(dates):
         SELECT
             dt,
             raw_event_id,
-            ANY_VALUE(visitor_id) AS visitor_id,
+            ANY_VALUE(user_id) AS user_id,
             ANY_VALUE({module_sql}) AS module,
             ANY_VALUE({column_id_sql}) AS column_id
         FROM base
@@ -259,7 +235,7 @@ def run_ads_daily_column_performance(dates):
             module,
             column_id,
             COUNT(*) AS follow_total_count,
-            COUNT(DISTINCT IF(visitor_id IS NOT NULL, visitor_id, NULL)) AS follow_uv
+            COUNT(DISTINCT user_id) AS follow_uv
         FROM follow_events_dedup
         WHERE module IS NOT NULL
             AND column_id IS NOT NULL
