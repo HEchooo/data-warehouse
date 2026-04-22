@@ -66,3 +66,12 @@ ADD COLUMN IF NOT EXISTS follow_conversion_rate NUMERIC;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
 ADD COLUMN IF NOT EXISTS tryon_penetration_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS product_click_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS product_click_pv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_content_performance`
+ADD COLUMN IF NOT EXISTS product_click_rate NUMERIC;

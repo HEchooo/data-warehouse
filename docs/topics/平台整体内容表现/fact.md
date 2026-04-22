@@ -16,6 +16,8 @@
 | content_exposure_pv | 帖子内容曝光 PV；事件同 `content_exposure_uv`；仅统计 `prop_user_id` 非空事件；当前按 `hash_id` 去重 |
 | product_detail_exposure_uv | 商详页曝光 UV；事件：`v_product_detail`；仅统计 `prop_user_id` 非空事件，按 `prop_user_id` 去重 |
 | product_detail_exposure_pv | 商详页曝光 PV；事件：`v_product_detail`；仅统计 `prop_user_id` 非空事件；按 `COALESCE(raw_event_id, hash_id)` 去重 |
+| product_click_uv | 商品点击 UV；事件：`c_go_product_detail`、`c_open_sku_popup`、`c_third_party_goods`；仅统计 `prop_user_id` 非空事件，按 `prop_user_id` 去重 |
+| product_click_pv | 商品点击 PV；事件同 `product_click_uv`；仅统计 `prop_user_id` 非空事件；按 `COALESCE(raw_event_id, hash_id)` 去重 |
 | avg_browse_content_count_per_user | `content_exposure_pv / content_exposure_uv`；分子分母都为已登录用户口径 |
 | like_total_count | 点赞成功次数（PV）；服务端表：`v3_decom.community_post_like`；按 `gmt_create` 切天后计数 |
 | like_uv | 点赞 UV；服务端表：`v3_decom.community_post_like`；按 `user_id` 去重 |
@@ -26,6 +28,7 @@
 | follow_column_count | 关注专栏个数；当天新增关注过的去重专栏数；服务端表：`v3_decom.community_star_follow`；按 `star_user_id` 去重 |
 | follow_uv | 关注专栏 UV；服务端表：`v3_decom.community_star_follow`；按 `user_id` 去重 |
 | dau_uv | 当天日活 UV；仅统计 `prop_user_id` 非空事件，按 `COUNT(DISTINCT prop_user_id)` |
+| product_click_rate | 商品曝光点击率；`product_click_uv / dau_uv` |
 | follow_rate | `follow_uv / dau_uv` |
 | tryon_uv | 试穿 UV；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('TRY_ON', 'OUTFIT')`；按试穿用户去重 |
 | tryon_penetration_rate | 试穿渗透率；`tryon_uv / dau_uv` |

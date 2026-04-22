@@ -25,6 +25,11 @@ READ_EVENT_NAMES = (
     "r_brand_post_detail",
     "r_kol_post_detail",
 )
+PRODUCT_CLICK_EVENT_NAMES = (
+    "c_go_product_detail",
+    "c_open_sku_popup",
+    "c_third_party_goods",
+)
 COLUMN_EXPOSURE_EVENT_NAMES = (
     "v_star_post_detail",
     "v_magazine_post_detail",
@@ -84,6 +89,7 @@ def build_ads_daily_content_performance_select_query(dates):
         POST_CONTENT_EXPOSURE_EVENT_NAMES
     )
     read_events_sql = string_values_to_sql_list(READ_EVENT_NAMES)
+    product_click_events_sql = string_values_to_sql_list(PRODUCT_CLICK_EVENT_NAMES)
     column_exposure_events_sql = string_values_to_sql_list(COLUMN_EXPOSURE_EVENT_NAMES)
 
     return f"""
@@ -162,7 +168,7 @@ def build_ads_daily_content_performance_select_query(dates):
         FROM events
         GROUP BY dt, platform
     ),
-    -- 内容与商详曝光：统一产出帖子曝光与商详曝光相关分母。
+    -- 内容与商品行为日聚合：统一产出曝光、商品点击等平台日指标。
     exposure_daily AS (
         SELECT
             dt,
@@ -195,6 +201,20 @@ def build_ads_daily_content_performance_select_query(dates):
                     NULL
                 )
             ) AS product_detail_exposure_pv,
+            COUNT(
+                DISTINCT IF(
+                    event_name IN ({product_click_events_sql}) AND user_id IS NOT NULL,
+                    user_id,
+                    NULL
+                )
+            ) AS product_click_uv,
+            COUNT(
+                DISTINCT IF(
+                    event_name IN ({product_click_events_sql}) AND event_id IS NOT NULL,
+                    event_id,
+                    NULL
+                )
+            ) AS product_click_pv,
             COUNT(
                 DISTINCT IF(
                     event_name IN ({column_exposure_events_sql}) AND column_id IS NOT NULL,
@@ -382,6 +402,8 @@ def build_ads_daily_content_performance_select_query(dates):
             COALESCE(e.content_exposure_pv, 0) AS content_exposure_pv,
             COALESCE(e.product_detail_exposure_uv, 0) AS product_detail_exposure_uv,
             COALESCE(e.product_detail_exposure_pv, 0) AS product_detail_exposure_pv,
+            COALESCE(e.product_click_uv, 0) AS product_click_uv,
+            COALESCE(e.product_click_pv, 0) AS product_click_pv,
             COALESCE(l.like_total_count, 0) AS like_total_count,
             COALESCE(l.like_uv, 0) AS like_uv,
             COALESCE(r.read_uv, 0) AS read_uv,
@@ -409,6 +431,8 @@ def build_ads_daily_content_performance_select_query(dates):
         content_exposure_pv,
         product_detail_exposure_uv,
         product_detail_exposure_pv,
+        product_click_uv,
+        product_click_pv,
         CAST(CASE
             WHEN content_exposure_uv = 0 THEN 0
             ELSE ROUND(
@@ -430,6 +454,13 @@ def build_ads_daily_content_performance_select_query(dates):
         follow_column_count,
         follow_uv,
         dau_uv,
+        CAST(CASE
+            WHEN dau_uv = 0 THEN 0
+            ELSE ROUND(
+                CAST(product_click_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS product_click_rate,
         CAST(CASE
             WHEN dau_uv = 0 THEN 0
             ELSE ROUND(
@@ -475,6 +506,8 @@ def run_ads_daily_content_performance(dates):
     - content_exposure_pv: 帖子内容曝光 PV（仅统计已登录用户事件，仍按 hash_id 统计）
     - product_detail_exposure_uv: 商详页曝光 UV（v_product_detail 已登录用户数）
     - product_detail_exposure_pv: 商详页曝光 PV（仅统计已登录用户事件，按 COALESCE(raw_event_id, hash_id) 去重）
+    - product_click_uv: 商品点击 UV（c_go_product_detail / c_open_sku_popup / c_third_party_goods 的去重用户数）
+    - product_click_pv: 商品点击 PV（商品点击事件按 COALESCE(raw_event_id, hash_id) 去重）
     - avg_browse_content_count_per_user: 人均帖子内容曝光数（已登录用户内容 PV / UV，历史字段名保留）
     - like_total_count: 点赞总数（服务端点赞成功次数）
     - like_uv: 点赞 UV（服务端点赞用户数）
@@ -484,6 +517,7 @@ def run_ads_daily_content_performance(dates):
     - follow_column_count: 关注专栏个数（当天新增关注过的去重专栏数）
     - follow_uv: 关注 UV（服务端新增关注用户数）
     - dau_uv: 日活 UV（任意事件活跃已登录用户数）
+    - product_click_rate: 商品曝光点击率（商品点击 UV / 日活 UV）
     - follow_rate: 关注率（关注 UV / 日活 UV）
     - tryon_total_count: 试穿总次数（服务端平台级试穿任务次数）
     - tryon_uv: 试穿 UV（服务端平台级试穿用户数）
@@ -509,10 +543,11 @@ def run_ads_daily_content_performance(dates):
 
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
     (dt, platform, platform_exposure_uv, content_exposure_uv, content_exposure_pv,
-     product_detail_exposure_uv, product_detail_exposure_pv,
+     product_detail_exposure_uv, product_detail_exposure_pv, product_click_uv,
+     product_click_pv,
      avg_browse_content_count_per_user, like_total_count, like_uv, like_rate,
      read_uv, follow_total_count, follow_column_count, follow_uv,
-     dau_uv, follow_rate, follow_conversion_rate, read_follow_rate,
+     dau_uv, product_click_rate, follow_rate, follow_conversion_rate, read_follow_rate,
      tryon_total_count, tryon_uv, column_exposure_pv, tryon_penetration_rate,
      update_time)
     {select_query};
