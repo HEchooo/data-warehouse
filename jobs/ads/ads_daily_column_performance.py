@@ -15,6 +15,21 @@ COLUMN_EXPOSURE_EVENTS = (
     "'v_star_post_feeds',"
     "'v_brand_post_feeds'"
 )
+PRODUCT_CLICK_EVENTS = (
+    "'c_go_product_detail',"
+    "'c_open_sku_popup',"
+    "'c_third_party_goods'"
+)
+PRODUCT_CARD_EXPOSURE_EVENTS = (
+    "'v_shop_product',"
+    "'v_post_product',"
+    "'v_category_product',"
+    "'v_creator_home_shop_product',"
+    "'v_closet_feeds',"
+    "'v_home_feeds',"
+    "'v_shop_feeds',"
+    "'v_tryon_result_detail'"
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -91,6 +106,11 @@ def run_ads_daily_column_performance(dates):
     - column_exposure_uv：专栏曝光 UV（仅统计 prop_user_id 非空事件，按 user_id 去重）
     - follow_total_count：关注点击次数（c_follow，按 raw_event_id 去重）
     - follow_rate：关注点击 UV / 专栏曝光 UV
+    - product_click_uv：商品点击 UV（仅统计 product_code 非空、且能用 args_post 映射回专栏的商品点击用户数）
+    - product_click_pv：商品点击 PV（仅统计 product_code 非空、且能用 args_post 映射回专栏的商品点击事件；按 raw_event_id 去重）
+    - product_click_penetration_rate：商品点击渗透率（product_click_uv / dau_uv）
+    - product_card_exposure_uv：商品卡片曝光 UV（仅统计 product_code 非空、且能用 args_post 映射回专栏的商品曝光用户数）
+    - product_exposure_click_rate：商品曝光点击率（product_click_uv / product_card_exposure_uv）
     - read_post_count：已登录用户同天同专栏曝光到的去重帖子数
     - avg_read_post_count_per_user：read_post_count / column_exposure_uv
     - post_total_count：服务端当天创建且可映射到专栏的帖子总数
@@ -120,6 +140,8 @@ def run_ads_daily_column_performance(dates):
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_column_performance`
     (dt, module, column_id, column_name,
      column_exposure_uv, follow_total_count, follow_rate,
+     product_click_uv, product_click_pv, product_click_penetration_rate,
+     product_card_exposure_uv, product_exposure_click_rate,
      read_post_count, avg_read_post_count_per_user,
      post_total_count, tryon_post_count, tryon_click_uv,
      tryon_uv_rate, ai_tryon_penetration_rate,
@@ -146,7 +168,9 @@ def run_ads_daily_column_performance(dates):
             event_name,
             NULLIF(prop_user_id, '') AS user_id,
             raw_event_id,
+            product_code,
             post_code,
+            args_post,
             args_star,
             args_magazine,
             args_brand
@@ -162,11 +186,21 @@ def run_ads_daily_column_performance(dates):
             event_name,
             user_id,
             raw_event_id,
+            product_code,
             post_code,
+            args_post,
             args_star,
             args_magazine,
             args_brand
         FROM base_raw b
+    ),
+    -- 日活分母：按任意已登录事件去重用户统计 DAU。
+    dau_daily AS (
+        SELECT
+            dt,
+            COUNT(DISTINCT user_id) AS dau_uv
+        FROM base
+        GROUP BY dt
     ),
     -- 专栏维表映射：把 kol_type 统一成报表使用的 module。
     column_map AS (
@@ -184,6 +218,27 @@ def run_ads_daily_column_performance(dates):
             AND kol_type IN (2, 3, 4)
             AND user_id IS NOT NULL
         GROUP BY module, column_id
+    ),
+    -- 帖子映射：用帖子作者专栏归因到 module × column_id。
+    post_dim AS (
+        SELECT
+            CAST(post_code AS STRING) AS post_code,
+            CAST(poster_user_id AS STRING) AS column_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post`
+        WHERE post_code IS NOT NULL
+            AND poster_user_id IS NOT NULL
+            AND CAST(poster_user_id AS STRING) != ''
+        GROUP BY post_code, column_id
+    ),
+    -- 帖子到专栏映射：供商品事件通过 args_post 反推专栏。
+    post_column_map AS (
+        SELECT
+            p.post_code,
+            cm.module,
+            p.column_id
+        FROM post_dim p
+        JOIN column_map cm
+            ON cm.column_id = p.column_id
     ),
     -- 专栏曝光事件明细。
     exposure_events AS (
@@ -213,6 +268,115 @@ def run_ads_daily_column_performance(dates):
         FROM exposure_events
         WHERE module IS NOT NULL
             AND column_id IS NOT NULL
+        GROUP BY dt, module, column_id
+    ),
+    -- 商品事件基础层：只保留带 product_code 的商品曝光/点击事件。
+    product_event_base AS (
+        SELECT
+            dt,
+            event_name,
+            user_id,
+            raw_event_id,
+            product_code,
+            args_post
+        FROM base
+        WHERE event_name IN ({PRODUCT_CLICK_EVENTS}, {PRODUCT_CARD_EXPOSURE_EVENTS})
+            AND product_code IS NOT NULL
+            AND product_code != ''
+    ),
+    -- 从 args_post 解析帖子编码；商品事件只允许通过 args_post 做专栏映射。
+    product_event_post_codes AS (
+        SELECT
+            e.dt,
+            e.event_name,
+            e.user_id,
+            e.raw_event_id,
+            e.product_code,
+            post_code
+        FROM product_event_base e
+        CROSS JOIN UNNEST(
+            CASE
+                WHEN e.args_post IS NULL
+                    OR TRIM(e.args_post) IN ('', 'null', '[]', '""') THEN []
+                WHEN STARTS_WITH(TRIM(e.args_post), '[') THEN ARRAY(
+                    SELECT cleaned_post_code
+                    FROM (
+                        SELECT
+                            NULLIF(
+                                NULLIF(TRIM(TRIM(post_json), '"'), ''),
+                                'null'
+                            ) AS cleaned_post_code
+                        FROM UNNEST(JSON_EXTRACT_ARRAY(e.args_post, '$')) AS post_json
+                    )
+                    WHERE cleaned_post_code IS NOT NULL
+                )
+                ELSE ARRAY(
+                    SELECT cleaned_post_code
+                    FROM (
+                        SELECT
+                            NULLIF(
+                                NULLIF(
+                                    COALESCE(
+                                        JSON_EXTRACT_SCALAR(e.args_post, '$'),
+                                        TRIM(TRIM(e.args_post), '"')
+                                    ),
+                                    ''
+                                ),
+                                'null'
+                            ) AS cleaned_post_code
+                    )
+                    WHERE cleaned_post_code IS NOT NULL
+                )
+            END
+        ) AS post_code
+    ),
+    -- 商品事件按 args_post 补齐专栏维度；无法映射到帖子或专栏的事件直接丢弃。
+    product_event_enriched AS (
+        SELECT
+            e.dt,
+            e.event_name,
+            e.user_id,
+            e.raw_event_id,
+            e.product_code,
+            m.module,
+            m.column_id
+        FROM product_event_post_codes e
+        JOIN post_column_map m
+            ON e.post_code = m.post_code
+    ),
+    -- 商品点击事件先按 raw_event_id + 专栏去重，消除 dwd 拆商品多行带来的重复点击 PV。
+    product_click_events_dedup AS (
+        SELECT
+            dt,
+            module,
+            column_id,
+            raw_event_id,
+            ANY_VALUE(user_id) AS user_id
+        FROM product_event_enriched
+        WHERE event_name IN ({PRODUCT_CLICK_EVENTS})
+            AND raw_event_id IS NOT NULL
+        GROUP BY dt, module, column_id, raw_event_id
+    ),
+    -- 按专栏聚合商品点击 UV / PV。
+    product_click_daily AS (
+        SELECT
+            dt,
+            module,
+            column_id,
+            COUNT(DISTINCT user_id) AS product_click_uv,
+            COUNT(*) AS product_click_pv
+        FROM product_click_events_dedup
+        GROUP BY dt, module, column_id
+    ),
+    -- 按专栏聚合商品卡片曝光 UV。
+    product_exposure_daily AS (
+        SELECT
+            dt,
+            module,
+            column_id,
+            COUNT(DISTINCT user_id) AS product_card_exposure_uv
+        FROM product_event_enriched
+        WHERE event_name IN ({PRODUCT_CARD_EXPOSURE_EVENTS})
         GROUP BY dt, module, column_id
     ),
     -- c_follow 事件先按 raw_event_id 去重，保留专栏级点击事实。
@@ -419,6 +583,12 @@ def run_ads_daily_column_performance(dates):
         FROM follow_daily
         UNION DISTINCT
         SELECT DISTINCT dt, module, column_id
+        FROM product_click_daily
+        UNION DISTINCT
+        SELECT DISTINCT dt, module, column_id
+        FROM product_exposure_daily
+        UNION DISTINCT
+        SELECT DISTINCT dt, module, column_id
         FROM post_snapshot_daily
         UNION DISTINCT
         SELECT DISTINCT dt, module, column_id
@@ -446,6 +616,10 @@ def run_ads_daily_column_performance(dates):
             COALESCE(e.column_exposure_uv, 0) AS column_exposure_uv,
             COALESCE(f.follow_total_count, 0) AS follow_total_count,
             COALESCE(f.follow_uv, 0) AS follow_uv,
+            COALESCE(pc.product_click_uv, 0) AS product_click_uv,
+            COALESCE(pc.product_click_pv, 0) AS product_click_pv,
+            COALESCE(pe.product_card_exposure_uv, 0) AS product_card_exposure_uv,
+            COALESCE(d.dau_uv, 0) AS dau_uv,
             COALESCE(e.read_post_count, 0) AS read_post_count,
             COALESCE(s.post_total_count, 0) AS post_total_count,
             COALESCE(t.tryon_post_count, 0) AS tryon_post_count,
@@ -464,6 +638,16 @@ def run_ads_daily_column_performance(dates):
             ON k.dt = f.dt
             AND k.module = f.module
             AND k.column_id = f.column_id
+        LEFT JOIN product_click_daily pc
+            ON k.dt = pc.dt
+            AND k.module = pc.module
+            AND k.column_id = pc.column_id
+        LEFT JOIN product_exposure_daily pe
+            ON k.dt = pe.dt
+            AND k.module = pe.module
+            AND k.column_id = pe.column_id
+        LEFT JOIN dau_daily d
+            ON k.dt = d.dt
         LEFT JOIN post_snapshot_daily s
             ON k.dt = s.dt
             AND k.module = s.module
@@ -506,6 +690,24 @@ def run_ads_daily_column_performance(dates):
                 4
             )
         END AS NUMERIC) AS follow_rate,
+        product_click_uv,
+        product_click_pv,
+        CAST(CASE
+            WHEN dau_uv = 0 THEN 0
+            ELSE ROUND(
+                CAST(product_click_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS product_click_penetration_rate,
+        product_card_exposure_uv,
+        CAST(CASE
+            WHEN product_card_exposure_uv = 0 THEN 0
+            ELSE ROUND(
+                CAST(product_click_uv AS NUMERIC)
+                / CAST(product_card_exposure_uv AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS product_exposure_click_rate,
         read_post_count,
         CAST(CASE
             WHEN column_exposure_uv = 0 THEN 0

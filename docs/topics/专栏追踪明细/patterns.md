@@ -15,6 +15,13 @@
 
 - 专栏曝光、关注或阅读异常时，先回看事件名、`prop_user_id` 登录过滤和 `raw_event_id` 去重
 
+## 商品事件映射到专栏时，只能走 `args_post`
+
+- `dwd_event_log` 的商品行会把 `args_spu` 展开成 `product_code`，但同一行上的 `post_code` 常常为空
+- 这类事件要按上报原文里的 `args_post` 反推帖子，再通过 `community_post.poster_user_id -> kol_rel.user_id` 映射到专栏
+- 不要对商品事件混用 `args_star / args_magazine / args_brand` 作为兜底，否则同一套商品指标会出现两套归因口径
+- `args_post` 为空、`[]`、`null`，或无法映射到 `community_post` 的商品事件，应直接排除在专栏明细表之外
+
 ## `creator` 粒度升级后，`follow_total_count` 不能顺手改口径
 
 - `c_follow` 的 `creator` 只能在它自身已有的 `module + column_id` 范围内补归因

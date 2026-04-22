@@ -45,3 +45,18 @@ DROP COLUMN IF EXISTS follow_conversion_rate;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
 ADD COLUMN IF NOT EXISTS follow_conversion_rate_7d NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS product_click_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS product_click_pv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS product_click_penetration_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS product_card_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_column_performance`
+ADD COLUMN IF NOT EXISTS product_exposure_click_rate NUMERIC;
