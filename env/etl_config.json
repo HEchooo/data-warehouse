@@ -95,6 +95,20 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_post_interaction_daily",
+      "stage": "DWS",
+      "name": "DWS 帖子主题核心事实 ETL",
+      "script": "jobs/dws/dws_post_interaction_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dim_column",
+        "dim_post"
+      ],
+      "schedule_group": "dws_post_interaction_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_daily",
       "stage": "DWS",
       "name": "DWS 日汇总 ETL",
