@@ -52,6 +52,10 @@
 ## 依赖
 
 - 上游：`dwd_event_log`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.common_ext_ai_task`
+- 已落地实体层：`dim_post`, `dim_column`
+- 实体脚本：`jobs/dim/dim_post.py`, `jobs/dim/dim_column.py`
+- 实体 DDL：`ddl/dim/dim_post.sql`, `ddl/dim/dim_column.sql`
 - 脚本：`jobs/ads/ads_daily_content_performance.py`
 - DDL：`ddl/ads/ads_daily_content_performance.sql`
 - 编排：`jobs/ads/ads_daily.py`
+- 当前状态：Batch 1 已补齐内容主题公用实体层；本表现阶段仍未切换到实体层消费，后续内容主题拆分时默认依赖 `dim_post / dim_column`

@@ -24,46 +24,94 @@
   },
   "tasks": [
     {
+      "layer": "ODS",
+      "table_name": "ods_ios_download",
       "stage": "ODS",
       "name": "ODS iOS 下载 ETL",
       "script": "jobs/ods/ods_ios_download/ods_ios_download.py",
-      "enabled": true
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "ods_daily"
     },
     {
+      "layer": "ODS",
+      "table_name": "ods_android_download",
       "stage": "ODS",
       "name": "ODS Android 下载 ETL",
       "script": "jobs/ods/ods_android_download/ods_android_download.py",
-      "enabled": true
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "ods_daily"
     },
     {
+      "layer": "ODS",
+      "table_name": "ods_appsflyer_download",
       "stage": "ODS",
       "name": "ODS AppsFlyer 下载 ETL",
       "script": "jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py",
-      "enabled": true
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "ods_daily"
     },
     {
+      "layer": "DWD",
+      "table_name": "dwd_event_log",
       "stage": "DWD",
       "name": "DWD 事件 ETL",
       "script": "jobs/dwd/dwd_event_log/dwd_event_log.py",
-      "enabled": true
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dwd_daily"
     },
     {
+      "layer": "DWD",
+      "table_name": "dwd_download",
       "stage": "DWD",
       "name": "DWD 下载 ETL",
       "script": "jobs/dwd/dwd_download/dwd_download.py",
-      "enabled": true
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dwd_daily"
     },
     {
+      "layer": "DIM",
+      "table_name": "dim_column",
+      "stage": "DIM",
+      "name": "DIM dim_column ETL",
+      "script": "jobs/dim/dim_column.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dim_daily"
+    },
+    {
+      "layer": "DIM",
+      "table_name": "dim_post",
+      "stage": "DIM",
+      "name": "DIM dim_post ETL",
+      "script": "jobs/dim/dim_post.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dim_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_daily",
       "stage": "DWS",
       "name": "DWS 日汇总 ETL",
       "script": "jobs/dws/dws_daily.py",
-      "enabled": true
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dws_daily"
     },
     {
+      "layer": "ADS",
+      "table_name": "ads_daily",
       "stage": "ADS",
       "name": "ADS 日报 ETL",
       "script": "jobs/ads/ads_daily.py",
-      "enabled": true
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "ads_daily"
     }
   ]
 }

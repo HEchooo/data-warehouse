@@ -47,8 +47,12 @@
 ## 依赖
 
 - 上游：`dwd_event_log`, `dws_column_post_daily`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.kol_rel`
+- 已落地实体层：`dim_post`, `dim_column`
+- 实体脚本：`jobs/dim/dim_post.py`, `jobs/dim/dim_column.py`
+- 实体 DDL：`ddl/dim/dim_post.sql`, `ddl/dim/dim_column.sql`
 - 快照脚本：`jobs/dws/dws_column_post_daily.py`
 - 快照 DDL：`ddl/dws/dws_column_post_daily.sql`
 - 脚本：`jobs/ads/ads_daily_column_performance.py`
 - DDL：`ddl/ads/ads_daily_column_performance.sql`
 - 编排：`jobs/dws/dws_column_post_daily.py` 独立日调度 -> `jobs/ads/ads_daily.py`
+- 当前状态：Batch 1 已先统一 `column / post` 实体；本表现阶段仍沿用旧 SQL 直连源表，后续分层切换时默认依赖 `dim_post / dim_column`
