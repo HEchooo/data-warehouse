@@ -24,6 +24,9 @@
 ## 依赖
 
 - 上游：`dwd_event_log`
-- 脚本：`jobs/ads/ads_daily_home_module_performance.py`
+- 中层事实：`dws_home_module_daily`
+- 中层脚本：`jobs/dws/dws_home_module_daily.py`
+- 中层 DDL：`ddl/dws/dws_home_module_daily.sql`
+- 终层脚本：`jobs/ads/ads_daily_home_module_performance.py`
 - DDL：`ddl/ads/ads_daily_home_module_performance.sql`
-- 编排：`jobs/ads/ads_daily.py`
+- 编排：`env/etl_config.json`（`dws_home_module_daily`、`ads_daily_home_module_performance`）

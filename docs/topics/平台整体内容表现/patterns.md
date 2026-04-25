@@ -52,3 +52,9 @@
 - 实际把 `follow_conversion_rate` 这个 `NUMERIC` 写到了 `tryon_total_count` 这个 `INT64` 位置，触发 BigQuery 类型报错
 - 脚本又采用了先 `DELETE` 再 `INSERT` 的写法，所以失败后目标分区已经删掉，91 看板直接读到空表
 - 后续新增、删除、重排展示字段时，必须把 `INSERT` 列清单和最终 `SELECT` 做逐列位次校对，不能只看字段名是否都存在
+
+## 平台主题基础事实先落 DWS，再让 ADS 只算率
+
+- `platform_exposure_uv / content_exposure_uv / product_click_uv / like_total_count / follow_uv / tryon_uv` 这类平台级基础事实应沉到 `dws_platform_content_daily`
+- `avg_browse_content_count_per_user / like_rate / product_click_rate / follow_rate / follow_conversion_rate / read_follow_rate / tryon_penetration_rate` 这类展示率指标留在 `ads_daily_content_performance`
+- 这样可以避免平台事实在多个 ADS 里重复拼接事件与服务端行为，也能把增量日期判断收口到单一中层表

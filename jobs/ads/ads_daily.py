@@ -17,8 +17,6 @@ if str(ADS_ROOT) not in sys.path:
 
 from ads_daily_new import run_ads_daily_new
 from ads_daily_total import run_ads_daily_total
-from ads_daily_content_performance import run_ads_daily_content_performance
-from ads_daily_home_module_performance import run_ads_daily_home_module_performance
 from ads_daily_user_duration_frequency import run_ads_daily_user_duration_frequency
 from ads_daily_tryon_confirm import run_ads_daily_tryon_confirm
 from ads_daily_tryon_add_cart_conversion import run_ads_daily_tryon_add_cart_conversion
@@ -95,15 +93,11 @@ def get_total_dates_to_process():
 def get_content_dates_to_process():
     """
     事件内容类 ADS 的日期集合。
-    只依赖 dws_device_daily，不再混入下载链路日期。
+    只保留仍走共享设备水位的内容事件 ADS。
     """
     return execute_dates_query(
         [
             device_t0_dates_sql(),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_content_performance",
-            ),
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_tryon_confirm",
@@ -119,10 +113,6 @@ def get_content_dates_to_process():
             incremental_dates_sql(
                 "dws_device_daily",
                 "ads_daily_product_tryon_performance",
-            ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_home_module_performance",
             ),
         ]
     )
@@ -285,9 +275,6 @@ if __name__ == "__main__":
         logging.info("-" * 50)
 
     if content_dates:
-        run_ads_daily_content_performance(content_dates)
-        logging.info("-" * 50)
-
         run_ads_daily_tryon_confirm(content_dates)
         logging.info("-" * 50)
 
@@ -298,9 +285,6 @@ if __name__ == "__main__":
         logging.info("-" * 50)
 
         run_ads_daily_product_tryon_performance(content_dates)
-        logging.info("-" * 50)
-
-        run_ads_daily_home_module_performance(content_dates)
         logging.info("-" * 50)
 
     if frequency_dates:

@@ -136,6 +136,30 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_platform_content_daily",
+      "stage": "DWS",
+      "name": "DWS 平台内容主题核心事实 ETL",
+      "script": "jobs/dws/dws_platform_content_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_platform_content_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_home_module_daily",
+      "stage": "DWS",
+      "name": "DWS 首页模块主题核心事实 ETL",
+      "script": "jobs/dws/dws_home_module_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_home_module_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_daily",
       "stage": "DWS",
       "name": "DWS 日汇总 ETL",
@@ -171,6 +195,30 @@
         "dws_column_post_daily"
       ],
       "schedule_group": "ads_daily_column_performance"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_content_performance",
+      "stage": "ADS",
+      "name": "ADS 平台整体内容表现日报 ETL",
+      "script": "jobs/ads/ads_daily_content_performance.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_platform_content_daily"
+      ],
+      "schedule_group": "ads_daily_content_performance"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_home_module_performance",
+      "stage": "ADS",
+      "name": "ADS 首页模块曝光点击日报 ETL",
+      "script": "jobs/ads/ads_daily_home_module_performance.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_home_module_daily"
+      ],
+      "schedule_group": "ads_daily_home_module_performance"
     },
     {
       "layer": "ADS",

@@ -1,56 +1,49 @@
+from datetime import date, datetime, timezone
 import logging
+from pathlib import Path
+import sys
 
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
+
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
-V3_DATASET_ID = "v3_decom"
 TORONTO_TZ = "America/Toronto"
-
-HOME_EXPOSURE_EVENT_NAMES = (
-    "v_home_star",
-    "v_home_magazine",
-    "v_home_brand",
-    "v_home_feeds",
-)
-POST_CONTENT_EXPOSURE_EVENT_NAMES = (
-    "v_star_post_detail",
-    "v_magazine_post_detail",
-    "v_brand_post_detail",
-    "v_kol_post_detail",
-)
-READ_EVENT_NAMES = (
-    "r_star_post_detail",
-    "r_magazine_post_detail",
-    "r_brand_post_detail",
-    "r_kol_post_detail",
-)
-PRODUCT_CLICK_EVENT_NAMES = (
-    "c_go_product_detail",
-    "c_open_sku_popup",
-    "c_third_party_goods",
-)
-COLUMN_EXPOSURE_EVENT_NAMES = (
-    "v_star_post_detail",
-    "v_magazine_post_detail",
-    "v_brand_post_detail",
-    "v_kol_post_detail",
-    "v_star_post_feeds",
-    "v_brand_post_feeds",
-)
+TABLE_NAME = "ads_daily_content_performance"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
+INCREMENTAL_WINDOW_HOURS = 6
 
 client = bigquery.Client(project=PROJECT_ID)
 
 
-def dates_to_sql_list(dates):
+def configure_logging() -> Path:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}_{TABLE_NAME}.log"
+
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return log_path
+
+
+def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
 
 
-def string_values_to_sql_list(values):
-    return ", ".join([f"'{value}'" for value in values])
-
-
-def event_ts_expr():
+def event_ts_expr() -> str:
     """
     将 logAt_timestamp 先按 prop_timezone 解释为真实时间，再转成 UTC TIMESTAMP。
     logAt_timestamp 存的是“本地时间字面值”，不能直接当 UTC 使用。
@@ -68,7 +61,7 @@ def service_ts_expr(field_name: str = "gmt_create") -> str:
     return f"TIMESTAMP({field_name}, 'UTC')"
 
 
-def platform_expr():
+def platform_expr() -> str:
     return (
         "CASE "
         "WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'H5' "
@@ -79,349 +72,141 @@ def platform_expr():
     )
 
 
-def build_ads_daily_content_performance_select_query(dates):
-    dates_str = dates_to_sql_list(dates)
-    event_ts = event_ts_expr()
-    service_ts = service_ts_expr()
-    platform_case = platform_expr()
-    home_exposure_events_sql = string_values_to_sql_list(HOME_EXPOSURE_EVENT_NAMES)
-    post_content_exposure_events_sql = string_values_to_sql_list(
-        POST_CONTENT_EXPOSURE_EVENT_NAMES
-    )
-    read_events_sql = string_values_to_sql_list(READ_EVENT_NAMES)
-    product_click_events_sql = string_values_to_sql_list(PRODUCT_CLICK_EVENT_NAMES)
-    column_exposure_events_sql = string_values_to_sql_list(COLUMN_EXPOSURE_EVENT_NAMES)
+def target_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
 
-    return f"""
+
+def target_table_exists() -> bool:
+    try:
+        client.get_table(target_table_id())
+        return True
+    except NotFound:
+        return False
+
+
+def get_target_row_count() -> int:
+    if not target_table_exists():
+        return 0
+
+    query = f"""
+    SELECT COUNT(*) AS row_count
+    FROM `{target_table_id()}`
+    """
+    rows = list(client.query(query).result())
+    return int(rows[0].row_count) if rows else 0
+
+
+def get_content_performance_dates_to_process(
+    window_hours: int = INCREMENTAL_WINDOW_HOURS,
+) -> list[date]:
+    """
+    平台内容 ADS 只消费 `dws_platform_content_daily`，待处理日期单独判断。
+
+    规则：
+    - 目标表不存在或为空时，按 DWS 已落地历史分区全量初始化
+    - 目标表已存在时，只读取最近 6 小时内 DWS 变更的 `dt`
+    """
+    is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+
+    if is_full_snapshot:
+        query = f"""
+        SELECT DISTINCT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_platform_content_daily`
+        ORDER BY dt
+        """
+        results = client.query(query).result()
+        return [row.dt for row in results]
+
+    query = f"""
+    SELECT DISTINCT dt
+    FROM `{PROJECT_ID}.{DATASET_ID}.dws_platform_content_daily`
+    WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
+def run_ads_daily_content_performance(dates: list[date]) -> None:
+    """
+    平台整体内容表现日报（每日每平台一行）。
+
+    当前版本只消费：
+    - dws_platform_content_daily
+
+    ADS 只保留终层展示指标：
+    - avg_browse_content_count_per_user
+    - like_rate
+    - product_click_rate
+    - follow_rate
+    - follow_conversion_rate
+    - read_follow_rate
+    - tryon_penetration_rate
+    """
+    if not dates:
+        logging.info("没有新的 ads_daily_content_performance 日期需要处理")
+        return
+
+    dates_str = dates_to_sql_list(dates)
+    query = f"""
+    DELETE FROM `{target_table_id()}`
+    WHERE dt IN ({dates_str});
+
+    INSERT INTO `{target_table_id()}`
+    (
+        dt,
+        platform,
+        platform_exposure_uv,
+        content_exposure_uv,
+        content_exposure_pv,
+        product_detail_exposure_uv,
+        product_detail_exposure_pv,
+        product_click_uv,
+        product_click_pv,
+        avg_browse_content_count_per_user,
+        like_total_count,
+        like_uv,
+        like_rate,
+        read_uv,
+        follow_total_count,
+        follow_column_count,
+        follow_uv,
+        dau_uv,
+        product_click_rate,
+        follow_rate,
+        follow_conversion_rate,
+        read_follow_rate,
+        tryon_total_count,
+        tryon_uv,
+        column_exposure_pv,
+        tryon_penetration_rate,
+        update_time
+    )
     WITH
-    -- 基础事件明细：统一多伦多日期、平台和原始事件字段。
-    base AS (
-        SELECT
-            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
-            {event_ts} AS event_ts,
-            {platform_case} AS platform,
-            event_name,
-            prop_user_id,
-            prop_device_id,
-            raw_event_id,
-            hash_id,
-            args_star,
-            args_magazine,
-            args_brand,
-            args_blogger
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
-    ),
-    -- 已登录事件标准层：只保留 prop_user_id 非空事件，统一用户键、事件去重键和专栏维度。
-    events AS (
+    -- 平台内容核心事实层：只取本批目标日期。
+    platform_fact AS (
         SELECT
             dt,
             platform,
-            event_name,
-            NULLIF(prop_user_id, '') AS user_id,
-            COALESCE(raw_event_id, hash_id) AS event_id,
-            hash_id,
-            COALESCE(
-                IF(NULLIF(args_star, '') IS NULL, NULL, CONCAT('star:', NULLIF(args_star, ''))),
-                IF(
-                    NULLIF(args_magazine, '') IS NULL,
-                    NULL,
-                    CONCAT('magazine:', NULLIF(args_magazine, ''))
-                ),
-                IF(NULLIF(args_brand, '') IS NULL, NULL, CONCAT('brand:', NULLIF(args_brand, ''))),
-                IF(
-                    NULLIF(args_blogger, '') IS NULL,
-                    NULL,
-                    CONCAT('kol:', NULLIF(args_blogger, ''))
-                )
-            ) AS column_id
-        FROM base
-        WHERE NULLIF(prop_user_id, '') IS NOT NULL
-    ),
-    -- 登录用户平台事件：用于把服务端行为唯一归因到同日平台。
-    logged_in_platform_events AS (
-        SELECT DISTINCT
-            dt,
-            event_ts,
-            platform,
-            NULLIF(prop_user_id, '') AS user_id
-        FROM base
-        WHERE NULLIF(prop_user_id, '') IS NOT NULL
-    ),
-    -- 日活：按任意事件去重已登录用户统计 DAU。
-    dau_daily AS (
-        SELECT
-            dt,
-            platform,
-            COUNT(DISTINCT IF(user_id IS NOT NULL, user_id, NULL)) AS dau_uv
-        FROM events
-        GROUP BY dt, platform
-    ),
-    -- 平台曝光：统计首页入口曝光 UV。
-    platform_daily AS (
-        SELECT
-            dt,
-            platform,
-            COUNT(
-                DISTINCT IF(event_name IN ({home_exposure_events_sql}), user_id, NULL)
-            ) AS platform_exposure_uv
-        FROM events
-        GROUP BY dt, platform
-    ),
-    -- 内容与商品行为日聚合：统一产出曝光、商品点击等平台日指标。
-    exposure_daily AS (
-        SELECT
-            dt,
-            platform,
-            COUNT(
-                DISTINCT IF(
-                    event_name IN ({post_content_exposure_events_sql}),
-                    user_id,
-                    NULL
-                )
-            ) AS content_exposure_uv,
-            COUNT(
-                DISTINCT IF(
-                    event_name IN ({post_content_exposure_events_sql}),
-                    hash_id,
-                    NULL
-                )
-            ) AS content_exposure_pv,
-            COUNT(
-                DISTINCT IF(
-                    event_name = 'v_product_detail' AND user_id IS NOT NULL,
-                    user_id,
-                    NULL
-                )
-            ) AS product_detail_exposure_uv,
-            COUNT(
-                DISTINCT IF(
-                    event_name = 'v_product_detail' AND event_id IS NOT NULL,
-                    event_id,
-                    NULL
-                )
-            ) AS product_detail_exposure_pv,
-            COUNT(
-                DISTINCT IF(
-                    event_name IN ({product_click_events_sql}) AND user_id IS NOT NULL,
-                    user_id,
-                    NULL
-                )
-            ) AS product_click_uv,
-            COUNT(
-                DISTINCT IF(
-                    event_name IN ({product_click_events_sql}) AND event_id IS NOT NULL,
-                    event_id,
-                    NULL
-                )
-            ) AS product_click_pv,
-            COUNT(
-                DISTINCT IF(
-                    event_name IN ({column_exposure_events_sql}) AND column_id IS NOT NULL,
-                    hash_id,
-                    NULL
-                )
-            ) AS column_exposure_pv
-        FROM events
-        GROUP BY dt, platform
-    ),
-    -- 服务端点赞原始记录：按创建时间统计成功点赞事实。
-    like_service_base AS (
-        SELECT
-            GENERATE_UUID() AS action_id,
-            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
-            {service_ts} AS action_ts,
-            CAST(post_id AS STRING) AS post_id,
-            CAST(user_id AS STRING) AS user_id
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post_like`
-        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND post_id IS NOT NULL
-            AND user_id IS NOT NULL
-            AND CAST(user_id AS STRING) != ''
-    ),
-    -- 服务端点赞记录按同日最近登录事件归因平台；未命中则记为 unknown。
-    like_service_with_platform AS (
-        SELECT
-            l.dt,
-            COALESCE(p.platform, 'unknown') AS platform,
-            l.post_id,
-            l.user_id
-        FROM like_service_base l
-        LEFT JOIN logged_in_platform_events p
-            ON p.dt = l.dt
-            AND p.user_id = l.user_id
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY l.action_id
-            ORDER BY
-                IF(p.event_ts IS NULL, 1, 0),
-                ABS(TIMESTAMP_DIFF(p.event_ts, l.action_ts, SECOND)),
-                IF(p.event_ts <= l.action_ts, 0, 1),
-                p.event_ts DESC
-        ) = 1
-    ),
-    -- 服务端点赞日聚合：产出点赞成功次数与点赞用户数。
-    like_daily AS (
-        SELECT
-            dt,
-            platform,
-            COUNT(*) AS like_total_count,
-            COUNT(DISTINCT user_id) AS like_uv
-        FROM like_service_with_platform
-        GROUP BY dt, platform
-    ),
-    -- 服务端关注原始记录：按创建时间统计新增关注事实。
-    follow_service_base AS (
-        SELECT
-            GENERATE_UUID() AS action_id,
-            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
-            {service_ts} AS action_ts,
-            CAST(star_user_id AS STRING) AS column_id,
-            CAST(user_id AS STRING) AS user_id
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_star_follow`
-        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND star_user_id IS NOT NULL
-            AND CAST(star_user_id AS STRING) != ''
-            AND user_id IS NOT NULL
-            AND CAST(user_id AS STRING) != ''
-    ),
-    -- 服务端关注记录按同日最近登录事件归因平台；未命中则记为 unknown。
-    follow_service_with_platform AS (
-        SELECT
-            f.dt,
-            COALESCE(p.platform, 'unknown') AS platform,
-            f.column_id,
-            f.user_id
-        FROM follow_service_base f
-        LEFT JOIN logged_in_platform_events p
-            ON p.dt = f.dt
-            AND p.user_id = f.user_id
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY f.action_id
-            ORDER BY
-                IF(p.event_ts IS NULL, 1, 0),
-                ABS(TIMESTAMP_DIFF(p.event_ts, f.action_ts, SECOND)),
-                IF(p.event_ts <= f.action_ts, 0, 1),
-                p.event_ts DESC
-        ) = 1
-    ),
-    -- 服务端关注日聚合：产出新增关注次数、专栏数和关注用户数。
-    follow_daily AS (
-        SELECT
-            dt,
-            platform,
-            COUNT(*) AS follow_total_count,
-            COUNT(DISTINCT column_id) AS follow_column_count,
-            COUNT(DISTINCT user_id) AS follow_uv
-        FROM follow_service_with_platform
-        GROUP BY dt, platform
-    ),
-    -- 服务端试穿原始记录：统计平台级 TRY_ON / OUTFIT 任务。
-    tryon_task_base AS (
-        SELECT
-            GENERATE_UUID() AS action_id,
-            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
-            {service_ts} AS action_ts,
-            NULLIF(JSON_VALUE(request_param, '$.postId'), '') AS post_id,
-            COALESCE(
-                NULLIF(JSON_VALUE(request_param, '$.user_id'), ''),
-                NULLIF(JSON_VALUE(request_param, '$.userId'), ''),
-                NULLIF(CAST(user_id AS STRING), '')
-            ) AS user_id
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
-        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND task_type IN ('TRY_ON', 'OUTFIT')
-    ),
-    -- 服务端试穿记录按同日最近登录事件归因平台；未命中则记为 unknown。
-    tryon_task_with_platform AS (
-        SELECT
-            t.dt,
-            COALESCE(p.platform, 'unknown') AS platform,
-            t.post_id,
-            t.user_id
-        FROM tryon_task_base t
-        LEFT JOIN logged_in_platform_events p
-            ON p.dt = t.dt
-            AND p.user_id = t.user_id
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY t.action_id
-            ORDER BY
-                IF(p.event_ts IS NULL, 1, 0),
-                ABS(TIMESTAMP_DIFF(p.event_ts, t.action_ts, SECOND)),
-                IF(p.event_ts <= t.action_ts, 0, 1),
-                p.event_ts DESC
-        ) = 1
-    ),
-    -- 服务端试穿日聚合：产出平台级试穿次数与试穿用户数。
-    tryon_daily AS (
-        SELECT
-            dt,
-            platform,
-            COUNT(*) AS tryon_total_count,
-            COUNT(DISTINCT IF(user_id IS NOT NULL, user_id, NULL)) AS tryon_uv
-        FROM tryon_task_with_platform
-        GROUP BY dt, platform
-    ),
-    -- 阅读日聚合：保留已登录用户阅读 UV 供报表展示。
-    read_daily AS (
-        SELECT
-            dt,
-            platform,
-            COUNT(
-                DISTINCT IF(
-                    event_name IN ({read_events_sql}) AND user_id IS NOT NULL,
-                    user_id,
-                    NULL
-                )
-            ) AS read_uv
-        FROM events
-        GROUP BY dt, platform
-    ),
-    -- 日期平台骨架：合并所有指标来源，确保纯服务端平台行也能产出 0 值补齐。
-    date_platform_list AS (
-        SELECT dt, platform FROM dau_daily
-        UNION DISTINCT
-        SELECT dt, platform FROM platform_daily
-        UNION DISTINCT
-        SELECT dt, platform FROM exposure_daily
-        UNION DISTINCT
-        SELECT dt, platform FROM like_daily
-        UNION DISTINCT
-        SELECT dt, platform FROM follow_daily
-        UNION DISTINCT
-        SELECT dt, platform FROM tryon_daily
-        UNION DISTINCT
-        SELECT dt, platform FROM read_daily
-    ),
-    -- 日粒度汇总：将所有基础指标拼成最终计算输入。
-    daily AS (
-        SELECT
-            d.dt,
-            d.platform,
-            COALESCE(p.platform_exposure_uv, 0) AS platform_exposure_uv,
-            COALESCE(e.content_exposure_uv, 0) AS content_exposure_uv,
-            COALESCE(e.content_exposure_pv, 0) AS content_exposure_pv,
-            COALESCE(e.product_detail_exposure_uv, 0) AS product_detail_exposure_uv,
-            COALESCE(e.product_detail_exposure_pv, 0) AS product_detail_exposure_pv,
-            COALESCE(e.product_click_uv, 0) AS product_click_uv,
-            COALESCE(e.product_click_pv, 0) AS product_click_pv,
-            COALESCE(l.like_total_count, 0) AS like_total_count,
-            COALESCE(l.like_uv, 0) AS like_uv,
-            COALESCE(r.read_uv, 0) AS read_uv,
-            COALESCE(f.follow_total_count, 0) AS follow_total_count,
-            COALESCE(f.follow_column_count, 0) AS follow_column_count,
-            COALESCE(f.follow_uv, 0) AS follow_uv,
-            COALESCE(u.dau_uv, 0) AS dau_uv,
-            COALESCE(t.tryon_total_count, 0) AS tryon_total_count,
-            COALESCE(t.tryon_uv, 0) AS tryon_uv,
-            COALESCE(e.column_exposure_pv, 0) AS column_exposure_pv
-        FROM date_platform_list d
-        LEFT JOIN dau_daily u USING (dt, platform)
-        LEFT JOIN platform_daily p USING (dt, platform)
-        LEFT JOIN exposure_daily e USING (dt, platform)
-        LEFT JOIN like_daily l USING (dt, platform)
-        LEFT JOIN follow_daily f USING (dt, platform)
-        LEFT JOIN tryon_daily t USING (dt, platform)
-        LEFT JOIN read_daily r USING (dt, platform)
+            platform_exposure_uv,
+            content_exposure_uv,
+            content_exposure_pv,
+            product_detail_exposure_uv,
+            product_detail_exposure_pv,
+            product_click_uv,
+            product_click_pv,
+            read_uv,
+            like_total_count,
+            like_uv,
+            follow_total_count,
+            follow_column_count,
+            follow_uv,
+            dau_uv,
+            tryon_total_count,
+            tryon_uv,
+            column_exposure_pv
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_platform_content_daily`
+        WHERE dt IN ({dates_str})
     )
     SELECT
         dt,
@@ -433,126 +218,101 @@ def build_ads_daily_content_performance_select_query(dates):
         product_detail_exposure_pv,
         product_click_uv,
         product_click_pv,
-        CAST(CASE
-            WHEN content_exposure_uv = 0 THEN 0
-            ELSE ROUND(
-                CAST(content_exposure_pv AS NUMERIC) / CAST(content_exposure_uv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS avg_browse_content_count_per_user,
+        CAST(
+            CASE
+                WHEN content_exposure_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(content_exposure_pv AS NUMERIC) / CAST(content_exposure_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS avg_browse_content_count_per_user,
         like_total_count,
         like_uv,
-        CAST(CASE
-            WHEN content_exposure_uv = 0 THEN 0
-            ELSE ROUND(
-                CAST(like_uv AS NUMERIC) / CAST(content_exposure_uv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS like_rate,
+        CAST(
+            CASE
+                WHEN content_exposure_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(like_uv AS NUMERIC) / CAST(content_exposure_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS like_rate,
         read_uv,
         follow_total_count,
         follow_column_count,
         follow_uv,
         dau_uv,
-        CAST(CASE
-            WHEN dau_uv = 0 THEN 0
-            ELSE ROUND(
-                CAST(product_click_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS product_click_rate,
-        CAST(CASE
-            WHEN dau_uv = 0 THEN 0
-            ELSE ROUND(
-                CAST(follow_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS follow_rate,
-        CAST(CASE
-            WHEN like_uv = 0 THEN 0
-            ELSE ROUND(
-                CAST(follow_uv AS NUMERIC) / CAST(like_uv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS follow_conversion_rate,
-        CAST(CASE
-            WHEN column_exposure_pv = 0 THEN 0
-            ELSE ROUND(
-                CAST(follow_total_count AS NUMERIC) / CAST(column_exposure_pv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS read_follow_rate,
+        CAST(
+            CASE
+                WHEN dau_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(product_click_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS product_click_rate,
+        CAST(
+            CASE
+                WHEN dau_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(follow_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS follow_rate,
+        CAST(
+            CASE
+                WHEN like_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(follow_uv AS NUMERIC) / CAST(like_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS follow_conversion_rate,
+        CAST(
+            CASE
+                WHEN column_exposure_pv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(follow_total_count AS NUMERIC) / CAST(column_exposure_pv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS read_follow_rate,
         tryon_total_count,
         tryon_uv,
         column_exposure_pv,
-        CAST(CASE
-            WHEN dau_uv = 0 THEN 0
-            ELSE ROUND(
-                CAST(tryon_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS tryon_penetration_rate,
+        CAST(
+            CASE
+                WHEN dau_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(tryon_uv AS NUMERIC) / CAST(dau_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS tryon_penetration_rate,
         CURRENT_TIMESTAMP() AS update_time
-    FROM daily
-    """
-
-
-def run_ads_daily_content_performance(dates):
-    """
-    平台整体内容表现日报（每日每平台一行）:
-    - platform: 设备类型（iOS / Android / H5 / unknown）
-    - platform_exposure_uv: 平台曝光 UV（Home 曝光 UV，仅统计已登录用户）
-    - content_exposure_uv: 帖子内容曝光 UV（仅统计已登录用户）
-    - content_exposure_pv: 帖子内容曝光 PV（仅统计已登录用户事件，仍按 hash_id 统计）
-    - product_detail_exposure_uv: 商详页曝光 UV（v_product_detail 已登录用户数）
-    - product_detail_exposure_pv: 商详页曝光 PV（仅统计已登录用户事件，按 COALESCE(raw_event_id, hash_id) 去重）
-    - product_click_uv: 商品点击 UV（c_go_product_detail / c_open_sku_popup / c_third_party_goods 的去重用户数）
-    - product_click_pv: 商品点击 PV（商品点击事件按 COALESCE(raw_event_id, hash_id) 去重）
-    - avg_browse_content_count_per_user: 人均帖子内容曝光数（已登录用户内容 PV / UV，历史字段名保留）
-    - like_total_count: 点赞总数（服务端点赞成功次数）
-    - like_uv: 点赞 UV（服务端点赞用户数）
-    - like_rate: 点赞率（点赞 UV / 帖子内容曝光 UV）
-    - read_uv: 阅读 UV（仅统计已登录用户）
-    - follow_total_count: 关注总数（服务端新增关注次数）
-    - follow_column_count: 关注专栏个数（当天新增关注过的去重专栏数）
-    - follow_uv: 关注 UV（服务端新增关注用户数）
-    - dau_uv: 日活 UV（任意事件活跃已登录用户数）
-    - product_click_rate: 商品曝光点击率（商品点击 UV / 日活 UV）
-    - follow_rate: 关注率（关注 UV / 日活 UV）
-    - tryon_total_count: 试穿总次数（服务端平台级试穿任务次数）
-    - tryon_uv: 试穿 UV（服务端平台级试穿用户数）
-    - tryon_penetration_rate: 试穿渗透率（tryon_uv / dau_uv）
-    - follow_conversion_rate: 关注转化率（follow_uv / like_uv）
-    - read_follow_rate: 曝光关注率（关注专栏次数 / 专栏曝光次数，历史字段名保留）
-    - column_exposure_pv: 专栏曝光 PV（当前用于曝光关注率重算）
-
-    补充说明：
-    - 事件侧指标统一只纳入 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件
-    - 事件侧 UV 统一按 `COUNT(DISTINCT prop_user_id)` 统计
-    - 点赞 / 关注 / 试穿改取服务端表：`community_post_like`、`community_star_follow`、`common_ext_ai_task`
-    - 服务端行为的平台维度，按同日同用户最近的登录事件平台归因；未命中记为 `unknown`
-    - 试穿统计平台级任务：`task_type IN ('TRY_ON', 'OUTFIT')`，不限定 `request_param.postId`
-    使用多伦多时间（America/Toronto）。
-    """
-    dates_str = dates_to_sql_list(dates)
-    select_query = build_ads_daily_content_performance_select_query(dates)
-
-    query = f"""
-    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
-    WHERE dt IN ({dates_str});
-
-    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_content_performance`
-    (dt, platform, platform_exposure_uv, content_exposure_uv, content_exposure_pv,
-     product_detail_exposure_uv, product_detail_exposure_pv, product_click_uv,
-     product_click_pv,
-     avg_browse_content_count_per_user, like_total_count, like_uv, like_rate,
-     read_uv, follow_total_count, follow_column_count, follow_uv,
-     dau_uv, product_click_rate, follow_rate, follow_conversion_rate, read_follow_rate,
-     tryon_total_count, tryon_uv, column_exposure_pv, tryon_penetration_rate,
-     update_time)
-    {select_query};
+    FROM platform_fact;
     """
     logging.info("开始处理: ads_daily_content_performance")
     job = client.query(query)
     job.result()
     logging.info(f"ads_daily_content_performance 刷新完成, 处理日期: {dates}")
+
+
+if __name__ == "__main__":
+    log_path = configure_logging()
+    logging.info(f"日志文件: {log_path}")
+
+    start_time = datetime.now(timezone.utc)
+    dates = get_content_performance_dates_to_process()
+    logging.info(f"待处理日期: {dates if dates else '[]'}")
+
+    if not dates:
+        logging.info("没有新的 ads_daily_content_performance 日期需要处理")
+        raise SystemExit(0)
+
+    run_ads_daily_content_performance(dates)
+
+    elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+    logging.info(f"ads_daily_content_performance 完成, 耗时: {elapsed:.1f} 秒")
