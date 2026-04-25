@@ -36,23 +36,27 @@
   - 人数类统一按 `COUNT(DISTINCT prop_user_id)` 统计
 - 商品相关事件新增口径统一要求 `product_code` 非空
 - 商品相关事件的专栏归因只允许使用上报的 `args_post`
-  - `args_post -> v3_decom.community_post.post_code -> poster_user_id -> v3_decom.kol_rel.user_id`
+  - `args_post -> dim_post.post_code -> dim_post.column_id -> dim_column.column_id`
   - 不再使用事件自带 `args_star / args_magazine / args_brand` 做商品事件专栏归因
   - `args_post` 无法映射到帖子或专栏的商品事件，不进入该专栏明细表
 - `follow_total_count`、`like_post_count`、`tryon_post_count` 仍保留原事件/帖子次数口径，不属于 UV 人数指标
-- `column_id → column_name` 映射：`v3_decom.kol_rel`（`status = 0`，`kol_type = 2/3/4`）
+- `column_id → column_name` 映射：`dim_column`
 - `dws_column_post_daily` 只承载帖子在线存量快照，不承载试穿日发生指标
-- 试穿相关指标直接在 ADS 当天按 `common_ext_ai_task` 计算
+- `dws_column_interaction_daily` 承接专栏曝光、商品事件、试穿、点赞、新增关注和 7 日关注转化分子分母
+- `ads_daily_column_performance` 只负责消费 `DWS + DIM` 并计算终层率指标
 
 ## 依赖
 
-- 上游：`dwd_event_log`, `dws_column_post_daily`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.kol_rel`
+- 直接消费：`dim_column`, `dws_column_interaction_daily`, `dws_column_post_daily`
+- 行为事实来源：`dwd_event_log`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.common_ext_ai_task`
 - 已落地实体层：`dim_post`, `dim_column`
 - 实体脚本：`jobs/dim/dim_post.py`, `jobs/dim/dim_column.py`
 - 实体 DDL：`ddl/dim/dim_post.sql`, `ddl/dim/dim_column.sql`
+- 行为事实脚本：`jobs/dws/dws_column_interaction_daily.py`
+- 行为事实 DDL：`ddl/dws/dws_column_interaction_daily.sql`
 - 快照脚本：`jobs/dws/dws_column_post_daily.py`
 - 快照 DDL：`ddl/dws/dws_column_post_daily.sql`
 - 脚本：`jobs/ads/ads_daily_column_performance.py`
 - DDL：`ddl/ads/ads_daily_column_performance.sql`
-- 编排：`jobs/dws/dws_column_post_daily.py` 独立日调度 -> `jobs/ads/ads_daily.py`
-- 当前状态：Batch 1 已先统一 `column / post` 实体；本表现阶段仍沿用旧 SQL 直连源表，后续分层切换时默认依赖 `dim_post / dim_column`
+- 编排：`jobs/dws/dws_column_interaction_daily.py` / `jobs/dws/dws_column_post_daily.py` / `jobs/ads/ads_daily_column_performance.py` 均为独立表级任务
+- 当前状态：Batch 1 已完成实体层；Batch 3 已新增 `dws_column_interaction_daily`，并已完成全量初始化、并跑对账与正式换表；当前正式链路已切到 `dim_column + dws_column_interaction_daily + dws_column_post_daily`

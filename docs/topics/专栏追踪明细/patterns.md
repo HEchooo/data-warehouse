@@ -11,9 +11,17 @@
 - 排查 `column_name` 为空时，不要只看 join
 - 先确认 `column_id` 是否需要先做 `clean_id_expr` 清洗
 
-## 这类日报直接读 `dwd_event_log`，不要错回看 `dws`
+## 专栏实体映射要继续保留 `status = 0` 过滤
 
-- 专栏曝光、关注或阅读异常时，先回看事件名、`prop_user_id` 登录过滤和 `raw_event_id` 去重
+- 旧版专栏报表的 `column_map` 明确只使用 `v3_decom.kol_rel.status = 0`
+- Batch 3 把逻辑迁到 `dim_column` 后，如果只按“优先 status=0”排序、不显式过滤 `status = 0`，会把历史上已停用的专栏也带进结果
+- 这类问题最容易表现为 `new_only_keys > 0`，而且一批行所有指标都是 `0`
+
+## Batch 3 之后先看 `dws_column_interaction_daily`，再回看原始源表
+
+- `ads_daily_column_performance` 现在只做 `DWS + DIM` join 和终层率计算，行为类异常先查 `dws_column_interaction_daily`
+- 如果 `dws_column_interaction_daily` 已经异常，再往下回看 `dwd_event_log`、服务端事实表和维表映射
+- 排查专栏曝光、关注或阅读异常时，重点还是事件名、`prop_user_id` 登录过滤和 `raw_event_id` 去重
 
 ## 商品事件映射到专栏时，只能走 `args_post`
 
@@ -45,9 +53,21 @@
 - 否则会出现 `avg_read_post_count_per_user = 匿名+登录阅读帖子数 / 已登录曝光 UV` 的混合口径
 - 正确做法是事件侧先过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`，再按 `CONCAT(prop_user_id, '-', post_code)` 统计 `read_post_count`
 
+## `read_post_count` 不能顺手把空串 `post_code` 清成 `NULL`
+
+- 旧版专栏报表对 `read_post_count` 的实现是 `COUNT(DISTINCT CONCAT(prop_user_id, '-', CAST(post_code AS STRING)))`
+- 这意味着 `post_code = ''` 的曝光行，历史上也会被计入一个去重帖子键
+- Batch 3 下沉到 DWS 时，如果在基础层先写成 `NULLIF(post_code, '')`，会把这部分历史口径少算 1
+
 ## 在线帖子存量快照不能和试穿日指标混表
 
 - 不要把“在线帖子存量快照”和“试穿日发生指标”混在一张快照表里
 - `dws_column_post_daily` 只负责 `community_post.status = 1` 的在线帖子存量快照
-- `common_ext_ai_task` 的试穿帖子数 / 试穿点击人数属于日发生指标，应直接在 ADS 当天计算
+- `common_ext_ai_task` 的试穿帖子数 / 试穿点击人数属于日发生指标，应沉到 `dws_column_interaction_daily`
 - 这类快照脚本也不要挂到高频 `jobs/dws/dws_daily.py`，应独立日调度；否则会把“多伦多 0 点后固化昨日快照”的语义跑歪
+
+## 近 7 日点赞窗口变更不能只回刷当天
+
+- `follow_conversion_rate_7d` 的分母 `like_uv_7d` 和分子 `follow_like_uv_7d` 都依赖窗口 `[dt-6, dt]`
+- 如果某天点赞事实补到 `2026-04-20`，受影响的不只 `2026-04-20`，还包括 `2026-04-21` 到 `2026-04-26`
+- 因此专栏行为 DWS 的日期发现里，点赞事实或点赞映射修正都必须把目标 `dt` 向后扩 6 天

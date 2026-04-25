@@ -109,6 +109,33 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_column_post_daily",
+      "stage": "DWS",
+      "name": "DWS 专栏在线帖子快照 ETL",
+      "script": "jobs/dws/dws_column_post_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_column",
+        "dim_post"
+      ],
+      "schedule_group": "dws_column_post_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_column_interaction_daily",
+      "stage": "DWS",
+      "name": "DWS 专栏主题核心事实 ETL",
+      "script": "jobs/dws/dws_column_interaction_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dim_column",
+        "dim_post"
+      ],
+      "schedule_group": "dws_column_interaction_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_daily",
       "stage": "DWS",
       "name": "DWS 日汇总 ETL",
@@ -130,6 +157,20 @@
         "dws_post_interaction_daily"
       ],
       "schedule_group": "ads_daily_post_performance"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_column_performance",
+      "stage": "ADS",
+      "name": "ADS 专栏主题日报 ETL",
+      "script": "jobs/ads/ads_daily_column_performance.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_column",
+        "dws_column_interaction_daily",
+        "dws_column_post_daily"
+      ],
+      "schedule_group": "ads_daily_column_performance"
     },
     {
       "layer": "ADS",
