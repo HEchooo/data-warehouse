@@ -119,6 +119,20 @@
     },
     {
       "layer": "ADS",
+      "table_name": "ads_daily_post_performance",
+      "stage": "ADS",
+      "name": "ADS 帖子主题日报 ETL",
+      "script": "jobs/ads/ads_daily_post_performance.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_column",
+        "dim_post",
+        "dws_post_interaction_daily"
+      ],
+      "schedule_group": "ads_daily_post_performance"
+    },
+    {
+      "layer": "ADS",
       "table_name": "ads_daily",
       "stage": "ADS",
       "name": "ADS 日报 ETL",

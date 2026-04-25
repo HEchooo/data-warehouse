@@ -42,3 +42,10 @@
 
 - `Top帖子` 这类跨天聚合图表里，`like_rate`、`read_rate`、`follow_rate` 不能直接 `AVG`
 - 正确做法是按 `post_exposure_uv` 加权，等价于先聚合分子分母，再算整体率
+
+## 帖子主题 DWS 带 `platform` 时，不能把各平台 UV 直接相加回帖子级
+
+- 这次 Batch 2 重构时，`dws_post_interaction_daily` 首版粒度是 `dt × post_code × module × column_id × platform`
+- 如果 `ads_daily_post_performance` 直接把各 `platform` 的 `post_exposure_uv / read_uv / like_uv / follow_uv` 相加，会把同一用户跨平台行为重复累计
+- 正确做法不是在 `ADS` 层求和，而是在 `DWS` 内从明细额外重算 `platform = 'all'` 总计口径，再由帖子级 `ADS` 只消费这批总计行
+- 对账时先核对 `platform = 'all'` 是否来自明细重算，再核对最终 `like_rate / read_rate / follow_rate`

@@ -239,6 +239,7 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
 
     粒度：
     - dt × post_code × module × column_id × platform
+    - 其中 platform 同时产出具体平台和 `all` 总计口径
 
     指标：
     - post_exposure_uv：帖子详情曝光 UV，仅统计已登录用户
@@ -353,8 +354,8 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             AND user_id IS NOT NULL
             AND post_code IS NOT NULL
     ),
-    -- 帖子详情曝光日聚合：按已登录用户去重。
-    exposure_daily AS (
+    -- 帖子详情曝光平台聚合：按平台统计已登录曝光 UV。
+    exposure_daily_platform AS (
         SELECT
             dt,
             post_code,
@@ -366,6 +367,26 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
         WHERE module IS NOT NULL
             AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id, platform
+    ),
+    -- 帖子详情曝光总计聚合：忽略平台重算全平台 UV，避免跨平台重复相加。
+    exposure_daily_all AS (
+        SELECT
+            dt,
+            post_code,
+            module,
+            column_id,
+            'all' AS platform,
+            COUNT(DISTINCT user_id) AS post_exposure_uv
+        FROM exposure_events
+        WHERE module IS NOT NULL
+            AND column_id IS NOT NULL
+        GROUP BY dt, post_code, module, column_id
+    ),
+    -- 帖子详情曝光统一输出：同时保留平台口径和全平台总计口径。
+    exposure_daily AS (
+        SELECT * FROM exposure_daily_platform
+        UNION ALL
+        SELECT * FROM exposure_daily_all
     ),
     -- 阅读事件原始记录：保留事件内自带的帖子、专栏和平台维度。
     read_events_raw AS (
@@ -396,8 +417,8 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
         FROM read_events_raw
         GROUP BY dt, platform, raw_event_id, post_code
     ),
-    -- 阅读日聚合：按已登录用户去重，产出阅读 UV。
-    read_daily AS (
+    -- 阅读平台聚合：按平台统计已登录阅读 UV。
+    read_daily_platform AS (
         SELECT
             dt,
             post_code,
@@ -409,6 +430,26 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
         WHERE module IS NOT NULL
             AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id, platform
+    ),
+    -- 阅读总计聚合：忽略平台重算全平台阅读 UV。
+    read_daily_all AS (
+        SELECT
+            dt,
+            post_code,
+            module,
+            column_id,
+            'all' AS platform,
+            COUNT(DISTINCT user_id) AS read_uv
+        FROM read_events_dedup
+        WHERE module IS NOT NULL
+            AND column_id IS NOT NULL
+        GROUP BY dt, post_code, module, column_id
+    ),
+    -- 阅读统一输出：同时保留平台口径和全平台总计口径。
+    read_daily AS (
+        SELECT * FROM read_daily_platform
+        UNION ALL
+        SELECT * FROM read_daily_all
     ),
     -- 服务端点赞原始记录：按创建时间统计成功点赞事实。
     like_service_base AS (
@@ -451,8 +492,8 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
                 e.hash_id DESC
         ) = 1
     ),
-    -- 服务端点赞日聚合：产出点赞次数与点赞 UV。
-    like_daily AS (
+    -- 服务端点赞平台聚合：按平台产出点赞次数与点赞 UV。
+    like_daily_platform AS (
         SELECT
             dt,
             post_code,
@@ -463,6 +504,25 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             COUNT(DISTINCT user_id) AS like_uv
         FROM like_service_enriched
         GROUP BY dt, post_code, module, column_id, platform
+    ),
+    -- 服务端点赞总计聚合：忽略平台重算全平台点赞次数与点赞 UV。
+    like_daily_all AS (
+        SELECT
+            dt,
+            post_code,
+            module,
+            column_id,
+            'all' AS platform,
+            COUNT(*) AS like_total_count,
+            COUNT(DISTINCT user_id) AS like_uv
+        FROM like_service_enriched
+        GROUP BY dt, post_code, module, column_id
+    ),
+    -- 服务端点赞统一输出：同时保留平台口径和全平台总计口径。
+    like_daily AS (
+        SELECT * FROM like_daily_platform
+        UNION ALL
+        SELECT * FROM like_daily_all
     ),
     -- 服务端试穿原始记录：只保留带 postId 的内容场景试穿任务。
     tryon_task_base AS (
@@ -507,8 +567,8 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
                 e.hash_id DESC
         ) = 1
     ),
-    -- 服务端试穿日聚合：产出从该帖子发起的试穿次数。
-    tryon_daily AS (
+    -- 服务端试穿平台聚合：按平台产出帖子相关试穿次数。
+    tryon_daily_platform AS (
         SELECT
             dt,
             post_code,
@@ -518,6 +578,24 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             COUNT(*) AS tryon_total_count
         FROM tryon_task_enriched
         GROUP BY dt, post_code, module, column_id, platform
+    ),
+    -- 服务端试穿总计聚合：忽略平台重算全平台试穿次数。
+    tryon_daily_all AS (
+        SELECT
+            dt,
+            post_code,
+            module,
+            column_id,
+            'all' AS platform,
+            COUNT(*) AS tryon_total_count
+        FROM tryon_task_enriched
+        GROUP BY dt, post_code, module, column_id
+    ),
+    -- 服务端试穿统一输出：同时保留平台口径和全平台总计口径。
+    tryon_daily AS (
+        SELECT * FROM tryon_daily_platform
+        UNION ALL
+        SELECT * FROM tryon_daily_all
     ),
     -- 服务端关注原始记录：按创建时间统计新增关注事实，并带上专栏维度。
     follow_service_base AS (
@@ -558,8 +636,8 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             ORDER BY e.event_ts DESC, e.hash_id DESC
         ) = 1
     ),
-    -- 服务端关注日聚合：产出帖子级关注次数与关注 UV。
-    follow_daily AS (
+    -- 服务端关注平台聚合：按平台产出帖子级关注次数与关注 UV。
+    follow_daily_platform AS (
         SELECT
             dt,
             post_code,
@@ -570,6 +648,25 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             COUNT(DISTINCT user_id) AS follow_uv
         FROM follow_attributed
         GROUP BY dt, post_code, module, column_id, platform
+    ),
+    -- 服务端关注总计聚合：忽略平台重算全平台关注次数与关注 UV。
+    follow_daily_all AS (
+        SELECT
+            dt,
+            post_code,
+            module,
+            column_id,
+            'all' AS platform,
+            COUNT(*) AS follow_total_count,
+            COUNT(DISTINCT user_id) AS follow_uv
+        FROM follow_attributed
+        GROUP BY dt, post_code, module, column_id
+    ),
+    -- 服务端关注统一输出：同时保留平台口径和全平台总计口径。
+    follow_daily AS (
+        SELECT * FROM follow_daily_platform
+        UNION ALL
+        SELECT * FROM follow_daily_all
     ),
     -- 指标主键骨架：合并所有可能产出指标的帖子维度键。
     keys AS (

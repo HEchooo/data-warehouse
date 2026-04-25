@@ -347,6 +347,7 @@ logs/
 建议粒度：
 
 - `dt × post_code × module × column_id × platform`
+- `platform` 除保留具体平台外，还要额外产出 `all` 总计口径，供帖子级 ADS 消费
 
 
 ### 6.2.1 `dws_post_interaction_daily` 首版字段
@@ -391,7 +392,9 @@ logs/
 - 更新 `env/etl_config.json`
 - 给这次新增 / 重写的脚本接日志
 - `dws_post_interaction_daily` 不挂 `jobs/dws/dws_daily.py`，而是按任务粒度独立推自己的待处理 `dt`
+- `ads_daily_post_performance` 也要注册为独立 `ADS` 任务，不再继续挂在 `jobs/ads/ads_daily.py`
 - 这批要显式写清 `dws_post_interaction_daily` 的增量更新方式；如果采用固定重刷窗口，也要写清窗口边界
+- 这批也要显式写清 `ads_daily_post_performance` 的增量更新方式，不能复用 `dws_device_daily` 共享日期
 
 
 ### 6.3.1 本批迁移顺序
@@ -399,17 +402,20 @@ logs/
 1. 先从现有 `ads_daily_post_performance` SQL 中抽出帖子主题核心事实
 2. 把“曝光 / 阅读 / 点赞 / 关注归因 / 试穿”沉到 `dws_post_interaction_daily`
 3. 为 `dws_post_interaction_daily` 单独定义自己的增量 `dt` 推导逻辑，不复用整层共享 `dt`
-4. 保留 `post_name / creator / column_name` 在 `ADS` 通过维表补齐
-5. 重写 `ads_daily_post_performance`，只做：
+4. 为避免跨平台 UV 直接相加失真，在 `dws_post_interaction_daily` 内从明细额外重算 `platform = 'all'`
+5. 保留 `post_name / creator / column_name` 在 `ADS` 通过维表补齐
+6. 重写 `ads_daily_post_performance`，只做：
    - 维表 join
    - 最终粒度整理
    - 率指标计算
-6. 并跑新旧 `ads_daily_post_performance` 对账后再切
+7. 把 `ads_daily_post_performance` 注册进 `env/etl_config.json`，并从 `jobs/ads/ads_daily.py` 共享入口摘出
+8. 并跑新旧 `ads_daily_post_performance` 对账后再切
 
 
 ### 6.3.2 本批对账重点
 
 - `dt × post_code × module × column_id × platform` 粒度行数
+- `platform = 'all'` 是否由明细重算，而不是平台 UV 直接相加
 - `post_exposure_uv`
 - `read_uv`
 - `like_total_count`

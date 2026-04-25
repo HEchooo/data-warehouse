@@ -21,20 +21,20 @@
 补充说明：
 - 事件侧 UV 统一只统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的已登录用户
 - 事件侧 UV 统一按 `COUNT(DISTINCT prop_user_id)` 统计
-- `点赞 / 试穿` 的帖子归因直接通过 `v3_decom.community_post` 完成
-- `关注` 的服务端事实没有帖子主键，帖子级口径仍需依赖同日详情曝光做 last-touch
-- 维度映射：`post_code → post_id/post_name/creator` 用 `v3_decom.community_post`；`column_id → column_name` 用 `v3_decom.kol_rel`
+- `点赞 / 试穿` 的帖子归因通过 `dim_post` 统一映射完成
+- `关注` 的服务端事实没有帖子主键，帖子级口径仍需依赖同日详情曝光做 last-touch；该逻辑已沉到 `dws_post_interaction_daily`
+- `ads_daily_post_performance` 当前只消费 `dws_post_interaction_daily.platform = 'all'` 的总计口径，避免把跨平台 UV 直接相加
+- 维度映射：`post_code → post_id/post_name/creator` 用 `dim_post`；`column_id → column_name` 用 `dim_column`
 
 ## 依赖
 
-- 上游：`dwd_event_log`, `v3_decom.community_post`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.common_ext_ai_task`, `v3_decom.kol_rel`
-- 已落地实体层：`dim_post`, `dim_column`
-- 已落地中间层：`dws_post_interaction_daily`（Batch 2 首个子项；当前仅沉淀帖子主题核心事实，`ads_daily_post_performance` 尚未切换消费）
+- 直接消费：`dim_post`, `dim_column`, `dws_post_interaction_daily`
+- 上游来源：`dwd_event_log`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.common_ext_ai_task`
 - 实体脚本：`jobs/dim/dim_post.py`, `jobs/dim/dim_column.py`
 - 实体 DDL：`ddl/dim/dim_post.sql`, `ddl/dim/dim_column.sql`
 - 中间层脚本：`jobs/dws/dws_post_interaction_daily.py`
 - 中间层 DDL：`ddl/dws/dws_post_interaction_daily.sql`
 - 脚本：`jobs/ads/ads_daily_post_performance.py`
 - DDL：`ddl/ads/ads_daily_post_performance.sql`
-- 编排：`jobs/ads/ads_daily.py`；`dws_post_interaction_daily` 后续按任务粒度独立推增量 `dt`，暂不挂统一 `DWS` 入口
-- 当前状态：Batch 1 已落地统一帖子 / 专栏实体层；Batch 2 首个子项已新增 `dws_post_interaction_daily` 承接帖子主题核心事实；本表现阶段仍直连源表，后续子项再切换为 `dim_post / dim_column + dws_post_interaction_daily`
+- 编排：`env/etl_config.json` 已注册独立 `ADS` 任务 `ads_daily_post_performance`；不再继续挂 `jobs/ads/ads_daily.py` 共享入口
+- 当前状态：Batch 1 已落地统一帖子 / 专栏实体层；Batch 2 已新增 `dws_post_interaction_daily` 承接帖子主题核心事实，并已将 `ads_daily_post_performance` 切换为 `dim_post / dim_column + dws_post_interaction_daily`
