@@ -1,100 +1,174 @@
+from datetime import date, datetime, timezone
 import logging
 from pathlib import Path
 import sys
 
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 
-ADS_ROOT = Path(__file__).resolve().parent
-if str(ADS_ROOT) not in sys.path:
-    sys.path.insert(0, str(ADS_ROOT))
-
-from ads_daily_content_performance import dates_to_sql_list, event_ts_expr
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
-TORONTO_TZ = "America/Toronto"
+TABLE_NAME = "ads_daily_tryon_confirm"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
+INCREMENTAL_WINDOW_HOURS = 6
 
 client = bigquery.Client(project=PROJECT_ID)
 
 
-def dates_to_array_sql(dates):
-    return ", ".join([f"DATE '{d}'" for d in dates])
+def configure_logging() -> Path:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}_{TABLE_NAME}.log"
+
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return log_path
 
 
-def run_ads_daily_tryon_confirm(dates):
-    """
-    穿搭工具“点击使用”日汇总（每日一行）:
-    - click_use_pv: 点击使用次数（PV，按 raw_event_id 去重）
-    - click_use_uv: 点击使用用户数（UV，visitor_id 去重）
-    - avg_click_use_count_per_user: 人均点击使用次数（PV / UV）
+def dates_to_sql_list(dates: list[date]) -> str:
+    return ", ".join([f"'{d}'" for d in dates])
 
-    事件：c_tryon_confirm
-    时区：dt 使用 America/Toronto（多伦多时间）
-    说明：仅统计包含来源帖子（post_code）的数据；不包含 post_code 的事件舍弃。
-    """
-    dates_str = dates_to_sql_list(dates)
-    dates_array_sql = dates_to_array_sql(dates)
-    event_ts = event_ts_expr()
+
+def target_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
+
+
+def target_table_exists() -> bool:
+    try:
+        client.get_table(target_table_id())
+        return True
+    except NotFound:
+        return False
+
+
+def get_target_row_count() -> int:
+    if not target_table_exists():
+        return 0
 
     query = f"""
-    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_tryon_confirm`
+    SELECT COUNT(*) AS row_count
+    FROM `{target_table_id()}`
+    """
+    rows = list(client.query(query).result())
+    return int(rows[0].row_count) if rows else 0
+
+
+def get_tryon_confirm_dates_to_process(
+    window_hours: int = INCREMENTAL_WINDOW_HOURS,
+) -> list[date]:
+    """
+    试穿点击 ADS 只消费 `dws_tryon_confirm_daily`，待处理日期单独判断。
+
+    规则：
+    - 目标表不存在或为空时，按 DWS 已落地历史分区全量初始化
+    - 目标表已存在时，只读取最近 6 小时内 DWS 变更的 `dt`
+    """
+    is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+
+    if is_full_snapshot:
+        query = f"""
+        SELECT DISTINCT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_tryon_confirm_daily`
+        ORDER BY dt
+        """
+        results = client.query(query).result()
+        return [row.dt for row in results]
+
+    query = f"""
+    SELECT DISTINCT dt
+    FROM `{PROJECT_ID}.{DATASET_ID}.dws_tryon_confirm_daily`
+    WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
+def run_ads_daily_tryon_confirm(dates: list[date]) -> None:
+    """
+    穿搭工具点击使用日汇总。
+
+    当前版本只消费：
+    - dws_tryon_confirm_daily
+
+    ADS 只保留终层展示指标：
+    - avg_click_use_count_per_user
+    """
+    if not dates:
+        logging.info("没有新的 ads_daily_tryon_confirm 日期需要处理")
+        return
+
+    dates_str = dates_to_sql_list(dates)
+    query = f"""
+    DELETE FROM `{target_table_id()}`
     WHERE dt IN ({dates_str});
 
-    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_tryon_confirm`
-    (dt, click_use_pv, click_use_uv, avg_click_use_count_per_user, update_time)
+    INSERT INTO `{target_table_id()}`
+    (
+        dt,
+        click_use_pv,
+        click_use_uv,
+        avg_click_use_count_per_user,
+        update_time
+    )
     WITH
-    base AS (
-        SELECT
-            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
-            event_name,
-            COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) AS visitor_id,
-            raw_event_id,
-            post_code
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND event_name = 'c_tryon_confirm'
-    ),
-    events_dedup AS (
+    -- 试穿点击核心事实层：只取本批目标日期。
+    tryon_confirm_fact AS (
         SELECT
             dt,
-            raw_event_id,
-            ANY_VALUE(visitor_id) AS visitor_id
-        FROM base
-        WHERE raw_event_id IS NOT NULL
-            AND visitor_id IS NOT NULL
-            AND post_code IS NOT NULL
-        GROUP BY dt, raw_event_id
-    ),
-    daily AS (
-        SELECT
-            dt,
-            COUNT(*) AS click_use_pv,
-            COUNT(DISTINCT visitor_id) AS click_use_uv
-        FROM events_dedup
-        GROUP BY dt
-    ),
-    date_list AS (
-        SELECT dt
-        FROM UNNEST([{dates_array_sql}]) AS dt
+            click_use_pv,
+            click_use_uv
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_tryon_confirm_daily`
+        WHERE dt IN ({dates_str})
     )
     SELECT
-        d.dt,
-        COALESCE(m.click_use_pv, 0) AS click_use_pv,
-        COALESCE(m.click_use_uv, 0) AS click_use_uv,
-        CAST(CASE
-            WHEN COALESCE(m.click_use_uv, 0) = 0 THEN 0
-            ELSE ROUND(
-                CAST(COALESCE(m.click_use_pv, 0) AS NUMERIC)
-                / CAST(COALESCE(m.click_use_uv, 0) AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS avg_click_use_count_per_user,
+        dt,
+        click_use_pv,
+        click_use_uv,
+        CAST(
+            CASE
+                WHEN click_use_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(click_use_pv AS NUMERIC) / CAST(click_use_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS avg_click_use_count_per_user,
         CURRENT_TIMESTAMP() AS update_time
-    FROM date_list d
-    LEFT JOIN daily m USING (dt);
+    FROM tryon_confirm_fact;
     """
-
     logging.info("开始处理: ads_daily_tryon_confirm")
     job = client.query(query)
     job.result()
-    logging.info(f"ads_daily_tryon_confirm 刷新完成, 处理日期: {dates}")
+    logging.info("ads_daily_tryon_confirm 刷新完成, 处理日期: %s", dates)
+
+
+if __name__ == "__main__":
+    log_path = configure_logging()
+    logging.info("日志文件: %s", log_path)
+
+    start_time = datetime.now(timezone.utc)
+    dates = get_tryon_confirm_dates_to_process()
+    logging.info("待处理日期: %s", dates if dates else "[]")
+
+    if not dates:
+        logging.info("没有新的 ads_daily_tryon_confirm 日期需要处理")
+        raise SystemExit(0)
+
+    run_ads_daily_tryon_confirm(dates)
+
+    elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+    logging.info("ads_daily_tryon_confirm 完成, 耗时: %.1f 秒", elapsed)

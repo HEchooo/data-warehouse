@@ -3,108 +3,141 @@
 ## 1. Project Overview
 - **Project**: `/Users/sinn/Documents/guyin/data-warehouse`
 - **Tech Stack**: Python, BigQuery, Superset, JSON 配置驱动 ETL
-- **Current Focus**: `WAREHOUSE_LAYERING_REFACTOR_PLAN.md` 的 `Batch 4` 已完成，平台内容与首页模块主题已切到独立 DWS
+- **Brief Description**: 数据工程仓库，负责 ODS/DWD/DIM/DWS/ADS 分层 ETL 与 Superset 报表供数
 
-## 2. What This Session Finished
-- 完成 `Batch 4` 的代码改造
-  - 新增 [`jobs/dws/dws_platform_content_daily.py`](./jobs/dws/dws_platform_content_daily.py)
-  - 新增 [`ddl/dws/dws_platform_content_daily.sql`](./ddl/dws/dws_platform_content_daily.sql)
-  - 新增 [`jobs/dws/dws_home_module_daily.py`](./jobs/dws/dws_home_module_daily.py)
-  - 新增 [`ddl/dws/dws_home_module_daily.sql`](./ddl/dws/dws_home_module_daily.sql)
-  - 重写 [`jobs/ads/ads_daily_content_performance.py`](./jobs/ads/ads_daily_content_performance.py)
-  - 重写 [`jobs/ads/ads_daily_home_module_performance.py`](./jobs/ads/ads_daily_home_module_performance.py)
-- 调整编排
-  - [`jobs/ads/ads_daily.py`](./jobs/ads/ads_daily.py) 已去掉 `ads_daily_content_performance` / `ads_daily_home_module_performance` 的共享入口调用
-  - [`env/etl_config.json`](./env/etl_config.json) 已注册 4 个独立任务：
-    - `dws_platform_content_daily`
-    - `dws_home_module_daily`
-    - `ads_daily_content_performance`
-    - `ads_daily_home_module_performance`
+## 2. Current Session Goals
+- 从 `WAREHOUSE_LAYERING_REFACTOR_PLAN.md` 继续，完成 `Batch 5`
+- 目标主题：试穿与商品
+- 本次已完成代码重构、生产建表、DWS 初始化、ADS 并跑与正式切换
+- **显式下一目标**：下个 session 优先复盘 `ads_daily_post_tryon_confirm` 的历史差异，确认 `diff_count = 586` 的根因
+
+## 3. What Was Done
+- 新增 4 张 DWS DDL
+  - `ddl/dws/dws_tryon_confirm_daily.sql`
+  - `ddl/dws/dws_tryon_confirm_post_daily.sql`
+  - `ddl/dws/dws_tryon_user_daily.sql`
+  - `ddl/dws/dws_product_behavior_daily.sql`
+- 新增 4 张 DWS 脚本
+  - `jobs/dws/dws_tryon_confirm_daily.py`
+  - `jobs/dws/dws_tryon_confirm_post_daily.py`
+  - `jobs/dws/dws_tryon_user_daily.py`
+  - `jobs/dws/dws_product_behavior_daily.py`
+- 重写 4 张 ADS 脚本
+  - `jobs/ads/ads_daily_tryon_confirm.py`
+  - `jobs/ads/ads_daily_post_tryon_confirm.py`
+  - `jobs/ads/ads_daily_tryon_add_cart_conversion.py`
+  - `jobs/ads/ads_daily_product_tryon_performance.py`
+- 调整共享入口
+  - `jobs/ads/ads_daily.py` 已移除 Batch 5 四张 ADS 的共享入口调用
+- 更新调度元数据
+  - `env/etl_config.json` 新增 8 个独立任务：
+    - `dws_tryon_confirm_daily`
+    - `dws_tryon_confirm_post_daily`
+    - `dws_tryon_user_daily`
+    - `dws_product_behavior_daily`
+    - `ads_daily_tryon_confirm`
+    - `ads_daily_post_tryon_confirm`
+    - `ads_daily_tryon_add_cart_conversion`
+    - `ads_daily_product_tryon_performance`
 - 更新文档
-  - [`docs/rules/pipeline.md`](./docs/rules/pipeline.md)
-  - [`docs/topics/平台整体内容表现/fact.md`](./docs/topics/平台整体内容表现/fact.md)
-  - [`docs/topics/平台整体内容表现/patterns.md`](./docs/topics/平台整体内容表现/patterns.md)
-  - [`docs/topics/首页模块曝光与点击明细/fact.md`](./docs/topics/首页模块曝光与点击明细/fact.md)
-  - [`docs/topics/首页模块曝光与点击明细/patterns.md`](./docs/topics/首页模块曝光与点击明细/patterns.md)
-- 完成 BigQuery 生产落地
-  - 正式创建 `decom.dws_platform_content_daily`
-  - 正式创建 `decom.dws_home_module_daily`
-  - 全量初始化两张 DWS
-  - 按 `staging -> changed -> swap` 安全流程切换：
-    - `decom.ads_daily_content_performance`
-    - `decom.ads_daily_home_module_performance`
-  - 本次换表使用 run id：`20260425_163609`
-  - 临时表已清理完成
+  - `docs/rules/pipeline.md`
+  - `docs/topics/穿搭工具点击使用/fact.md`
+  - `docs/topics/穿搭工具点击使用/patterns.md`
+  - `docs/topics/试穿结果转化/fact.md`
+  - `docs/topics/试穿结果转化/patterns.md`
+  - `docs/topics/商详页试穿维度/fact.md`
+  - `docs/topics/商详页试穿维度/patterns.md`
+- 完成生产落地
+  - 正式创建并初始化 4 张 DWS
+  - 4 张 ADS 已按 `staging -> changed -> swap` 正式切换
+  - 临时 `tmp/changed` 表已清理
 
-## 3. Production Result
-- DWS 正式表状态
-  - `decom.dws_platform_content_daily`: `330` 行，`2025-12-29 ~ 2026-04-25`
-  - `decom.dws_home_module_daily`: `308` 行，`2026-02-08 ~ 2026-04-25`
-- ADS 正式表状态
-  - `decom.ads_daily_content_performance`: `301` 行，`2026-02-01 ~ 2026-04-25`
-  - `decom.ads_daily_home_module_performance`: `428` 行，`2026-01-09 ~ 2026-04-25`
-- 特殊保留范围
-  - `ads_daily_home_module_performance` 的 `2026-01-09 ~ 2026-02-07` 旧分区这次没有重算，直接保留旧生产行
-  - 原因：新 `dws_home_module_daily` 的正式数据从 `2026-02-08` 开始，本次安全换表只替换 `2026-02-08 ~ 2026-04-25`
+## 4. Key Decisions & Rationale
+- Batch 5 的目标不是“把 SQL 搬家”，而是把重复扫描 `dwd_event_log` 的主题事实沉到可复用 DWS
+- 四张 ADS 现在都只做终层展示，不再直接拼主题事实
+  - `ads_daily_tryon_confirm` -> `dws_tryon_confirm_daily`
+  - `ads_daily_post_tryon_confirm` -> `dws_tryon_confirm_post_daily + dim_post`
+  - `ads_daily_tryon_add_cart_conversion` -> `dws_tryon_confirm_daily + dws_tryon_user_daily`
+  - `ads_daily_product_tryon_performance` -> `dws_product_behavior_daily`
+- `jobs/ads/ads_daily.py` 不再继续承接 Batch 5 的四张 ADS
+  - 这是有意冻结旧入口，不是漏接
+- 生产执行时没有直接依赖本机 ADC
+  - 本机 Python BigQuery Client 的 ADC 刷新失败：`invalid_grant`
+  - 实际通过去掉代理后的 `bq` CLI 完成 BigQuery 执行
 
-## 4. Reconciliation Summary
-- `ads_daily_home_module_performance`
-  - 替换范围 `2026-02-08 ~ 2026-04-25` 全量 `0 diff`
-  - 校验项：`dt × module` 粒度行数、`module_exposure_uv`、`module_click_uv`、`click_pv`、`click_rate`
-- `ads_daily_content_performance`
-  - 截至 `2026-04-24` 全量 `0 diff`
-  - 唯一差异在 `2026-04-25 / unknown`
-    - 旧生产：`tryon_total_count = 3`，`tryon_uv = 2`
-    - 最终新正式表：`tryon_total_count = 12`，`tryon_uv = 4`
-    - `update_time = 2026-04-25 08:44:08 UTC`
-  - 已确认这不是新口径错误，而是旧生产表刷新后，`v3_decom.common_ext_ai_task` 的当日 `TRY_ON / OUTFIT` 任务继续写入导致的新鲜度差异
-  - 在正式 swap 前，已单独重刷 `dws_platform_content_daily` 的 `2026-04-25` 分区并重建 content staging
+## 5. Current State
+- **Working / Stable**
+  - Batch 5 四张 DWS 已正式落地
+  - Batch 5 四张 ADS 已正式切到新链路
+  - `ads_daily_tryon_confirm`、`ads_daily_tryon_add_cart_conversion`、`ads_daily_product_tryon_performance` 的差异模式基本符合“当天新鲜度差异”
+- **In Progress**
+  - `ads_daily_post_tryon_confirm` 的历史差异还未解释完
+- **Broken / Failing**
+  - 本机 Python 直接访问 BigQuery 仍会报 ADC 刷新错误：
+    - `google.auth.exceptions.RefreshError: ('invalid_grant: Bad Request', {'error': 'invalid_grant', 'error_description': 'Bad Request'})`
+  - 本机环境默认带失效代理：
+    - `HTTP_PROXY=127.0.0.1:7890`
+    - `HTTPS_PROXY=127.0.0.1:7890`
 
-## 5. Key Decisions
-- `ads_daily_content_performance` 现在只消费 `dws_platform_content_daily`
-  - 平台曝光 / 内容曝光 / 商详曝光 / 商品点击 / 点赞 / 关注 / 试穿等基础事实全部下沉到 DWS
-  - ADS 只保留终层展示率指标
-- `ads_daily_home_module_performance` 现在只消费 `dws_home_module_daily`
-  - 固定模块映射与补零骨架都沉到 DWS
-  - ADS 只保留 `click_rate` 与 `avg_click_count_per_user`
-- `jobs/ads/ads_daily.py` 现在不再触发这两张表
-  - 这是有意设计，不是漏接
-  - 后续应走 `env/etl_config.json` 中新增的独立任务
+## 6. Unfinished Work & Next Steps
+1. 先专项复盘 `ads_daily_post_tryon_confirm`
+2. 重点查 `2026-02-27` 的差异样本，确认是旧生产脏数据、`dim_post` 映射变化，还是新链路去重/补维逻辑变化
+3. 如有必要，再决定是否补一轮专项对账 SQL 或回刷策略说明
+4. 评估是否需要修复本机 ADC，避免后续每次 BigQuery 落地都绕过 Python Client
 
-## 6. Validation Done
-- 本地语法校验已通过
-  - `python3 -m py_compile jobs/dws/dws_platform_content_daily.py`
-  - `python3 -m py_compile jobs/dws/dws_home_module_daily.py`
-  - `python3 -m py_compile jobs/ads/ads_daily_content_performance.py`
-  - `python3 -m py_compile jobs/ads/ads_daily_home_module_performance.py`
-  - `python3 -m py_compile jobs/ads/ads_daily.py`
-- BigQuery 临时表已清理
-  - `ads_daily_content_performance_tmp_20260425_163609`
-  - `ads_daily_content_performance_changed_20260425_163609`
-  - `ads_daily_home_module_performance_tmp_20260425_163609`
-  - `ads_daily_home_module_performance_changed_20260425_163609`
+## 7. Blockers & Open Questions
+- `ads_daily_post_tryon_confirm` 并跑差异较大
+  - `diff_count = 586`
+  - 当前没有结论说明这些差异是“旧错新对”还是“新逻辑引入偏差”
+- `dws_tryon_confirm_post_daily` 到 `dim_post` 的映射存在自然损耗
+  - `dws_row_count = 7588`
+  - `unmapped_rows = 81`
+  - 最终 `ads_daily_post_tryon_confirm` 行数 `7507`
 
-## 7. Important Gotchas
-- `ads_daily_content_performance` 对账不能直接把“今天”的 diff 当成口径问题
-  - 要先验证“截至昨天”是否 `0 diff`
-  - 再确认“今天”的差异是不是源表继续进数导致的新鲜度差异
-- `ads_daily.py` 里已经切掉 `content/home_module`
-  - 如果下个 session 只跑 `jobs/ads/ads_daily.py`，这两张表不会刷新
-- `ads_daily_content_performance.py` 里仍保留了 `dates_to_sql_list / event_ts_expr / service_ts_expr / platform_expr`
-  - 这是为了兼容当前仍在 import 这些函数的其他 ADS 脚本
-  - 不是最终形态，后续如果做 `Batch 5+`，再统一抽公共模块
+## 8. Important Context & Gotchas
+- 不要把 `ads_daily_post_tryon_confirm` 的大 diff 和其他三张 ADS 的“当天新鲜度差异”混为一谈
+  - 其他三张表的 diff 主要集中在 `2026-04-27`
+  - `post_tryon` 是一批历史差异，不是单日波动
+- `ads_daily_tryon_confirm` 与 `ads_daily_tryon_add_cart_conversion` 仍保留旧生产的 `2026-01-09 ~ 2026-02-07` 行
+  - 因为新 DWS 从 `2026-02-08/09` 开始，安全换表时只替换新链路覆盖范围
+- `ads_daily_post_tryon_confirm` 现在通过 `dim_post` 补齐 `post_id/post_name/creator`
+  - 以后排查帖子维度问题时先查 `dim_post`，不要直接回头查 `community_post`
+- 本次生产执行中曾临时写过 `.tmp_batch5_prod_run.py`
+  - 已删除，不应提交
 
-## 8. Current Workspace State
+## 9. Environment & Configuration Notes
 - 分支：`main`
-- 代码和文档改动仍未 commit
-- 本 `HANDOFF.md` 也是未提交状态
+- 最近提交：
+  - `1697b42 refactor: complete batch4 platform and home layering`
+  - `54293a1 refactor: complete batch3 column theme layering`
+- 本机 BigQuery 可用方式
+  - `bq` CLI 在去掉代理后可用
+  - 示例：
+    - `env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy '/Users/sinn/Downloads/google-cloud-sdk 2/bin/bq' query ...`
+- 本机 Python 环境
+  - `/Users/sinn/Documents/work_py_venv/bin/python3.11`
 
-## 9. Next Recommended Step
-1. 先提交本次 `Batch 4` 代码、文档和新的 `HANDOFF.md`
-2. 然后直接进入 `Batch 5`
-3. 如果不进 `Batch 5`，至少要记住：
-   - `content/home_module` 已经正式切到独立 DWS
-   - 后续任何问题先查：
-     - `dws_platform_content_daily`
-     - `dws_home_module_daily`
-     - 独立 ADS 任务注册是否还在 `env/etl_config.json`
+## 10. Key Files & Locations
+- 计划文档：`WAREHOUSE_LAYERING_REFACTOR_PLAN.md`
+- 调度配置：`env/etl_config.json`
+- 共享 ADS 入口：`jobs/ads/ads_daily.py`
+- Batch 5 DWS：
+  - `jobs/dws/dws_tryon_confirm_daily.py`
+  - `jobs/dws/dws_tryon_confirm_post_daily.py`
+  - `jobs/dws/dws_tryon_user_daily.py`
+  - `jobs/dws/dws_product_behavior_daily.py`
+- Batch 5 ADS：
+  - `jobs/ads/ads_daily_tryon_confirm.py`
+  - `jobs/ads/ads_daily_post_tryon_confirm.py`
+  - `jobs/ads/ads_daily_tryon_add_cart_conversion.py`
+  - `jobs/ads/ads_daily_product_tryon_performance.py`
+- 主题文档：
+  - `docs/topics/穿搭工具点击使用/fact.md`
+  - `docs/topics/穿搭工具点击使用/patterns.md`
+  - `docs/topics/试穿结果转化/fact.md`
+  - `docs/topics/试穿结果转化/patterns.md`
+  - `docs/topics/商详页试穿维度/fact.md`
+  - `docs/topics/商详页试穿维度/patterns.md`
+
+## 11. Quick-Start Summary
+本 session 完成了 `WAREHOUSE_LAYERING_REFACTOR_PLAN.md` 的 `Batch 5`，把试穿与商品主题从轻量 ADS 直接扫事件的实现，重构成“DWS 承接主题事实、ADS 只保留终层展示”的结构。新增了四张 DWS：`dws_tryon_confirm_daily`、`dws_tryon_confirm_post_daily`、`dws_tryon_user_daily`、`dws_product_behavior_daily`；同时重写了四张 ADS：`ads_daily_tryon_confirm`、`ads_daily_post_tryon_confirm`、`ads_daily_tryon_add_cart_conversion`、`ads_daily_product_tryon_performance`，并把它们从 `jobs/ads/ads_daily.py` 的共享入口里摘掉，改为独立任务注册到 `env/etl_config.json`。生产侧已经正式建表并切换：DWS 状态分别是 `79/7588/5428/20845` 行，ADS 状态分别是 `109/7507/109/20845` 行，最大日期都到 `2026-04-27`。三张表的并跑差异基本符合当天新鲜度差异模式：`ads_daily_tryon_confirm diff_count=1`、`ads_daily_tryon_add_cart_conversion diff_count=1`、`ads_daily_product_tryon_performance diff_count=114` 且抽样都在 `2026-04-27`；但 `ads_daily_post_tryon_confirm diff_count=586`，属于需要下个 session 单独解释的历史差异。还要记住：本机 Python BigQuery Client 的 ADC 当前坏了，直接跑会报 `invalid_grant`，而默认代理 `127.0.0.1:7890` 也失效；本次 BigQuery 执行实际依赖去掉代理后的 `bq` CLI。

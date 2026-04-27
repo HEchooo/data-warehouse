@@ -22,6 +22,7 @@
 ## 依赖
 
 - 上游：`dwd_event_log`
+- 中间表：`dws_product_behavior_daily`
 - 脚本：`jobs/ads/ads_daily_product_tryon_performance.py`
 - DDL：`ddl/ads/ads_daily_product_tryon_performance.sql`
-- 编排：`jobs/ads/ads_daily.py`
+- 编排：独立任务 `jobs/ads/ads_daily_product_tryon_performance.py`

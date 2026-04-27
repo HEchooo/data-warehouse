@@ -18,10 +18,6 @@ if str(ADS_ROOT) not in sys.path:
 from ads_daily_new import run_ads_daily_new
 from ads_daily_total import run_ads_daily_total
 from ads_daily_user_duration_frequency import run_ads_daily_user_duration_frequency
-from ads_daily_tryon_confirm import run_ads_daily_tryon_confirm
-from ads_daily_tryon_add_cart_conversion import run_ads_daily_tryon_add_cart_conversion
-from ads_daily_post_tryon_confirm import run_ads_daily_post_tryon_confirm
-from ads_daily_product_tryon_performance import run_ads_daily_product_tryon_performance
 from ads_daily_investor import run_ads_daily_investor
 from ads_daily_retention_user_feature import run_ads_daily_retention_user_feature
 
@@ -85,34 +81,6 @@ def get_total_dates_to_process():
                 "dws_device_daily",
                 "ads_daily_total",
                 "DATE_SUB(dt, INTERVAL 1 DAY)",
-            ),
-        ]
-    )
-
-
-def get_content_dates_to_process():
-    """
-    事件内容类 ADS 的日期集合。
-    只保留仍走共享设备水位的内容事件 ADS。
-    """
-    return execute_dates_query(
-        [
-            device_t0_dates_sql(),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_tryon_confirm",
-            ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_tryon_add_cart_conversion",
-            ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_post_tryon_confirm",
-            ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_product_tryon_performance",
             ),
         ]
     )
@@ -240,7 +208,6 @@ if __name__ == "__main__":
     start_time = datetime.now(timezone.utc)
 
     total_dates = get_total_dates_to_process()
-    content_dates = get_content_dates_to_process()
     download_dates = get_download_dates_to_process()
     frequency_dates = get_frequency_dates_to_process()
     investor_dates = get_investor_dates_to_process()
@@ -249,7 +216,6 @@ if __name__ == "__main__":
     if not any(
         [
             total_dates,
-            content_dates,
             download_dates,
             frequency_dates,
             investor_dates,
@@ -260,7 +226,6 @@ if __name__ == "__main__":
         exit(0)
 
     log_dates("总量类", total_dates)
-    log_dates("内容事件类", content_dates)
     log_dates("下载类", download_dates)
     log_dates("时长频次类", frequency_dates)
     log_dates("投资人类", investor_dates)
@@ -272,19 +237,6 @@ if __name__ == "__main__":
 
     if total_dates:
         run_ads_daily_total(total_dates)
-        logging.info("-" * 50)
-
-    if content_dates:
-        run_ads_daily_tryon_confirm(content_dates)
-        logging.info("-" * 50)
-
-        run_ads_daily_tryon_add_cart_conversion(content_dates)
-        logging.info("-" * 50)
-
-        run_ads_daily_post_tryon_confirm(content_dates)
-        logging.info("-" * 50)
-
-        run_ads_daily_product_tryon_performance(content_dates)
         logging.info("-" * 50)
 
     if frequency_dates:

@@ -1,110 +1,201 @@
+from datetime import date, datetime, timezone
 import logging
 from pathlib import Path
 import sys
 
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 
-ADS_ROOT = Path(__file__).resolve().parent
-if str(ADS_ROOT) not in sys.path:
-    sys.path.insert(0, str(ADS_ROOT))
-
-from ads_daily_content_performance import dates_to_sql_list, event_ts_expr
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
-V3_DATASET_ID = "v3_decom"
-TORONTO_TZ = "America/Toronto"
+TABLE_NAME = "ads_daily_post_tryon_confirm"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
+INCREMENTAL_WINDOW_HOURS = 6
 
 client = bigquery.Client(project=PROJECT_ID)
 
 
-def run_ads_daily_post_tryon_confirm(dates):
-    """
-    穿搭工具“点击使用”日汇总（日×帖子）:
-    粒度：dt × post_id
+def configure_logging() -> Path:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}_{TABLE_NAME}.log"
 
-    指标：
-    - click_use_pv: 点击使用次数（PV，仅统计 prop_user_id 非空事件，按 raw_event_id 去重）
-    - click_use_uv: 点击使用用户数（UV，仅统计 prop_user_id 非空事件，按 prop_user_id 去重）
-    - avg_click_use_count_per_user: 人均点击使用次数（PV / 已登录 UV）
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logger.setLevel(logging.INFO)
 
-    事件：c_tryon_confirm
-    时区：dt 使用 America/Toronto（多伦多时间）
-    丢弃：post_code 为空的事件舍弃；post_code 无法映射到 post_id 的事件也舍弃。
-    维度映射：post_code -> creator 使用 v3_decom.community_post.creator 原值。
-    """
-    dates_str = dates_to_sql_list(dates)
-    event_ts = event_ts_expr()
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return log_path
+
+
+def dates_to_sql_list(dates: list[date]) -> str:
+    return ", ".join([f"'{d}'" for d in dates])
+
+
+def target_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
+
+
+def target_table_exists() -> bool:
+    try:
+        client.get_table(target_table_id())
+        return True
+    except NotFound:
+        return False
+
+
+def get_target_row_count() -> int:
+    if not target_table_exists():
+        return 0
 
     query = f"""
-    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_post_tryon_confirm`
+    SELECT COUNT(*) AS row_count
+    FROM `{target_table_id()}`
+    """
+    rows = list(client.query(query).result())
+    return int(rows[0].row_count) if rows else 0
+
+
+def get_post_tryon_confirm_dates_to_process(
+    window_hours: int = INCREMENTAL_WINDOW_HOURS,
+) -> list[date]:
+    """
+    帖子级试穿点击 ADS 同时依赖 `dws_tryon_confirm_post_daily` 与 `dim_post`。
+
+    规则：
+    - 目标表不存在或为空时，按帖子级 DWS 已落地历史分区全量初始化
+    - 目标表已存在时，合并：
+      - 最近 6 小时内帖子级 DWS 变更的 `dt`
+      - 最近 6 小时内 `dim_post` 更新所影响的历史 `dt`
+    """
+    is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+
+    if is_full_snapshot:
+        query = f"""
+        SELECT DISTINCT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_tryon_confirm_post_daily`
+        ORDER BY dt
+        """
+        results = client.query(query).result()
+        return [row.dt for row in results]
+
+    dim_impact_sql = ""
+    if target_table_exists():
+        dim_impact_sql = f"""
+        UNION DISTINCT
+        SELECT DISTINCT t.dt
+        FROM `{target_table_id()}` t
+        INNER JOIN changed_posts p USING (post_code)
+        """
+
+    query = f"""
+    WITH
+    -- 最近 6 小时帖子级 DWS 变更，对应直接受影响的业务日。
+    changed_dws_dates AS (
+        SELECT DISTINCT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_tryon_confirm_post_daily`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ),
+    -- 最近 6 小时帖子维度修正，用于回推受影响历史分区。
+    changed_posts AS (
+        SELECT DISTINCT post_code
+        FROM `{PROJECT_ID}.{DATASET_ID}.dim_post`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND post_code IS NOT NULL
+    )
+    SELECT DISTINCT dt
+    FROM (
+        SELECT dt FROM changed_dws_dates
+        {dim_impact_sql}
+    )
+    WHERE dt IS NOT NULL
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
+def run_ads_daily_post_tryon_confirm(dates: list[date]) -> None:
+    """
+    穿搭工具点击使用帖子明细。
+
+    当前版本只消费：
+    - dws_tryon_confirm_post_daily
+    - dim_post
+
+    ADS 只保留终层展示指标：
+    - avg_click_use_count_per_user
+    - 帖子展示维度补齐
+    """
+    if not dates:
+        logging.info("没有新的 ads_daily_post_tryon_confirm 日期需要处理")
+        return
+
+    dates_str = dates_to_sql_list(dates)
+    query = f"""
+    DELETE FROM `{target_table_id()}`
     WHERE dt IN ({dates_str});
 
-    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_post_tryon_confirm`
-    (dt, post_id, post_code, post_name, creator,
-     click_use_pv, click_use_uv, avg_click_use_count_per_user, update_time)
+    INSERT INTO `{target_table_id()}`
+    (
+        dt,
+        post_id,
+        post_code,
+        post_name,
+        creator,
+        click_use_pv,
+        click_use_uv,
+        avg_click_use_count_per_user,
+        update_time
+    )
     WITH
-    -- 事件基础层：取点击使用事件，并拆出多伦多日期、登录用户和帖子编码。
-    base AS (
-        SELECT
-            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
-            NULLIF(prop_user_id, '') AS user_id,
-            raw_event_id,
-            post_code
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND event_name = 'c_tryon_confirm'
-    ),
-    -- 事件去重层：按原始事件去重，仅保留可归属到帖子且已登录的事件。
-    events_dedup AS (
+    -- 帖子级试穿点击核心事实层：只取本批目标日期。
+    post_fact AS (
         SELECT
             dt,
-            raw_event_id,
             post_code,
-            ANY_VALUE(user_id) AS user_id
-        FROM base
-        WHERE raw_event_id IS NOT NULL
-            AND user_id IS NOT NULL
-            AND post_code IS NOT NULL
-        GROUP BY dt, raw_event_id, post_code
+            click_use_pv,
+            click_use_uv
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_tryon_confirm_post_daily`
+        WHERE dt IN ({dates_str})
     ),
-    -- 帖子映射层：把 post_code 映射到帖子主键和展示维度。
-    post_map AS (
+    -- 帖子维度层：通过 dim_post 补齐帖子主键和展示字段。
+    post_dim AS (
         SELECT
-            CAST(post_code AS STRING) AS post_code,
-            ANY_VALUE(SAFE_CAST(id AS INT64)) AS post_id,
-            ANY_VALUE(title) AS post_name,
-            ANY_VALUE(CAST(creator AS STRING)) AS creator
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_post`
-        WHERE post_code IS NOT NULL
-        GROUP BY post_code
-    ),
-    -- 事件补维层：仅保留能成功映射到帖子主键的事件。
-    events_enriched AS (
-        SELECT
-            e.dt,
-            pm.post_id,
-            e.post_code,
-            pm.post_name,
-            pm.creator,
-            e.raw_event_id,
-            e.user_id
-        FROM events_dedup e
-        INNER JOIN post_map pm USING (post_code)
-        WHERE pm.post_id IS NOT NULL
-    ),
-    -- 日帖子聚合层：产出 PV、已登录 UV 与后续人均指标分母。
-    daily AS (
-        SELECT
-            dt,
+            post_code,
             post_id,
-            post_code,
             post_name,
-            creator,
-            COUNT(*) AS click_use_pv,
-            COUNT(DISTINCT user_id) AS click_use_uv
-        FROM events_enriched
-        GROUP BY dt, post_id, post_code, post_name, creator
+            creator
+        FROM `{PROJECT_ID}.{DATASET_ID}.dim_post`
+        WHERE post_code IS NOT NULL
+            AND post_id IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY post_code
+            ORDER BY update_time DESC, post_id DESC
+        ) = 1
+    ),
+    -- 终层补维：仅保留能成功映射到帖子主键的事实行。
+    enriched AS (
+        SELECT
+            f.dt,
+            d.post_id,
+            f.post_code,
+            d.post_name,
+            d.creator,
+            f.click_use_pv,
+            f.click_use_uv
+        FROM post_fact f
+        INNER JOIN post_dim d USING (post_code)
     )
     SELECT
         dt,
@@ -114,18 +205,37 @@ def run_ads_daily_post_tryon_confirm(dates):
         creator,
         click_use_pv,
         click_use_uv,
-        CAST(CASE
-            WHEN click_use_uv = 0 THEN 0
-            ELSE ROUND(
-                CAST(click_use_pv AS NUMERIC) / CAST(click_use_uv AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS avg_click_use_count_per_user,
+        CAST(
+            CASE
+                WHEN click_use_uv = 0 THEN 0
+                ELSE ROUND(
+                    CAST(click_use_pv AS NUMERIC) / CAST(click_use_uv AS NUMERIC),
+                    4
+                )
+            END AS NUMERIC
+        ) AS avg_click_use_count_per_user,
         CURRENT_TIMESTAMP() AS update_time
-    FROM daily;
+    FROM enriched;
     """
-
     logging.info("开始处理: ads_daily_post_tryon_confirm")
     job = client.query(query)
     job.result()
-    logging.info(f"ads_daily_post_tryon_confirm 刷新完成, 处理日期: {dates}")
+    logging.info("ads_daily_post_tryon_confirm 刷新完成, 处理日期: %s", dates)
+
+
+if __name__ == "__main__":
+    log_path = configure_logging()
+    logging.info("日志文件: %s", log_path)
+
+    start_time = datetime.now(timezone.utc)
+    dates = get_post_tryon_confirm_dates_to_process()
+    logging.info("待处理日期: %s", dates if dates else "[]")
+
+    if not dates:
+        logging.info("没有新的 ads_daily_post_tryon_confirm 日期需要处理")
+        raise SystemExit(0)
+
+    run_ads_daily_post_tryon_confirm(dates)
+
+    elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+    logging.info("ads_daily_post_tryon_confirm 完成, 耗时: %.1f 秒", elapsed)

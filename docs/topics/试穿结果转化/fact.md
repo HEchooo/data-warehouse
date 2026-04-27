@@ -21,6 +21,7 @@
 ## 依赖
 
 - 上游：`dwd_event_log`
+- 中间表：`dws_tryon_confirm_daily`, `dws_tryon_user_daily`
 - 脚本：`jobs/ads/ads_daily_tryon_add_cart_conversion.py`
 - DDL：`ddl/ads/ads_daily_tryon_add_cart_conversion.sql`
-- 编排：`jobs/ads/ads_daily.py`
+- 编排：独立任务 `jobs/ads/ads_daily_tryon_add_cart_conversion.py`

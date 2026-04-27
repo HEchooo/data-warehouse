@@ -5,6 +5,12 @@
 - `ads_daily_tryon_confirm` 是汇总层
 - `ads_daily_post_tryon_confirm` 才是帖子维度和 dashboard 96 的直接来源
 
+## Batch 5 后先查 DWS，再看终层 ADS
+
+- 汇总异常先查 `dws_tryon_confirm_daily`
+- 帖子异常先查 `dws_tryon_confirm_post_daily`
+- 如果帖子名称、creator、post_id 异常，再查 `dim_post`
+
 ## 日×帖子表新增字段时，也要回填历史分区
 
 - `ads_daily_post_tryon_confirm` 是 dashboard 96 的唯一帖子级数据源

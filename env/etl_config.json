@@ -160,6 +160,54 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_tryon_confirm_daily",
+      "stage": "DWS",
+      "name": "DWS 试穿点击汇总事实 ETL",
+      "script": "jobs/dws/dws_tryon_confirm_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_tryon_confirm_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_tryon_confirm_post_daily",
+      "stage": "DWS",
+      "name": "DWS 帖子级试穿点击事实 ETL",
+      "script": "jobs/dws/dws_tryon_confirm_post_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_tryon_confirm_post_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_tryon_user_daily",
+      "stage": "DWS",
+      "name": "DWS 试穿转化用户事实 ETL",
+      "script": "jobs/dws/dws_tryon_user_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_tryon_user_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_product_behavior_daily",
+      "stage": "DWS",
+      "name": "DWS 商品主题核心事实 ETL",
+      "script": "jobs/dws/dws_product_behavior_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_product_behavior_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_daily",
       "stage": "DWS",
       "name": "DWS 日汇总 ETL",
@@ -219,6 +267,56 @@
         "dws_home_module_daily"
       ],
       "schedule_group": "ads_daily_home_module_performance"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_tryon_confirm",
+      "stage": "ADS",
+      "name": "ADS 试穿点击使用汇总日报 ETL",
+      "script": "jobs/ads/ads_daily_tryon_confirm.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_tryon_confirm_daily"
+      ],
+      "schedule_group": "ads_daily_tryon_confirm"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_post_tryon_confirm",
+      "stage": "ADS",
+      "name": "ADS 帖子级试穿点击使用日报 ETL",
+      "script": "jobs/ads/ads_daily_post_tryon_confirm.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_post",
+        "dws_tryon_confirm_post_daily"
+      ],
+      "schedule_group": "ads_daily_post_tryon_confirm"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_tryon_add_cart_conversion",
+      "stage": "ADS",
+      "name": "ADS 试穿加购转化日报 ETL",
+      "script": "jobs/ads/ads_daily_tryon_add_cart_conversion.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_tryon_confirm_daily",
+        "dws_tryon_user_daily"
+      ],
+      "schedule_group": "ads_daily_tryon_add_cart_conversion"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_product_tryon_performance",
+      "stage": "ADS",
+      "name": "ADS 商品试穿表现日报 ETL",
+      "script": "jobs/ads/ads_daily_product_tryon_performance.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_product_behavior_daily"
+      ],
+      "schedule_group": "ads_daily_product_tryon_performance"
     },
     {
       "layer": "ADS",
