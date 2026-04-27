@@ -36,5 +36,5 @@
 - 中间层 DDL：`ddl/dws/dws_post_interaction_daily.sql`
 - 脚本：`jobs/ads/ads_daily_post_performance.py`
 - DDL：`ddl/ads/ads_daily_post_performance.sql`
-- 编排：`env/etl_config.json` 已注册独立 `ADS` 任务 `ads_daily_post_performance`；不再继续挂 `jobs/ads/ads_daily.py` 共享入口
+- 编排：`env/etl_config.json` 已注册独立 `ADS` 任务 `ads_daily_post_performance`；不再继续挂共享 `ADS` 旧入口
 - 当前状态：Batch 1 已落地统一帖子 / 专栏实体层；Batch 2 已新增 `dws_post_interaction_daily` 承接帖子主题核心事实，并已将 `ads_daily_post_performance` 切换为 `dim_post / dim_column + dws_post_interaction_daily`

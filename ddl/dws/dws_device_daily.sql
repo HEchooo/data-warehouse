@@ -10,3 +10,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_device_daily` (
 )
 PARTITION BY dt
 CLUSTER BY prop_device_id;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_device_daily`
+ADD COLUMN has_anonymous_event BOOL;

@@ -104,6 +104,92 @@
       "schedule_group": "dim_auto_publish_video_task"
     },
     {
+      "layer": "DIM",
+      "table_name": "dim_device_first_active",
+      "stage": "DIM",
+      "name": "DIM 设备首活维表 ETL",
+      "script": "jobs/dim/dim_device_first_active.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dim_device_first_active"
+    },
+    {
+      "layer": "DIM",
+      "table_name": "dim_user_first_active",
+      "stage": "DIM",
+      "name": "DIM 用户首活维表 ETL",
+      "script": "jobs/dim/dim_user_first_active.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dim_user_first_active"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_device_daily",
+      "stage": "DWS",
+      "name": "DWS 设备日事实 ETL",
+      "script": "jobs/dws/dws_device_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dim_device_first_active"
+      ],
+      "schedule_group": "dws_device_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_user_daily",
+      "stage": "DWS",
+      "name": "DWS 注册用户日事实 ETL",
+      "script": "jobs/dws/dws_user_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dim_user_first_active"
+      ],
+      "schedule_group": "dws_user_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_content_item_device_daily",
+      "stage": "DWS",
+      "name": "DWS 设备级内容 item 曝光点击事实 ETL",
+      "script": "jobs/dws/dws_content_item_device_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_content_item_device_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_product_detail_daily",
+      "stage": "DWS",
+      "name": "DWS 商详页曝光事实 ETL",
+      "script": "jobs/dws/dws_product_detail_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_product_detail_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_download_daily",
+      "stage": "DWS",
+      "name": "DWS 下载日事实 ETL",
+      "script": "jobs/dws/dws_download_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_download"
+      ],
+      "schedule_group": "dws_download_daily"
+    },
+    {
       "layer": "DWS",
       "table_name": "dws_post_interaction_daily",
       "stage": "DWS",
@@ -356,14 +442,31 @@
       "schedule_group": "dws_social_channel_daily"
     },
     {
-      "layer": "DWS",
-      "table_name": "dws_daily",
-      "stage": "DWS",
-      "name": "DWS 日汇总 ETL",
-      "script": "jobs/dws/dws_daily.py",
+      "layer": "ADS",
+      "table_name": "ads_daily_new",
+      "stage": "ADS",
+      "name": "ADS 用增日报 ETL",
+      "script": "jobs/ads/ads_daily_new.py",
       "enabled": true,
-      "depends_on": [],
-      "schedule_group": "dws_daily"
+      "depends_on": [
+        "dws_device_daily",
+        "dws_user_daily",
+        "dws_download_daily"
+      ],
+      "schedule_group": "ads_daily_new"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_total",
+      "stage": "ADS",
+      "name": "ADS 全量日报 ETL",
+      "script": "jobs/ads/ads_daily_total.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_device_daily",
+        "dws_user_daily"
+      ],
+      "schedule_group": "ads_daily_total"
     },
     {
       "layer": "ADS",
@@ -543,16 +646,6 @@
         "dws_social_channel_daily"
       ],
       "schedule_group": "ads_daily_social_content"
-    },
-    {
-      "layer": "ADS",
-      "table_name": "ads_daily",
-      "stage": "ADS",
-      "name": "ADS 日报 ETL",
-      "script": "jobs/ads/ads_daily.py",
-      "enabled": true,
-      "depends_on": [],
-      "schedule_group": "ads_daily"
     }
   ]
 }

@@ -1,9 +1,9 @@
 # 全量报表经验
 
-## 排查刷新异常时先看总编排，不要只盯单表
+## 排查刷新异常时先看本表待处理日期判定，不要只盯单表
 
-- `ads_daily_total` 由 `jobs/ads/ads_daily.py` 统一编排
-- 先确认目标日期有没有被带进总任务，再继续往下查单表逻辑
+- `ads_daily_total` 现在由 `jobs/ads/ads_daily_total.py` 独立判定待处理日期
+- 先确认 `dws_device_daily`、`dws_user_daily` 有没有把目标日期推进来，再继续往下查单表逻辑
 
 ## DWD 回刷后总量异常，先怀疑补数策略
 

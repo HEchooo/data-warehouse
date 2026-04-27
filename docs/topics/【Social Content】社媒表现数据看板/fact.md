@@ -21,7 +21,7 @@
 - 表：`decom.ads_daily_social_content`
 - 粒度：`dt + channel`
 - Dashboard：[【Social Content】社媒表现数据看板](https://bi.alvinclub.ca/superset/dashboard/102/)（id=102）
-- 调度：独立表级任务 `jobs/ads/ads_daily_social_content.py`，不挂到 `jobs/ads/ads_daily.py`，也不接入 `jobs/dws/dws_daily.py`
+- 调度：独立表级任务 `jobs/ads/ads_daily_social_content.py`，不挂共享 `ADS` 旧入口，也不接入共享 `DWS` 旧入口
 
 ## 字段
 

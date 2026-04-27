@@ -21,4 +21,3 @@
 - 上游：`dws_device_daily`, `dws_user_daily`
 - 脚本：`jobs/ads/ads_daily_total.py`
 - DDL：`ddl/ads/ads_daily_total.sql`
-- 编排：`jobs/ads/ads_daily.py`

@@ -92,7 +92,7 @@
 - `dwd_event_log` 已提前展开 `args_spu` / `args_post`；同一原始事件若带多个 item，需要按 `raw_event_id + item_key` 统计，而不是只按 `raw_event_id`
 - 内容展示量的 feeds 事件只包含 item 级曝光：`v_home_feeds`, `v_shop_feeds`, `v_star_post_feeds`, `v_brand_post_feeds`, `v_kol_post_feeds`；不包含 `v_home_star`, `v_home_magazine`, `v_home_brand` 这类 module 曝光
 - 留存口径中的“注册用户”指 `prop_user_id` 非空且当日在 app 活跃的用户，不是 `is_new_user = TRUE` 的新增注册用户
-- Lark 推送不挂在 `jobs/ads/ads_daily.py` 成功回调上；当前远程服务器高频运行该主链路，若直接复用会重复发送
+- Lark 推送不挂在高频共享 ETL 成功回调上；当前远程服务器高频运行主链路，若直接复用会重复发送
 - Lark 推送脚本默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的一行明细数据
 - Lark 卡片展示核心明细指标，当前包含 `人均商详页点击量`，且不再展示 `视频平均下载转化数`；仍不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
 - Lark 卡片中的“视频平均播放数”“新增视频平均播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
@@ -108,6 +108,6 @@
 - 中间表：`decom.dim_auto_publish_video_task`, `decom.dws_video_daily`, `decom.dws_appsflyer_download_daily`, `decom.dws_registered_app_device_daily`, `decom.dws_registered_app_user_daily`
 - 报表表：`decom.ads_daily_investor`
 - Superset：物理 dataset `ads_daily_investor`（id=228），chart `投资人报表（日表）-明细表`（id=574）
-- 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_registered_app_device_daily.py`, `jobs/dws/dws_registered_app_user_daily.py`, `jobs/dws/dws_daily.py`, `jobs/ads/ads_daily_investor.py`, `jobs/ads/ads_daily_investor_lark_push.py`
+- 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_registered_app_device_daily.py`, `jobs/dws/dws_registered_app_user_daily.py`, `jobs/ads/ads_daily_investor.py`, `jobs/ads/ads_daily_investor_lark_push.py`
 - DDL：`ddl/ods/ods_appsflyer_download.sql`, `ddl/dim/dim_auto_publish_video_task.sql`, `ddl/dws/dws_video_daily.sql`, `ddl/dws/dws_appsflyer_download_daily.sql`, `ddl/dws/dws_registered_app_device_daily.sql`, `ddl/dws/dws_registered_app_user_daily.sql`, `ddl/dwd/dwd_event_log.sql`, `ddl/ads/ads_daily_investor.sql`
-- 编排：`env/etl_config.json`, `etl_run.py`, `jobs/dws/dws_daily.py`, `jobs/ads/ads_daily_investor.py`
+- 编排：`env/etl_config.json`, `etl_run.py`, `jobs/ads/ads_daily_investor.py`

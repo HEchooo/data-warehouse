@@ -1,42 +1,139 @@
+from datetime import date, datetime, timezone
 import logging
+from pathlib import Path
+import sys
 
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TORONTO_TZ = "America/Toronto"
+TABLE_NAME = "ads_daily_new"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
+
 client = bigquery.Client(project=PROJECT_ID)
 
 
-def dates_to_sql_list(dates):
+def configure_logging() -> Path:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}_{TABLE_NAME}.log"
+
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return log_path
+
+
+def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
 
 
-def event_ts_expr():
+def target_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
+
+
+def target_table_exists() -> bool:
+    try:
+        client.get_table(target_table_id())
+        return True
+    except NotFound:
+        return False
+
+
+def get_target_row_count() -> int:
+    if not target_table_exists():
+        return 0
+
+    query = f"""
+    SELECT COUNT(*) AS row_count
+    FROM `{target_table_id()}`
     """
-    将 logAt_timestamp 先按 prop_timezone 解释为真实时间，再转成 UTC TIMESTAMP。
-    logAt_timestamp 存的是“本地时间字面值”，不能直接当 UTC 使用。
+    rows = list(client.query(query).result())
+    return int(rows[0].row_count) if rows else 0
+
+
+def get_ads_daily_new_dates_to_process() -> list[date]:
     """
-    return (
-        "TIMESTAMP("
-        "DATETIME(logAt_timestamp, 'UTC'), "
-        "COALESCE(NULLIF(prop_timezone, ''), 'UTC')"
-        ")"
+    按 ads_daily_new 自身依赖并集判定待处理日期。
+
+    规则：
+    - 目标表不存在或为空时，按设备 / 用户 / 下载三条上游事实的并集全量初始化
+    - 目标表已存在时，合并所有 update_time 晚于目标表最大 update_time 的上游日期
+    - 次留成熟依赖次日设备活跃，因此设备事实变更还要补回前一天
+    """
+    is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+
+    if is_full_snapshot:
+        query = f"""
+        SELECT DISTINCT dt
+        FROM (
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+            UNION DISTINCT
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
+            UNION DISTINCT
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+        )
+        WHERE dt <= CURRENT_DATE('{TORONTO_TZ}')
+        ORDER BY dt
+        """
+        results = client.query(query).result()
+        return [row.dt for row in results]
+
+    query = f"""
+    WITH
+    -- 读取 ads_daily_new 当前水位。
+    target_watermark AS (
+        SELECT COALESCE(MAX(update_time), TIMESTAMP('1970-01-01')) AS max_update_time
+        FROM `{target_table_id()}`
+    ),
+    -- 收敛所有会影响 ads_daily_new 的日期。
+    changed_dates AS (
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+        WHERE update_time > (SELECT max_update_time FROM target_watermark)
+
+        UNION DISTINCT
+
+        SELECT DATE_SUB(dt, INTERVAL 1 DAY) AS dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+        WHERE update_time > (SELECT max_update_time FROM target_watermark)
+
+        UNION DISTINCT
+
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
+        WHERE update_time > (SELECT max_update_time FROM target_watermark)
+
+        UNION DISTINCT
+
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+        WHERE update_time > (SELECT max_update_time FROM target_watermark)
     )
+    SELECT DISTINCT dt
+    FROM changed_dates
+    WHERE dt IS NOT NULL
+        AND dt <= CURRENT_DATE('{TORONTO_TZ}')
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
 
 
-def platform_expr():
-    return (
-        "CASE "
-        "WHEN prop_url IS NOT NULL AND prop_url != '' THEN 'h5' "
-        "WHEN LOWER(prop_os) = 'ios' THEN 'iOS' "
-        "WHEN LOWER(prop_os) IN ('android', 'harmony') THEN 'Android' "
-        "ELSE 'unknown' "
-        "END"
-    )
-
-
-def run_ads_daily_new(dates):
+def run_ads_daily_new(dates: list[date]) -> None:
     """
     新增报表:
     - device_count: 新增设备数 (is_new_device = TRUE)
@@ -48,20 +145,37 @@ def run_ads_daily_new(dates):
     - avg_content_consume_count: 新增设备的人均内容消费数
     - next_day_retention_rate: 新增设备的次日留存率
     - new_download_count: 新增下载量（来自 dws_download_daily）
-    使用多伦多时间（America/Toronto）。
+
+    当前版本只消费稳定中层：
+    - dws_device_daily
+    - dws_user_daily
+    - dws_download_daily
     """
+    if not dates:
+        logging.info("没有新的 ads_daily_new 日期需要处理")
+        return
+
     dates_str = dates_to_sql_list(dates)
-    event_ts = event_ts_expr()
-    platform_case = platform_expr()
 
     query = f"""
-    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_new`
+    DELETE FROM `{target_table_id()}`
     WHERE dt IN ({dates_str});
 
-    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_new`
-    (dt, platform, device_count, user_count, new_user_login_rate,
-     anonymous_device_rate, anonymous_old_device_rate, avg_duration_sec,
-     avg_content_consume_count, next_day_retention_rate, new_download_count, update_time)
+    INSERT INTO `{target_table_id()}`
+    (
+        dt,
+        platform,
+        device_count,
+        user_count,
+        new_user_login_rate,
+        anonymous_device_rate,
+        anonymous_old_device_rate,
+        avg_duration_sec,
+        avg_content_consume_count,
+        next_day_retention_rate,
+        new_download_count,
+        update_time
+    )
     WITH
     -- 新增设备指标：复用设备日表中的新增设备、人均时长和人均内容消费。
     new_device_metrics AS (
@@ -113,37 +227,18 @@ def run_ads_daily_new(dates):
         WHERE dt IN ({dates_str})
         GROUP BY dt, platform
     ),
-    -- 设备登录态基础表：按天、平台、设备聚合是否出现过 user_id 为空的事件。
-    device_login_base AS (
-        SELECT
-            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
-            {platform_case} AS platform,
-            prop_device_id,
-            MAX(
-                CASE
-                    WHEN prop_user_id IS NULL OR prop_user_id = '' THEN 1
-                    ELSE 0
-                END
-            ) AS has_anonymous_event
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND prop_device_id IS NOT NULL
-            AND prop_device_id != ''
-        GROUP BY dt, platform, prop_device_id
-    ),
-    -- 未登录设备指标：统计出现过匿名事件的设备数，并拆出其中的新增设备。
+    -- 未登录设备指标：直接复用 dws_device_daily 下沉的匿名设备标记。
     anonymous_device_metrics AS (
         SELECT
-            b.dt,
-            b.platform,
-            COUNT(DISTINCT b.prop_device_id) AS anonymous_device_count,
-            COUNT(DISTINCT IF(f.first_active_date = b.dt, b.prop_device_id, NULL))
+            dt,
+            platform,
+            COUNT(DISTINCT IF(has_anonymous_event, prop_device_id, NULL))
+                AS anonymous_device_count,
+            COUNT(DISTINCT IF(has_anonymous_event AND is_new_device, prop_device_id, NULL))
                 AS anonymous_new_device_count
-        FROM device_login_base b
-        LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dim_device_first_active` f
-            ON b.prop_device_id = f.prop_device_id
-        WHERE b.has_anonymous_event = 1
-        GROUP BY b.dt, b.platform
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+        WHERE dt IN ({dates_str})
+        GROUP BY dt, platform
     ),
     -- 下载指标：沿用下载日表汇总新增下载量。
     download_metrics AS (
@@ -230,6 +325,23 @@ def run_ads_daily_new(dates):
         ON k.dt = dl.dt AND k.platform = dl.platform;
     """
     logging.info("开始处理: ads_daily_new")
-    job = client.query(query)
-    job.result()
+    client.query(query).result()
     logging.info(f"ads_daily_new 刷新完成, 处理日期: {dates}")
+
+
+if __name__ == "__main__":
+    log_path = configure_logging()
+    start_time = datetime.now(timezone.utc)
+
+    dates = get_ads_daily_new_dates_to_process()
+    if not dates:
+        logging.info("没有新的 ads_daily_new 数据需要处理")
+        logging.info(f"日志文件: {log_path}")
+        raise SystemExit(0)
+
+    logging.info(f"ads_daily_new 待处理日期: {dates}")
+    run_ads_daily_new(dates)
+
+    elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+    logging.info(f"ads_daily_new 执行完成, 耗时: {elapsed:.1f} 秒")
+    logging.info(f"日志文件: {log_path}")
