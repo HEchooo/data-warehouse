@@ -12,6 +12,7 @@
 独立表级入口负责以下已拆到主题 DWS 的报表：
 - `ads_daily_post_performance`
 - `ads_daily_column_performance`
+- `ads_monthly_column_performance`
 - `ads_daily_content_performance`
 - `ads_daily_home_module_performance`
 - `ads_daily_tryon_confirm`
@@ -27,6 +28,7 @@
 
 独立表级入口：
 - `jobs/ads/ads_daily_content_performance.py`
+- `jobs/ads/ads_monthly_column_performance.py`
 - `jobs/ads/ads_daily_home_module_performance.py`
 - `jobs/ads/ads_daily_tryon_confirm.py`
 - `jobs/ads/ads_daily_post_tryon_confirm.py`
@@ -67,6 +69,10 @@
   - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> dws_user_retention_feature_daily -> ads_daily_retention_user_feature`
 - 专栏帖子快照链路：
   - `v3_decom.community_post(status=1) -> dws_column_post_daily -> ads_daily_column_performance`
+- 专栏月级行为链路：
+  - `dwd_event_log + v3 服务端行为表 -> dws_column_interaction_monthly -> ads_monthly_column_performance`
+- 专栏月级帖子快照链路：
+  - `v3_decom.community_post(status=1) -> dws_column_post_daily -> dws_column_post_monthly -> ads_monthly_column_performance`
 - 下载链路：
   - `ods_ios_download + ods_android_download -> dws_download_daily -> ads_daily_new`
 - AppsFlyer 下载链路：

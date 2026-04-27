@@ -2,9 +2,19 @@
 
 ## 报表
 
+### 日报
+
 - 表：`ads_daily_column_performance`
 - 粒度：`dt × module × column_id`
 - Dashboard：[【AI-Fashion】专栏追踪明细（日×专栏）](https://bi.alvinclub.ca/superset/dashboard/93/)（id=93）
+
+### 月报
+
+- 表：`ads_monthly_column_performance`
+- 粒度：`month × module × column_id`
+- Dashboard：[【AI-Fashion】专栏追踪明细（月×专栏）](https://bi.alvinclub.ca/superset/dashboard/104/)（id=104）
+- Superset：物理 dataset `ads_monthly_column_performance`（id=233），chart `专栏追踪明细（月×专栏）-明细表`（id=582）
+- 时间口径：`month` 为 `America/New_York` 自然月，每月存为当月 1 号
 
 ## 字段
 
@@ -30,6 +40,13 @@
 | new_follow_count | 新增关注数；`v3_decom.community_star_follow` 当天新增关注该专栏的去重用户数 |
 | follow_conversion_rate_7d | 近7日关注转化率；同日同专栏 `(今日关注用户 ∩ 近7日点赞用户)` 去重人数 / 近7日点赞去重人数（窗口为 `[dt-6, dt]`） |
 
+月报补充说明：
+- 除时间粒度外，其余维度保持与日报一致
+- 月报中的 UV / 人数类指标按自然月去重，不从日报简单求和
+- 月报 `post_total_count` 取该月最后一个已落地快照日的在线帖子存量；当前月若未结束，则取该月最新快照日
+- 月报不包含 `follow_conversion_rate_7d`
+- 月报 `product_click_penetration_rate` 使用当月任意已登录事件去重用户数作为分母
+
 补充说明：
 - UV 相关指标统一为“已登录用户”口径：
   - 事件侧仅保留 `prop_user_id IS NOT NULL AND prop_user_id != ''`
@@ -44,19 +61,29 @@
 - `dws_column_post_daily` 只承载帖子在线存量快照，不承载试穿日发生指标
 - `dws_column_interaction_daily` 承接专栏曝光、商品事件、试穿、点赞、新增关注和 7 日关注转化分子分母
 - `ads_daily_column_performance` 只负责消费 `DWS + DIM` 并计算终层率指标
+- `dws_column_interaction_monthly` 承接月级去重后的专栏曝光、商品事件、试穿、点赞和新增关注
+- `dws_column_post_monthly` 从 `dws_column_post_daily` 衍生每个月最后一个快照日的在线帖子存量
+- `ads_monthly_column_performance` 只负责消费月级 `DWS + DIM` 并计算终层率指标
 
 ## 依赖
 
-- 直接消费：`dim_column`, `dws_column_interaction_daily`, `dws_column_post_daily`
+- 日报直接消费：`dim_column`, `dws_column_interaction_daily`, `dws_column_post_daily`
+- 月报直接消费：`dim_column`, `dws_column_interaction_monthly`, `dws_column_post_monthly`
 - 行为事实来源：`dwd_event_log`, `v3_decom.community_post_like`, `v3_decom.community_star_follow`, `v3_decom.common_ext_ai_task`
 - 已落地实体层：`dim_post`, `dim_column`
 - 实体脚本：`jobs/dim/dim_post.py`, `jobs/dim/dim_column.py`
 - 实体 DDL：`ddl/dim/dim_post.sql`, `ddl/dim/dim_column.sql`
-- 行为事实脚本：`jobs/dws/dws_column_interaction_daily.py`
-- 行为事实 DDL：`ddl/dws/dws_column_interaction_daily.sql`
-- 快照脚本：`jobs/dws/dws_column_post_daily.py`
-- 快照 DDL：`ddl/dws/dws_column_post_daily.sql`
-- 脚本：`jobs/ads/ads_daily_column_performance.py`
-- DDL：`ddl/ads/ads_daily_column_performance.sql`
-- 编排：`jobs/dws/dws_column_interaction_daily.py` / `jobs/dws/dws_column_post_daily.py` / `jobs/ads/ads_daily_column_performance.py` 均为独立表级任务
+- 日行为事实脚本：`jobs/dws/dws_column_interaction_daily.py`
+- 日行为事实 DDL：`ddl/dws/dws_column_interaction_daily.sql`
+- 月行为事实脚本：`jobs/dws/dws_column_interaction_monthly.py`
+- 月行为事实 DDL：`ddl/dws/dws_column_interaction_monthly.sql`
+- 日快照脚本：`jobs/dws/dws_column_post_daily.py`
+- 日快照 DDL：`ddl/dws/dws_column_post_daily.sql`
+- 月快照脚本：`jobs/dws/dws_column_post_monthly.py`
+- 月快照 DDL：`ddl/dws/dws_column_post_monthly.sql`
+- 日报脚本：`jobs/ads/ads_daily_column_performance.py`
+- 日报 DDL：`ddl/ads/ads_daily_column_performance.sql`
+- 月报脚本：`jobs/ads/ads_monthly_column_performance.py`
+- 月报 DDL：`ddl/ads/ads_monthly_column_performance.sql`
+- 编排：日报与月报链路均为独立表级任务
 - 当前状态：Batch 1 已完成实体层；Batch 3 已新增 `dws_column_interaction_daily`，并已完成全量初始化、并跑对账与正式换表；当前正式链路已切到 `dim_column + dws_column_interaction_daily + dws_column_post_daily`
