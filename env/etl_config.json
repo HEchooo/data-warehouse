@@ -208,6 +208,43 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_device_activity_daily",
+      "stage": "DWS",
+      "name": "DWS 用户活动分群事实 ETL",
+      "script": "jobs/dws/dws_device_activity_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_device_activity_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_user_activity_daily",
+      "stage": "DWS",
+      "name": "DWS 留存用户活动事实 ETL",
+      "script": "jobs/dws/dws_user_activity_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dws_user_daily"
+      ],
+      "schedule_group": "dws_user_activity_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_user_retention_feature_daily",
+      "stage": "DWS",
+      "name": "DWS 留存用户特征事实 ETL",
+      "script": "jobs/dws/dws_user_retention_feature_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_user_activity_daily"
+      ],
+      "schedule_group": "dws_user_retention_feature_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_daily",
       "stage": "DWS",
       "name": "DWS 日汇总 ETL",
@@ -317,6 +354,30 @@
         "dws_product_behavior_daily"
       ],
       "schedule_group": "ads_daily_product_tryon_performance"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_user_duration_frequency",
+      "stage": "ADS",
+      "name": "ADS 用户时长与访问频次日报 ETL",
+      "script": "jobs/ads/ads_daily_user_duration_frequency.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_device_activity_daily"
+      ],
+      "schedule_group": "ads_daily_user_duration_frequency"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_retention_user_feature",
+      "stage": "ADS",
+      "name": "ADS 留存用户特征日报 ETL",
+      "script": "jobs/ads/ads_daily_retention_user_feature.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_user_retention_feature_daily"
+      ],
+      "schedule_group": "ads_daily_retention_user_feature"
     },
     {
       "layer": "ADS",

@@ -17,3 +17,9 @@
 - `AI试穿 / 关注账号 / 浏览商详 / 创建模特 / 搜索` 这类人数指标可以跨天直接 `SUM`
 - `日均停留时长` 不能跨天直接 `SUM` 或简单 `AVG` 现成日均值，否则区间口径会漂
 - 正确做法是底表额外落地时长分子字段，报表层对区间做 `SUM(时长分子) / SUM(对应用户数分母)`
+
+## 服务端行为晚到时，先看 `dws_user_activity_daily`，不要直接怀疑最终 ADS
+
+- Batch 6 之后，`AI试穿 / 关注账号 / 创建模特 / 搜索 / 浏览商详 / 停留时长` 都先沉到 `decom.dws_user_activity_daily`
+- `decom.ads_daily_retention_user_feature` 只再消费 `decom.dws_user_retention_feature_daily`
+- 如果是单个行为人数不对，优先查 `dws_user_activity_daily` 对应日期和用户，再决定是否回溯 `dwd_event_log` 或服务端事实表

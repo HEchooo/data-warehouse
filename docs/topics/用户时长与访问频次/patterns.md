@@ -18,6 +18,8 @@
 
 - 现在不是滚动 30 天窗口
 - 回查旧结果时，先确认看的是旧版还是自然月版
+- Batch 6 下沉到 `dws_device_activity_daily` 后，同月任一活跃日变化都会影响该月已落地日期的 `mau_uv`
+- 排查时不要只盯当天分区，要连同同月已重算分区一起看
 
 ## 字段名已经从 `launch_session_count` 改成 `app_launch_count`
 

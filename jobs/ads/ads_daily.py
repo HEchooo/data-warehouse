@@ -17,9 +17,7 @@ if str(ADS_ROOT) not in sys.path:
 
 from ads_daily_new import run_ads_daily_new
 from ads_daily_total import run_ads_daily_total
-from ads_daily_user_duration_frequency import run_ads_daily_user_duration_frequency
 from ads_daily_investor import run_ads_daily_investor
-from ads_daily_retention_user_feature import run_ads_daily_retention_user_feature
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
@@ -98,62 +96,6 @@ def get_download_dates_to_process():
     )
 
 
-def get_frequency_dates_to_process():
-    """
-    ads_daily_user_duration_frequency 的日期集合。
-    依赖 dws_device_daily，并保留 1/7/30 天回看窗口。
-    """
-    return execute_dates_query(
-        [
-            device_t0_dates_sql(),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_user_duration_frequency",
-            ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_user_duration_frequency",
-                "DATE_SUB(dt, INTERVAL 1 DAY)",
-            ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_user_duration_frequency",
-                "DATE_SUB(dt, INTERVAL 7 DAY)",
-            ),
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_user_duration_frequency",
-                "DATE_SUB(dt, INTERVAL 30 DAY)",
-            ),
-        ]
-    )
-
-
-def get_retention_dates_to_process():
-    """
-    ads_daily_retention_user_feature 的日期集合。
-    依赖 dws_user_daily，并保留 1/7 天回看窗口。
-    """
-    return execute_dates_query(
-        [
-            incremental_dates_sql(
-                "dws_user_daily",
-                "ads_daily_retention_user_feature",
-            ),
-            incremental_dates_sql(
-                "dws_user_daily",
-                "ads_daily_retention_user_feature",
-                "DATE_SUB(dt, INTERVAL 1 DAY)",
-            ),
-            incremental_dates_sql(
-                "dws_user_daily",
-                "ads_daily_retention_user_feature",
-                "DATE_SUB(dt, INTERVAL 7 DAY)",
-            ),
-        ]
-    )
-
-
 def get_investor_dates_to_process():
     """
     ads_daily_investor 的日期集合。
@@ -209,27 +151,15 @@ if __name__ == "__main__":
 
     total_dates = get_total_dates_to_process()
     download_dates = get_download_dates_to_process()
-    frequency_dates = get_frequency_dates_to_process()
     investor_dates = get_investor_dates_to_process()
-    retention_dates = get_retention_dates_to_process()
 
-    if not any(
-        [
-            total_dates,
-            download_dates,
-            frequency_dates,
-            investor_dates,
-            retention_dates,
-        ]
-    ):
+    if not any([total_dates, download_dates, investor_dates]):
         logging.info("没有新数据需要处理")
         exit(0)
 
     log_dates("总量类", total_dates)
     log_dates("下载类", download_dates)
-    log_dates("时长频次类", frequency_dates)
     log_dates("投资人类", investor_dates)
-    log_dates("留存类", retention_dates)
 
     if download_dates:
         run_ads_daily_new(download_dates)
@@ -239,16 +169,9 @@ if __name__ == "__main__":
         run_ads_daily_total(total_dates)
         logging.info("-" * 50)
 
-    if frequency_dates:
-        run_ads_daily_user_duration_frequency(frequency_dates)
-        logging.info("-" * 50)
-
     if investor_dates:
         run_ads_daily_investor(investor_dates)
         logging.info("-" * 50)
-
-    if retention_dates:
-        run_ads_daily_retention_user_feature(retention_dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info(f"ADS ETL 完成, 耗时: {elapsed:.1f} 秒")

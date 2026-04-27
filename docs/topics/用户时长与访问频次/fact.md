@@ -28,6 +28,7 @@
 - `已登录用户` 口径：仅保留 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，按 `NULLIF(prop_user_id,'')` 去重用户
 - 留存 cohort 和 MAU 都按各自分群下的同一统计主体理解
 - `全量设备`、`游客`、`已登录用户` 的统计主体不完全一致，三档结果不能直接相加校验
+- Batch 6 的代码链路已把活动事实下沉到 `decom.dws_device_activity_daily`；生产切换与历史回填需单独执行
 
 ## 已落地字段
 
@@ -39,7 +40,10 @@
 
 ## 依赖
 
-- 上游：`dwd_event_log`
+- 上游：`decom.dws_device_activity_daily`
+- 中间表：`decom.dws_device_activity_daily`
 - 脚本：`jobs/ads/ads_daily_user_duration_frequency.py`
+- DWS 脚本：`jobs/dws/dws_device_activity_daily.py`
 - DDL：`ddl/ads/ads_daily_user_duration_frequency.sql`
-- 编排：`jobs/ads/ads_daily.py`
+- DWS DDL：`ddl/dws/dws_device_activity_daily.sql`
+- 编排：独立表级入口 `jobs/ads/ads_daily_user_duration_frequency.py`
