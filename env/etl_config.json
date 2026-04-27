@@ -94,6 +94,16 @@
       "schedule_group": "dim_daily"
     },
     {
+      "layer": "DIM",
+      "table_name": "dim_auto_publish_video_task",
+      "stage": "DIM",
+      "name": "DIM 自动发布统一视频任务映射 ETL",
+      "script": "jobs/dim/dim_auto_publish_video_task.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dim_auto_publish_video_task"
+    },
+    {
       "layer": "DWS",
       "table_name": "dws_post_interaction_daily",
       "stage": "DWS",
@@ -299,6 +309,54 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_registered_app_device_daily",
+      "stage": "DWS",
+      "name": "DWS 已注册 app 设备活动事实 ETL",
+      "script": "jobs/dws/dws_registered_app_device_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_registered_app_device_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_registered_app_user_daily",
+      "stage": "DWS",
+      "name": "DWS 已注册 app 用户活动与留存事实 ETL",
+      "script": "jobs/dws/dws_registered_app_user_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dws_user_daily"
+      ],
+      "schedule_group": "dws_registered_app_user_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_social_video_daily",
+      "stage": "DWS",
+      "name": "DWS 社媒视频逐日事实 ETL",
+      "script": "jobs/dws/dws_social_video_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dws_social_video_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_social_channel_daily",
+      "stage": "DWS",
+      "name": "DWS 社媒渠道级事实 ETL",
+      "script": "jobs/dws/dws_social_channel_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_auto_publish_video_task",
+        "dws_social_video_daily"
+      ],
+      "schedule_group": "dws_social_channel_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_daily",
       "stage": "DWS",
       "name": "DWS 日汇总 ETL",
@@ -459,6 +517,32 @@
         "dws_user_retention_feature_daily"
       ],
       "schedule_group": "ads_daily_retention_user_feature"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_investor",
+      "stage": "ADS",
+      "name": "ADS 投资人主题日报 ETL",
+      "script": "jobs/ads/ads_daily_investor.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_auto_publish_video_task",
+        "dws_registered_app_device_daily",
+        "dws_registered_app_user_daily"
+      ],
+      "schedule_group": "ads_daily_investor"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_social_content",
+      "stage": "ADS",
+      "name": "ADS Social Content 主题日报 ETL",
+      "script": "jobs/ads/ads_daily_social_content.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_social_channel_daily"
+      ],
+      "schedule_group": "ads_daily_social_content"
     },
     {
       "layer": "ADS",

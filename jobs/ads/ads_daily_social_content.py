@@ -1,32 +1,43 @@
 import argparse
+from datetime import date, datetime, timezone
 import logging
-import sys
-from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
+import sys
 
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from jobs.dws.dws_social_video_daily import (
-    YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS,
-    run_dws_social_video_daily,
-)
-
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
-VIDEO_SOURCE_DATASET_ID = "videos"
-TORONTO_TZ = "America/Toronto"
-SOCIAL_CONTENT_REBUILD_DAYS = 30
-DISPLAY_CHANNELS = ["全部渠道", "youtube", "tiktok", "ins"]
+TABLE_NAME = "ads_daily_social_content"
+SOURCE_TABLE_NAME = "dws_social_channel_daily"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
+INCREMENTAL_WINDOW_HOURS = 6
+
 client = bigquery.Client(project=PROJECT_ID)
+
+
+def configure_logging() -> Path:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}_{TABLE_NAME}.log"
+
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return log_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,456 +47,158 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--full-refresh",
         action="store_true",
-        help="按全历史发布时间范围重刷全量分区，而不是默认最近 30 天",
+        help="按 dws_social_channel_daily 已落地日期全量重刷，而不是默认最近增量日期",
     )
     return parser.parse_args()
 
 
-def dates_to_sql_list(dates):
+def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
 
 
-def dates_to_array_sql(dates):
-    return ", ".join([f"DATE '{d}'" for d in dates])
+def target_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
 
 
-def strings_to_sql_list(values):
-    return ", ".join([f"'{value}'" for value in values])
+def source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{SOURCE_TABLE_NAME}"
 
 
-def strings_to_array_sql(values):
-    return ", ".join([f"'{value}'" for value in values])
+def target_table_exists() -> bool:
+    try:
+        client.get_table(target_table_id())
+        return True
+    except NotFound:
+        return False
 
 
-def get_social_content_dates_to_process(rebuild_days=SOCIAL_CONTENT_REBUILD_DAYS):
-    """
-    Social Content 只依赖视频源表，独立重刷最近 N 天分区。
-    这样不会受事件 ADS 主链路调度与失败状态影响。
-    """
-    end_date = datetime.now(ZoneInfo(TORONTO_TZ)).date()
-    start_date = end_date - timedelta(days=rebuild_days - 1)
-    return [start_date + timedelta(days=offset) for offset in range(rebuild_days)]
+def get_target_row_count() -> int:
+    if not target_table_exists():
+        return 0
 
-
-def get_social_content_full_dates_to_process():
-    """
-    全量回刷时，从三端视频最早发布时间开始生成完整日期序列。
-    """
     query = f"""
-    WITH published_dates AS (
-        SELECT MIN(DATE(TIMESTAMP(published_at, 'UTC'), '{TORONTO_TZ}')) AS min_dt
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
-        WHERE channel_id NOT IN ({strings_to_sql_list(YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS)})
-
-        UNION ALL
-
-        SELECT MIN(DATE(TIMESTAMP_SECONDS(SAFE_CAST(create_time AS INT64)), '{TORONTO_TZ}')) AS min_dt
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos`
-
-        UNION ALL
-
-        SELECT MIN(DATE(TIMESTAMP(published_at, 'UTC'), '{TORONTO_TZ}')) AS min_dt
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media`
-    )
-    SELECT
-        MIN(min_dt) AS start_dt,
-        CURRENT_DATE('{TORONTO_TZ}') AS end_dt
-    FROM published_dates
-    WHERE min_dt IS NOT NULL
+    SELECT COUNT(*) AS row_count
+    FROM `{target_table_id()}`
     """
     rows = list(client.query(query).result())
-    if not rows or rows[0].start_dt is None or rows[0].end_dt is None:
-        return []
-
-    start_date = rows[0].start_dt
-    end_date = rows[0].end_dt
-    total_days = (end_date - start_date).days + 1
-    return [start_date + timedelta(days=offset) for offset in range(total_days)]
+    return int(rows[0].row_count) if rows else 0
 
 
-def build_ads_daily_social_content_select_sql(dates: list[date]) -> str:
+def get_social_content_dates_to_process(
+    window_hours: int = INCREMENTAL_WINDOW_HOURS,
+) -> list[date]:
+    """
+    Social Content ADS 只消费 dws_social_channel_daily。
+
+    规则：
+    - 目标表不存在或为空时，按渠道事实已落地日期全量初始化
+    - 目标表已存在时，只读取最近 6 小时内渠道事实变更的 dt
+    """
+    is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+
+    if is_full_snapshot:
+        query = f"""
+        SELECT DISTINCT dt
+        FROM `{source_table_id()}`
+        ORDER BY dt
+        """
+        results = client.query(query).result()
+        return [row.dt for row in results]
+
+    query = f"""
+    SELECT DISTINCT dt
+    FROM `{source_table_id()}`
+    WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
+def get_social_content_full_dates_to_process() -> list[date]:
+    query = f"""
+    SELECT DISTINCT dt
+    FROM `{source_table_id()}`
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
+def build_select_sql(dates: list[date]) -> str:
     dates_str = dates_to_sql_list(dates)
-    dates_array_sql = dates_to_array_sql(dates)
-    channels_array_sql = strings_to_array_sql(DISPLAY_CHANNELS)
-    max_date = max(dates)
 
     return f"""
     WITH
-    -- 本次需要产出的目标日期列表
-    date_list AS (
-        SELECT dt
-        FROM UNNEST([{dates_array_sql}]) AS dt
-    ),
-    -- 最终需要补齐的 4 个展示渠道
-    channel_list AS (
-        SELECT channel
-        FROM UNNEST([{channels_array_sql}]) AS channel
-    ),
-    -- 只读取本次窗口涉及到的社媒视频日表分区
-    social_video_daily AS (
+    -- 当前批次只读取渠道级事实层。
+    social_channel_fact AS (
         SELECT
             dt,
             channel,
-            creator_id,
-            video_key,
-            published_dt,
-            published_ts_utc,
-            day_end_views,
-            day_end_likes,
             daily_view_increment,
             daily_like_increment,
-            has_snapshot_to_dt,
-            is_new_video,
-            new_video_contributed_view_count
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily`
-        WHERE dt IN ({dates_str})
-    ),
-    -- 提取自动发布成功的视频与任务映射，仅用于“全部渠道”的新增视频数量去重
-    -- 同一 task_id 只要存在至少一个成功发布的平台，就应作为一个统一视频参与计数
-    completed_auto_publish_video_task AS (
-        SELECT DISTINCT
-            CONCAT('youtube:', CAST(v.video_id AS STRING)) AS video_key,
-            u.task_id
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_uploads` u
-        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos` v
-            ON u.channel_id = v.channel_id
-            AND u.youtube_video_id = CAST(v.video_id AS STRING)
-        WHERE u.status = 'COMPLETED'
-            AND u.task_id IS NOT NULL
-            AND u.task_id != ''
-            AND u.channel_id IS NOT NULL
-            AND u.channel_id != ''
-            AND u.youtube_video_id IS NOT NULL
-            AND u.youtube_video_id != ''
-
-        UNION DISTINCT
-
-        SELECT DISTINCT
-            CONCAT('tiktok:', CAST(v.id AS STRING)) AS video_key,
-            u.task_id
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.video_uploads` u
-        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos` v
-            ON CAST(u.user_id AS STRING) = CAST(v.user_id AS STRING)
-            AND u.tiktok_video_id = CAST(v.id AS STRING)
-        WHERE u.status = 'COMPLETED'
-            AND u.task_id IS NOT NULL
-            AND u.task_id != ''
-            AND u.user_id IS NOT NULL
-            AND CAST(u.user_id AS STRING) != ''
-            AND u.tiktok_video_id IS NOT NULL
-            AND u.tiktok_video_id != ''
-
-        UNION DISTINCT
-
-        SELECT DISTINCT
-            CONCAT('ins:', CAST(v.media_id AS STRING)) AS video_key,
-            u.task_id
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_uploads` u
-        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media` v
-            ON CAST(u.channel_id AS STRING) = CAST(v.account_id AS STRING)
-            AND u.instagram_media_id = CAST(v.media_id AS STRING)
-        WHERE u.status = 'COMPLETED'
-            AND u.task_id IS NOT NULL
-            AND u.task_id != ''
-            AND u.channel_id IS NOT NULL
-            AND CAST(u.channel_id AS STRING) != ''
-            AND u.instagram_media_id IS NOT NULL
-            AND u.instagram_media_id != ''
-    ),
-    -- 把每个视频键收敛到唯一自动发布任务，存在多 task_id 时放弃去重，避免误并
-    auto_publish_video_task_map AS (
-        SELECT
-            video_key,
-            IF(COUNT(DISTINCT task_id) = 1, MAX(task_id), NULL) AS auto_publish_task_id
-        FROM completed_auto_publish_video_task
-        GROUP BY video_key
-    ),
-    -- 为待刷窗口内的新增视频准备“全部渠道”统一视频键
-    -- 单渠道仍保持原始 video_key 口径，不做跨平台去重
-    all_channel_new_video_base AS (
-        SELECT
-            s.dt,
-            s.video_key,
-            s.new_video_contributed_view_count,
-            COALESCE(
-                CONCAT('auto_task:', m.auto_publish_task_id),
-                s.video_key
-            ) AS all_channel_video_key
-        FROM social_video_daily s
-        LEFT JOIN auto_publish_video_task_map m
-            ON s.video_key = m.video_key
-        WHERE s.is_new_video
-    ),
-    -- 取待刷窗口涉及的统一视频键，后续只回看这些键的历史新增日，控制扫描范围
-    relevant_all_channel_video_keys AS (
-        SELECT DISTINCT all_channel_video_key
-        FROM all_channel_new_video_base
-    ),
-    -- 回看统一视频键的历史新增日，确保自动发布跨平台视频只在最早首次正播放日期记一次新增
-    all_channel_video_first_positive_dt AS (
-        SELECT
-            COALESCE(
-                CONCAT('auto_task:', m.auto_publish_task_id),
-                v.video_key
-            ) AS all_channel_video_key,
-            MIN(v.dt) AS first_positive_view_dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily` v
-        LEFT JOIN auto_publish_video_task_map m
-            ON v.video_key = m.video_key
-        INNER JOIN relevant_all_channel_video_keys r
-            ON COALESCE(
-                CONCAT('auto_task:', m.auto_publish_task_id),
-                v.video_key
-            ) = r.all_channel_video_key
-        WHERE v.is_new_video
-            AND v.dt <= DATE '{max_date}'
-        GROUP BY all_channel_video_key
-    ),
-    -- 先汇总真实渠道的每日新增 views / likes
-    base_daily_channel_metrics AS (
-        SELECT
-            dt,
-            channel,
-            COALESCE(SUM(daily_view_increment), 0) AS daily_view_increment,
-            COALESCE(SUM(daily_like_increment), 0) AS daily_like_increment
-        FROM social_video_daily
-        WHERE dt IN ({dates_str})
-        GROUP BY dt, channel
-    ),
-    -- 在真实渠道结果基础上补出“全部渠道”聚合行
-    daily_channel_metrics AS (
-        SELECT
-            dt,
-            channel,
-            daily_view_increment,
-            daily_like_increment
-        FROM base_daily_channel_metrics
-
-        UNION ALL
-
-        SELECT
-            dt,
-            '全部渠道' AS channel,
-            COALESCE(SUM(daily_view_increment), 0) AS daily_view_increment,
-            COALESCE(SUM(daily_like_increment), 0) AS daily_like_increment
-        FROM social_video_daily
-        WHERE dt IN ({dates_str})
-        GROUP BY dt
-    ),
-    -- 先汇总真实渠道的每日新增视频数与新增视频贡献播放数
-    base_new_video_channel_metrics AS (
-        SELECT
-            dt,
-            channel,
-            COUNT(DISTINCT IF(is_new_video, video_key, NULL)) AS new_video_count,
-            COALESCE(SUM(new_video_contributed_view_count), 0)
-                AS new_video_contributed_view_count
-        FROM social_video_daily
-        GROUP BY dt, channel
-    ),
-    -- 在真实渠道结果基础上补出“全部渠道”的新增视频聚合行
-    new_video_channel_metrics AS (
-        SELECT
-            dt,
-            channel,
             new_video_count,
-            new_video_contributed_view_count
-        FROM base_new_video_channel_metrics
-
-        UNION ALL
-
-        SELECT
-            b.dt,
-            '全部渠道' AS channel,
-            COUNT(
-                DISTINCT IF(
-                    f.first_positive_view_dt = b.dt,
-                    b.all_channel_video_key,
-                    NULL
-                )
-            ) AS new_video_count,
-            COALESCE(SUM(b.new_video_contributed_view_count), 0)
-                AS new_video_contributed_view_count
-        FROM all_channel_new_video_base b
-        LEFT JOIN all_channel_video_first_positive_dt f
-            ON b.all_channel_video_key = f.all_channel_video_key
-        GROUP BY b.dt
-    ),
-    -- 统计各真实渠道截至前一天已发布过视频的历史去重博主数
-    base_creator_base AS (
-        SELECT
-            dt,
-            channel,
-            COUNT(DISTINCT creator_id) AS creator_count_to_prev_day
-        FROM social_video_daily
-        WHERE creator_id IS NOT NULL
-            AND published_dt < dt
-        GROUP BY dt, channel
-    ),
-    -- 在真实渠道基础上补出“全部渠道”博主分母，按 channel + creator_id 去重
-    creator_base AS (
-        SELECT
-            dt,
-            channel,
-            creator_count_to_prev_day
-        FROM base_creator_base
-
-        UNION ALL
-
-        SELECT
-            dt,
-            '全部渠道' AS channel,
-            COUNT(DISTINCT CONCAT(channel, ':', creator_id)) AS creator_count_to_prev_day
-        FROM social_video_daily
-        WHERE creator_id IS NOT NULL
-            AND published_dt < dt
-        GROUP BY dt
-    ),
-    -- 对每个日期、渠道、博主挑出截至当天已有数据的最新 3 条视频样本
-    latest_3_pool AS (
-        SELECT
-            dt,
-            channel,
-            creator_id,
-            video_key,
-            day_end_likes,
-            day_end_views
-        FROM (
-            SELECT
-                dt,
-                channel,
-                creator_id,
-                video_key,
-                day_end_likes,
-                day_end_views,
-                ROW_NUMBER() OVER (
-                    PARTITION BY dt, channel, creator_id
-                    ORDER BY published_ts_utc DESC, video_key DESC
-                ) AS rn
-            FROM social_video_daily
-            WHERE dt IN ({dates_str})
-                AND creator_id IS NOT NULL
-                AND has_snapshot_to_dt
-                AND day_end_views > 0
-        )
-        WHERE rn <= 3
-    ),
-    -- 先汇总真实渠道“最新 3 条”样本池的 likes / views / 样本量
-    base_latest_3_channel_metrics AS (
-        SELECT
-            dt,
-            channel,
-            COUNT(DISTINCT creator_id) AS latest_3_sample_creator_count,
-            COUNT(*) AS latest_3_sample_video_count,
-            COALESCE(SUM(day_end_likes), 0) AS latest_3_sample_like_count,
-            COALESCE(SUM(day_end_views), 0) AS latest_3_sample_view_count
-        FROM latest_3_pool
-        GROUP BY dt, channel
-    ),
-    -- 在真实渠道样本池基础上补出“全部渠道”样本池统计
-    latest_3_channel_metrics AS (
-        SELECT
-            dt,
-            channel,
+            new_video_contributed_view_count,
+            creator_count_to_prev_day,
             latest_3_sample_creator_count,
             latest_3_sample_video_count,
             latest_3_sample_like_count,
             latest_3_sample_view_count
-        FROM base_latest_3_channel_metrics
-
-        UNION ALL
-
-        SELECT
-            dt,
-            '全部渠道' AS channel,
-            COUNT(DISTINCT CONCAT(channel, ':', creator_id)) AS latest_3_sample_creator_count,
-            COUNT(*) AS latest_3_sample_video_count,
-            COALESCE(SUM(day_end_likes), 0) AS latest_3_sample_like_count,
-            COALESCE(SUM(day_end_views), 0) AS latest_3_sample_view_count
-        FROM latest_3_pool
-        GROUP BY dt
+        FROM `{source_table_id()}`
+        WHERE dt IN ({dates_str})
     )
     SELECT
-        d.dt,
-        c.channel,
-        COALESCE(m.daily_view_increment, 0) AS daily_view_increment,
-        COALESCE(m.daily_like_increment, 0) AS daily_like_increment,
-        COALESCE(n.new_video_count, 0) AS new_video_count,
-        COALESCE(n.new_video_contributed_view_count, 0)
-            AS new_video_contributed_view_count,
+        dt,
+        channel,
+        daily_view_increment,
+        daily_like_increment,
+        new_video_count,
+        new_video_contributed_view_count,
         CAST(CASE
-            WHEN COALESCE(n.new_video_count, 0) = 0 THEN 0
+            WHEN COALESCE(new_video_count, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(n.new_video_contributed_view_count, 0) AS NUMERIC)
-                / CAST(n.new_video_count AS NUMERIC),
+                CAST(COALESCE(new_video_contributed_view_count, 0) AS NUMERIC)
+                / CAST(new_video_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS avg_new_video_view_count,
-        COALESCE(b.creator_count_to_prev_day, 0) AS creator_count_to_prev_day,
+        creator_count_to_prev_day,
         CAST(CASE
-            WHEN COALESCE(b.creator_count_to_prev_day, 0) = 0 THEN 0
+            WHEN COALESCE(creator_count_to_prev_day, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(m.daily_view_increment, 0) AS NUMERIC)
-                / CAST(b.creator_count_to_prev_day AS NUMERIC),
+                CAST(COALESCE(daily_view_increment, 0) AS NUMERIC)
+                / CAST(creator_count_to_prev_day AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS daily_view_increment_per_creator,
-        COALESCE(l.latest_3_sample_creator_count, 0) AS latest_3_sample_creator_count,
-        COALESCE(l.latest_3_sample_video_count, 0) AS latest_3_sample_video_count,
-        COALESCE(l.latest_3_sample_like_count, 0) AS latest_3_sample_like_count,
-        COALESCE(l.latest_3_sample_view_count, 0) AS latest_3_sample_view_count,
+        latest_3_sample_creator_count,
+        latest_3_sample_video_count,
+        latest_3_sample_like_count,
+        latest_3_sample_view_count,
         CAST(CASE
-            WHEN COALESCE(l.latest_3_sample_view_count, 0) = 0 THEN 0
+            WHEN COALESCE(latest_3_sample_view_count, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(l.latest_3_sample_like_count, 0) AS NUMERIC)
-                / CAST(l.latest_3_sample_view_count AS NUMERIC),
+                CAST(COALESCE(latest_3_sample_like_count, 0) AS NUMERIC)
+                / CAST(latest_3_sample_view_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS latest_3_avg_like_view_rate,
         CURRENT_TIMESTAMP() AS update_time
-    FROM date_list d
-    CROSS JOIN channel_list c
-    LEFT JOIN daily_channel_metrics m
-        ON d.dt = m.dt
-        AND c.channel = m.channel
-    LEFT JOIN new_video_channel_metrics n
-        ON d.dt = n.dt
-        AND c.channel = n.channel
-    LEFT JOIN creator_base b
-        ON d.dt = b.dt
-        AND c.channel = b.channel
-    LEFT JOIN latest_3_channel_metrics l
-        ON d.dt = l.dt
-        AND c.channel = l.channel
+    FROM social_channel_fact
     """
 
 
-def run_ads_daily_social_content(dates: list[date]):
-    """
-    Social Content 主题日报（dt × 展示渠道）:
-    - 先刷新 dws_social_video_daily，统一承接视频补日期、补累计、算日增
-    - 再从 dws_social_video_daily 聚合渠道指标、新增视频指标、历史博主分母和最新 3 条样本池
-    - `全部渠道` 直接写入主表，博主去重 key 使用 `channel + creator_id`
-    """
+def run_ads_daily_social_content(dates: list[date]) -> None:
     if not dates:
-        logging.info("ads_daily_social_content 无待处理日期，跳过")
+        logging.info("没有新的 ads_daily_social_content 日期需要处理")
         return
 
-    min_date = min(dates)
-    max_date = max(dates)
-    select_sql = build_ads_daily_social_content_select_sql(dates)
-    target_table = f"{PROJECT_ID}.{DATASET_ID}.ads_daily_social_content"
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    staging_table = f"{target_table}_tmp_{run_id}"
-    changed_table = f"{target_table}_changed_{run_id}"
-    expected_row_count = len(dates) * len(DISPLAY_CHANNELS)
-    target_dropped = False
+    dates_str = dates_to_sql_list(dates)
+    query = f"""
+    DELETE FROM `{target_table_id()}`
+    WHERE dt IN ({dates_str});
 
-    logging.info("开始先刷新上游表 dws_social_video_daily")
-    run_dws_social_video_daily(dates)
-
-    insert_into_staging_sql = f"""
-    INSERT INTO `{staging_table}`
+    INSERT INTO `{target_table_id()}`
     (
         dt,
         channel,
@@ -503,104 +216,31 @@ def run_ads_daily_social_content(dates: list[date]):
         latest_3_avg_like_view_rate,
         update_time
     )
-    {select_sql}
-    """
-    validate_staging_sql = f"""
-    SELECT
-        COUNT(*) AS row_count,
-        COUNT(DISTINCT dt) AS dt_count,
-        COUNT(DISTINCT channel) AS channel_count
-    FROM `{staging_table}`
-    """
-    create_changed_table_sql = f"""
-    CREATE TABLE `{changed_table}`
-    PARTITION BY dt
-    CLUSTER BY channel AS
-    SELECT *
-    FROM `{target_table}`
-    WHERE dt < DATE('{min_date}') OR dt > DATE('{max_date}')
-
-    UNION ALL
-
-    SELECT *
-    FROM `{staging_table}`
+    {build_select_sql(dates)}
     """
 
-    logging.info(
-        "开始处理 ads_daily_social_content, 目标表: %s, 临时表: %s, 替换表: %s",
-        target_table,
-        staging_table,
-        changed_table,
-    )
-
-    try:
-        client.query(
-            f"""
-            CREATE TABLE `{staging_table}` AS
-            SELECT *
-            FROM `{target_table}`
-            WHERE 1 = 0
-            """
-        ).result()
-        client.query(insert_into_staging_sql).result()
-
-        validation_row = list(client.query(validate_staging_sql).result())[0]
-        if validation_row.row_count != expected_row_count:
-            raise ValueError(
-                "ads_daily_social_content staging 行数校验失败: "
-                f"expected={expected_row_count}, actual={validation_row.row_count}"
-            )
-        if validation_row.dt_count != len(dates):
-            raise ValueError(
-                "ads_daily_social_content staging 日期数校验失败: "
-                f"expected={len(dates)}, actual={validation_row.dt_count}"
-            )
-        if validation_row.channel_count != len(DISPLAY_CHANNELS):
-            raise ValueError(
-                "ads_daily_social_content staging 渠道数校验失败: "
-                f"expected={len(DISPLAY_CHANNELS)}, actual={validation_row.channel_count}"
-            )
-
-        client.query(create_changed_table_sql).result()
-        client.query(f"DROP TABLE `{target_table}`").result()
-        target_dropped = True
-        client.query(
-            f"ALTER TABLE `{changed_table}` RENAME TO ads_daily_social_content"
-        ).result()
-        client.query(f"DROP TABLE IF EXISTS `{staging_table}`").result()
-    except Exception:
-        if not target_dropped:
-            client.query(f"DROP TABLE IF EXISTS `{staging_table}`").result()
-            client.query(f"DROP TABLE IF EXISTS `{changed_table}`").result()
-        raise
-
-    logging.info(
-        "ads_daily_social_content 刷新完成, 处理日期: %s ~ %s, 共 %s 天",
-        min_date,
-        max_date,
-        len(dates),
-    )
+    logging.info("开始处理: %s", TABLE_NAME)
+    client.query(query).result()
+    logging.info("%s 刷新完成, 处理日期: %s", TABLE_NAME, dates)
 
 
 if __name__ == "__main__":
-    start_time = datetime.now(timezone.utc)
+    log_path = configure_logging()
+    logging.info("日志文件: %s", log_path)
 
+    start_time = datetime.now(timezone.utc)
     args = parse_args()
     if args.full_refresh:
         dates = get_social_content_full_dates_to_process()
     else:
         dates = get_social_content_dates_to_process()
+
+    logging.info("待处理日期: %s", dates if dates else "[]")
     if not dates:
-        logging.info("没有 Social Content 数据需要处理")
+        logging.info("没有新的 ads_daily_social_content 日期需要处理")
         raise SystemExit(0)
 
-    logging.info(
-        "Social Content 待处理日期范围: %s ~ %s，共 %s 天",
-        min(dates),
-        max(dates),
-        len(dates),
-    )
     run_ads_daily_social_content(dates)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-    logging.info("ads_daily_social_content 执行完成, 耗时: %.1f 秒", elapsed)
+    logging.info("%s 完成, 耗时: %.1f 秒", TABLE_NAME, elapsed)

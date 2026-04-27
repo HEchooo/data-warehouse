@@ -1,12 +1,20 @@
+from datetime import date, datetime, timezone
 import logging
-from datetime import date
+from pathlib import Path
+import sys
 
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
+
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 VIDEO_SOURCE_DATASET_ID = "videos"
 TORONTO_TZ = "America/Toronto"
+TABLE_NAME = "ads_daily_investor"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
+INCREMENTAL_WINDOW_HOURS = 6
 YOUTUBE_BOB_TEAM_CHANNEL_IDS = [
     "UCynAg7WHdiy8SuQpESO__yw",
     "UCgBJozWjiE0cqwv7UNalyog",
@@ -19,45 +27,159 @@ YOUTUBE_BOB_TEAM_CHANNEL_IDS = [
     "UCVsLt_8hbY5nG5da8sslD_w",
     "UCzIQMkLCHa63JekjxaA133w",
 ]
+
 client = bigquery.Client(project=PROJECT_ID)
 
 
-def dates_to_sql_list(dates):
+def configure_logging() -> Path:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{datetime.now().strftime('%Y-%m-%d')}_{TABLE_NAME}.log"
+
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return log_path
+
+
+def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
 
 
-def dates_to_array_sql(dates):
+def dates_to_array_sql(dates: list[date]) -> str:
     return ", ".join([f"DATE '{d}'" for d in dates])
 
 
-def strings_to_sql_list(values):
+def strings_to_sql_list(values: list[str]) -> str:
     return ", ".join([f"'{value}'" for value in values])
 
 
-def run_ads_daily_investor(dates: list[date]):
+def target_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
+
+
+def target_table_exists() -> bool:
+    try:
+        client.get_table(target_table_id())
+        return True
+    except NotFound:
+        return False
+
+
+def get_target_row_count() -> int:
+    if not target_table_exists():
+        return 0
+
+    query = f"""
+    SELECT COUNT(*) AS row_count
+    FROM `{target_table_id()}`
     """
-    投资人主题日报（dt 一行）:
-    - 视频侧指标基于 dws_video_daily，只保留 jhonson 团队视频
-    - 新增视频平均播放数按新增视频在首次正播放采集日的累计播放数 / 新增视频数计算
-    - 新增下载直接复用 dws_appsflyer_download_daily
-    - 设备类指标只保留 app 数据
-    - 时长 / 内容 / 商详 / 留存只保留 app 已注册用户数据
-    - 留存 cohort 为当日活跃注册用户，不是 is_new_user
+    rows = list(client.query(query).result())
+    return int(rows[0].row_count) if rows else 0
+
+
+def get_ads_daily_investor_dates_to_process(
+    window_hours: int = INCREMENTAL_WINDOW_HOURS,
+) -> list[date]:
     """
+    投资人报表当前只消费中间层事实。
+
+    规则：
+    - 目标表不存在或为空时，按上游事实已落地日期全量初始化
+    - 目标表已存在时，只读取最近 6 小时内上游事实变更的 dt
+    """
+    is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+
+    if is_full_snapshot:
+        query = f"""
+        SELECT DISTINCT dt
+        FROM (
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily`
+            UNION DISTINCT
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_appsflyer_download_daily`
+            UNION DISTINCT
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_device_daily`
+            UNION DISTINCT
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_user_daily`
+        )
+        ORDER BY dt
+        """
+        results = client.query(query).result()
+        return [row.dt for row in results]
+
+    query = f"""
+    SELECT DISTINCT dt
+    FROM (
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+
+        UNION DISTINCT
+
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_appsflyer_download_daily`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+
+        UNION DISTINCT
+
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_device_daily`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+
+        UNION DISTINCT
+
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_user_daily`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    )
+    ORDER BY dt
+    """
+    results = client.query(query).result()
+    return [row.dt for row in results]
+
+
+def run_ads_daily_investor(dates: list[date]) -> None:
+    """
+    投资人主题日报（dt 一行）。
+
+    当前版本只消费：
+    - dim_auto_publish_video_task
+    - dws_video_daily
+    - dws_appsflyer_download_daily
+    - dws_registered_app_device_daily
+    - dws_registered_app_user_daily
+
+    ADS 只保留：
+    - 投资人口径视频聚合
+    - 下载转化派生
+    - 设备 / 注册用户展示层派生
+    """
+    if not dates:
+        logging.info("没有新的 ads_daily_investor 日期需要处理")
+        return
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
-    min_date = min(dates)
     max_date = max(dates)
     youtube_bob_team_channel_ids_sql = strings_to_sql_list(
         YOUTUBE_BOB_TEAM_CHANNEL_IDS
     )
 
     query = f"""
-    DELETE FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_investor`
+    DELETE FROM `{target_table_id()}`
     WHERE dt IN ({dates_str});
 
-    INSERT INTO `{PROJECT_ID}.{DATASET_ID}.ads_daily_investor`
+    INSERT INTO `{target_table_id()}`
     (
         dt,
         new_video_count,
@@ -84,13 +206,13 @@ def run_ads_daily_investor(dates: list[date]):
         update_time
     )
     WITH
-    -- 生成本次待刷的日期清单。
+    -- 本批待处理日期列表。
     date_list AS (
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
     -- 生成 jhonson 团队视频键。
-    -- 当前 `docs/rules/video-mapping.md` 只对 YouTube 定义了 bob / jhonson 边界，
+    -- 当前视频规则只对 YouTube 定义了 bob / jhonson 边界，
     -- 因此这里对 YouTube 排除 bob 团队渠道；TikTok / Ins 维持现有全量口径。
     johnson_video_keys AS (
         SELECT CONCAT('youtube:', CAST(video_id AS STRING)) AS video_key
@@ -107,68 +229,14 @@ def run_ads_daily_investor(dates: list[date]):
         SELECT CONCAT('ins:', CAST(media_id AS STRING)) AS video_key
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media`
     ),
-    -- 提取自动发布成功的视频与任务映射，仅用于投资人报表的视频数量去重。
-    -- 同一 task_id 只要存在至少一个成功发布的平台，就应该作为一个统一视频参与计数；
-    -- 失败平台不参与统一键映射。
-    completed_auto_publish_video_task AS (
-        SELECT DISTINCT
-            CONCAT('youtube:', CAST(v.video_id AS STRING)) AS video_key,
-            u.task_id
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_uploads` u
-        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos` v
-            ON u.channel_id = v.channel_id
-            AND u.youtube_video_id = CAST(v.video_id AS STRING)
-        WHERE u.status = 'COMPLETED'
-            AND u.task_id IS NOT NULL
-            AND u.task_id != ''
-            AND u.channel_id IS NOT NULL
-            AND u.channel_id != ''
-            AND u.youtube_video_id IS NOT NULL
-            AND u.youtube_video_id != ''
-
-        UNION DISTINCT
-
-        SELECT DISTINCT
-            CONCAT('tiktok:', CAST(v.id AS STRING)) AS video_key,
-            u.task_id
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.video_uploads` u
-        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos` v
-            ON CAST(u.user_id AS STRING) = CAST(v.user_id AS STRING)
-            AND u.tiktok_video_id = CAST(v.id AS STRING)
-        WHERE u.status = 'COMPLETED'
-            AND u.task_id IS NOT NULL
-            AND u.task_id != ''
-            AND u.user_id IS NOT NULL
-            AND CAST(u.user_id AS STRING) != ''
-            AND u.tiktok_video_id IS NOT NULL
-            AND u.tiktok_video_id != ''
-
-        UNION DISTINCT
-
-        SELECT DISTINCT
-            CONCAT('ins:', CAST(v.media_id AS STRING)) AS video_key,
-            u.task_id
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_uploads` u
-        INNER JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media` v
-            ON CAST(u.channel_id AS STRING) = CAST(v.account_id AS STRING)
-            AND u.instagram_media_id = CAST(v.media_id AS STRING)
-        WHERE u.status = 'COMPLETED'
-            AND u.task_id IS NOT NULL
-            AND u.task_id != ''
-            AND u.channel_id IS NOT NULL
-            AND CAST(u.channel_id AS STRING) != ''
-            AND u.instagram_media_id IS NOT NULL
-            AND u.instagram_media_id != ''
-    ),
-    -- 把每个视频键收敛到唯一自动发布任务，存在多 task_id 时放弃去重，避免误并。
-    auto_publish_video_task_map AS (
+    -- 自动发布统一视频映射现在统一从 DIM 读取。
+    auto_publish_video_task_dim AS (
         SELECT
             video_key,
-            IF(COUNT(DISTINCT task_id) = 1, MAX(task_id), NULL) AS auto_publish_task_id
-        FROM completed_auto_publish_video_task
-        GROUP BY video_key
+            unified_video_key
+        FROM `{PROJECT_ID}.{DATASET_ID}.dim_auto_publish_video_task`
     ),
-    -- 准备待刷日期内投资人报表的视频明细，并映射自动发布统一视频键。
+    -- 目标日期内的投资人视频事实。
     investor_video_base AS (
         SELECT
             v.dt,
@@ -177,18 +245,15 @@ def run_ads_daily_investor(dates: list[date]):
             v.is_active_video,
             v.daily_view_increment,
             v.new_video_contributed_view_count,
-            COALESCE(
-                CONCAT('auto_task:', m.auto_publish_task_id),
-                v.video_key
-            ) AS investor_video_key
+            COALESCE(m.unified_video_key, v.video_key) AS investor_video_key
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily` v
         INNER JOIN johnson_video_keys j
             ON v.video_key = j.video_key
-        LEFT JOIN auto_publish_video_task_map m
+        LEFT JOIN auto_publish_video_task_dim m
             ON v.video_key = m.video_key
         WHERE v.dt IN ({dates_str})
     ),
-    -- 取待刷窗口涉及的统一视频键，后续只回看这些键的历史新增日，控制扫描范围。
+    -- 取待刷窗口涉及的统一视频键，后续只回看这些键的历史新增日。
     relevant_investor_video_keys AS (
         SELECT DISTINCT investor_video_key
         FROM investor_video_base
@@ -196,26 +261,20 @@ def run_ads_daily_investor(dates: list[date]):
     -- 回看统一视频键的历史新增日，确保自动发布跨平台视频只在最早首次正播放日期记一次新增。
     investor_video_first_positive_dt AS (
         SELECT
-            COALESCE(
-                CONCAT('auto_task:', m.auto_publish_task_id),
-                v.video_key
-            ) AS investor_video_key,
+            COALESCE(m.unified_video_key, v.video_key) AS investor_video_key,
             MIN(v.dt) AS first_positive_view_dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily` v
         INNER JOIN johnson_video_keys j
             ON v.video_key = j.video_key
-        LEFT JOIN auto_publish_video_task_map m
+        LEFT JOIN auto_publish_video_task_dim m
             ON v.video_key = m.video_key
         INNER JOIN relevant_investor_video_keys r
-            ON COALESCE(
-                CONCAT('auto_task:', m.auto_publish_task_id),
-                v.video_key
-            ) = r.investor_video_key
+            ON COALESCE(m.unified_video_key, v.video_key) = r.investor_video_key
         WHERE v.is_new_video
             AND v.dt <= DATE '{max_date}'
         GROUP BY investor_video_key
     ),
-    -- 汇总 jhonson 团队的视频相关指标；仅视频数量按自动发布 task_id 去重，播放量保持原口径。
+    -- 汇总投资人口径的视频相关指标；只有视频数量按统一视频键去重，播放量保持原口径。
     video_metrics AS (
         SELECT
             v.dt,
@@ -246,216 +305,41 @@ def run_ads_daily_investor(dates: list[date]):
         WHERE dt IN ({dates_str})
         GROUP BY dt
     ),
-    -- 计算 app 设备的首次活跃日，用于“新增设备数”的 app 口径。
-    app_device_first_active AS (
-        SELECT
-            prop_device_id,
-            MIN(dt) AS first_app_active_dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
-        WHERE dt <= DATE '{max_date}'
-            AND platform != 'h5'
-        GROUP BY prop_device_id
-    ),
-    -- 汇总 app 设备规模。
+    -- 汇总 app 设备规模和已注册设备分母。
     device_metrics AS (
         SELECT
-            d.dt,
+            dt,
+            COUNT(DISTINCT IF(is_new_app_device, prop_device_id, NULL))
+                AS new_device_count,
+            COUNT(DISTINCT prop_device_id) AS active_device_count,
             COUNT(
-                DISTINCT IF(f.first_app_active_dt = d.dt, d.prop_device_id, NULL)
-            ) AS new_device_count,
-            COUNT(DISTINCT d.prop_device_id) AS active_device_count
-        FROM (
-            SELECT
-                dt,
-                prop_device_id
-            FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
-            WHERE dt IN ({dates_str})
-                AND platform != 'h5'
-            GROUP BY dt, prop_device_id
-        ) d
-        LEFT JOIN app_device_first_active f
-            ON d.prop_device_id = f.prop_device_id
-        GROUP BY d.dt
-    ),
-    -- 提取本次日期内 app 已注册用户事件，供时长 / 内容 / 商详指标复用。
-    app_registered_event_base AS (
-        SELECT
-            DATE(
-                TIMESTAMP(
-                    DATETIME(logAt_timestamp, 'UTC'),
-                    COALESCE(NULLIF(prop_timezone, ''), 'UTC')
-                ),
-                '{TORONTO_TZ}'
-            ) AS dt,
-            hash_id,
-            raw_event_id,
-            event_name,
-            prop_device_id,
-            prop_user_id,
-            args_session_duration,
-            product_code,
-            post_code
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE DATE(
-                TIMESTAMP(
-                    DATETIME(logAt_timestamp, 'UTC'),
-                    COALESCE(NULLIF(prop_timezone, ''), 'UTC')
-                ),
-                '{TORONTO_TZ}'
-            ) IN ({dates_str})
-            AND (prop_url IS NULL OR prop_url = '')
-            AND prop_user_id IS NOT NULL
-            AND prop_user_id != ''
-    ),
-    -- 汇总 app 已注册用户对应的活跃设备数，作为人均指标分母。
-    app_registered_device_metrics AS (
-        SELECT
-            dt,
-            COUNT(DISTINCT prop_device_id) AS active_registered_app_device_count
-        FROM app_registered_event_base
-        WHERE prop_device_id IS NOT NULL
-            AND prop_device_id != ''
+                DISTINCT IF(has_registered_user_activity, prop_device_id, NULL)
+            ) AS active_registered_app_device_count,
+            COALESCE(SUM(registered_duration_sec), 0) AS total_duration_sec,
+            COALESCE(SUM(registered_content_exposure_count), 0)
+                AS exposure_item_count,
+            COALESCE(SUM(registered_content_click_count), 0)
+                AS click_item_count
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_device_daily`
+        WHERE dt IN ({dates_str})
         GROUP BY dt
     ),
-    -- 对 app 已注册用户的 app_launch 时长事件去重后汇总。
-    app_registered_duration_metrics AS (
+    -- 汇总 app 已注册用户规模、留存和商详页指标。
+    registered_user_metrics AS (
         SELECT
             dt,
-            COALESCE(SUM(duration_ms), 0) / 1000.0 AS total_duration_sec
-        FROM (
-            SELECT
-                dt,
-                prop_device_id,
-                COALESCE(raw_event_id, hash_id) AS duration_event_id,
-                MAX(CAST(args_session_duration AS FLOAT64)) AS duration_ms
-            FROM app_registered_event_base
-            WHERE event_name = 'app_launch'
-                AND prop_device_id IS NOT NULL
-                AND prop_device_id != ''
-                AND args_session_duration IS NOT NULL
-                AND COALESCE(raw_event_id, hash_id) IS NOT NULL
-            GROUP BY dt, prop_device_id, duration_event_id
-        )
-        GROUP BY dt
-    ),
-    -- 汇总 app 已注册用户的内容 item 曝光 / 点击量。
-    content_metrics AS (
-        SELECT
-            dt,
-            COUNTIF(event_group = 'exposure') AS exposure_item_count,
-            COUNTIF(event_group = 'click') AS click_item_count
-        FROM (
-            SELECT
-                dt,
-                event_group
-            FROM (
-                SELECT
-                    dt,
-                    'exposure' AS event_group,
-                    raw_event_id,
-                    COALESCE(
-                        IF(
-                            product_code IS NULL OR product_code = '',
-                            NULL,
-                            CONCAT('product:', product_code)
-                        ),
-                        IF(
-                            post_code IS NULL OR post_code = '',
-                            NULL,
-                            CONCAT('post:', post_code)
-                        )
-                    ) AS item_key
-                FROM app_registered_event_base
-                WHERE event_name IN (
-                    'v_home_feeds',
-                    'v_shop_feeds',
-                    'v_star_post_feeds',
-                    'v_brand_post_feeds',
-                    'v_kol_post_feeds'
-                )
-                    AND raw_event_id IS NOT NULL
-
-                UNION ALL
-
-                SELECT
-                    dt,
-                    'click' AS event_group,
-                    raw_event_id,
-                    COALESCE(
-                        IF(
-                            product_code IS NULL OR product_code = '',
-                            NULL,
-                            CONCAT('product:', product_code)
-                        ),
-                        IF(
-                            post_code IS NULL OR post_code = '',
-                            NULL,
-                            CONCAT('post:', post_code)
-                        )
-                    ) AS item_key
-                FROM app_registered_event_base
-                WHERE event_name IN (
-                    'v_product_detail',
-                    'v_star_post_detail',
-                    'v_magazine_post_detail',
-                    'v_brand_post_detail',
-                    'v_kol_post_detail'
-                )
-                    AND raw_event_id IS NOT NULL
-            )
-            WHERE item_key IS NOT NULL
-            GROUP BY dt, event_group, raw_event_id, item_key
-        )
-        GROUP BY dt
-    ),
-    -- 汇总 app 已注册用户的商详页 UV / PV。
-    product_detail_metrics AS (
-        SELECT
-            dt,
-            COUNT(DISTINCT IF(prop_user_id IS NOT NULL, prop_user_id, NULL))
+            COUNT(DISTINCT prop_user_id) AS active_registered_user_count,
+            COUNT(DISTINCT IF(is_next_day_retained, prop_user_id, NULL))
+                AS retained_1d_user_count,
+            COUNT(DISTINCT IF(is_day_7_retained, prop_user_id, NULL))
+                AS retained_7d_user_count,
+            COUNT(DISTINCT IF(product_detail_exposure_pv > 0, prop_user_id, NULL))
                 AS product_detail_exposure_uv,
-            COUNT(DISTINCT IF(event_id IS NOT NULL, event_id, NULL))
+            COALESCE(SUM(product_detail_exposure_pv), 0)
                 AS product_detail_exposure_pv
-        FROM (
-            SELECT
-                dt,
-                prop_user_id,
-                COALESCE(raw_event_id, hash_id) AS event_id
-            FROM app_registered_event_base
-            WHERE event_name = 'v_product_detail'
-        )
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_user_daily`
+        WHERE dt IN ({dates_str})
         GROUP BY dt
-    ),
-    -- 准备 app 活跃注册用户留存口径所需的用户明细。
-    active_users AS (
-        SELECT
-            dt,
-            prop_user_id
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
-        WHERE dt BETWEEN DATE '{min_date}' AND LEAST(
-            DATE_ADD(DATE '{max_date}', INTERVAL 7 DAY),
-            CURRENT_DATE('{TORONTO_TZ}')
-        )
-            AND platform != 'h5'
-        GROUP BY dt, prop_user_id
-    ),
-    -- 计算 app 活跃注册用户的 1 日和 7 日留存分子分母。
-    retention_metrics AS (
-        SELECT
-            d.dt,
-            COUNT(DISTINCT t.prop_user_id) AS active_registered_user_count,
-            COUNT(DISTINCT n1.prop_user_id) AS retained_1d_user_count,
-            COUNT(DISTINCT n7.prop_user_id) AS retained_7d_user_count
-        FROM date_list d
-        LEFT JOIN active_users t
-            ON t.dt = d.dt
-        LEFT JOIN active_users n1
-            ON t.prop_user_id = n1.prop_user_id
-            AND n1.dt = DATE_ADD(d.dt, INTERVAL 1 DAY)
-        LEFT JOIN active_users n7
-            ON t.prop_user_id = n7.prop_user_id
-            AND n7.dt = DATE_ADD(d.dt, INTERVAL 7 DAY)
-        GROUP BY d.dt
     )
     SELECT
         d.dt,
@@ -492,82 +376,105 @@ def run_ads_daily_investor(dates: list[date]):
         CAST(NULL AS NUMERIC) AS avg_video_download_conversion_count,
         COALESCE(dev.new_device_count, 0) AS new_device_count,
         COALESCE(dev.active_device_count, 0) AS active_device_count,
-        COALESCE(r.active_registered_user_count, 0) AS active_registered_user_count,
+        COALESCE(u.active_registered_user_count, 0) AS active_registered_user_count,
         CAST(CASE
-            WHEN COALESCE(ard.active_registered_app_device_count, 0) = 0 THEN 0
+            WHEN COALESCE(dev.active_registered_app_device_count, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(dur.total_duration_sec, 0) AS NUMERIC)
-                / CAST(ard.active_registered_app_device_count AS NUMERIC),
+                CAST(COALESCE(dev.total_duration_sec, 0) AS NUMERIC)
+                / CAST(dev.active_registered_app_device_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS avg_duration_sec,
         CAST(CASE
-            WHEN COALESCE(ard.active_registered_app_device_count, 0) = 0 THEN 0
+            WHEN COALESCE(dev.active_registered_app_device_count, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(c.exposure_item_count, 0) AS NUMERIC)
-                / CAST(ard.active_registered_app_device_count AS NUMERIC),
+                CAST(COALESCE(dev.exposure_item_count, 0) AS NUMERIC)
+                / CAST(dev.active_registered_app_device_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS avg_content_exposure_count,
         CAST(CASE
-            WHEN COALESCE(ard.active_registered_app_device_count, 0) = 0 THEN 0
+            WHEN COALESCE(dev.active_registered_app_device_count, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(c.click_item_count, 0) AS NUMERIC)
-                / CAST(ard.active_registered_app_device_count AS NUMERIC),
+                CAST(COALESCE(dev.click_item_count, 0) AS NUMERIC)
+                / CAST(dev.active_registered_app_device_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS avg_content_click_count,
         CAST(CASE
-            WHEN COALESCE(c.exposure_item_count, 0) = 0 THEN 0
+            WHEN COALESCE(dev.exposure_item_count, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(c.click_item_count, 0) AS NUMERIC)
-                / CAST(c.exposure_item_count AS NUMERIC),
+                CAST(COALESCE(dev.click_item_count, 0) AS NUMERIC)
+                / CAST(dev.exposure_item_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS content_ctr,
-        COALESCE(pd.product_detail_exposure_uv, 0) AS product_detail_exposure_uv,
-        COALESCE(pd.product_detail_exposure_pv, 0) AS product_detail_exposure_pv,
+        COALESCE(u.product_detail_exposure_uv, 0) AS product_detail_exposure_uv,
+        COALESCE(u.product_detail_exposure_pv, 0) AS product_detail_exposure_pv,
         CAST(CASE
-            WHEN COALESCE(pd.product_detail_exposure_uv, 0) = 0 THEN 0
+            WHEN COALESCE(u.product_detail_exposure_uv, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(pd.product_detail_exposure_pv, 0) AS NUMERIC)
-                / CAST(pd.product_detail_exposure_uv AS NUMERIC),
+                CAST(COALESCE(u.product_detail_exposure_pv, 0) AS NUMERIC)
+                / CAST(u.product_detail_exposure_uv AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS avg_product_detail_exposure_count,
         CAST(CASE
-            WHEN COALESCE(r.active_registered_user_count, 0) = 0 THEN 0
-            WHEN DATE_ADD(d.dt, INTERVAL 1 DAY) > DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
-            THEN NULL
+            WHEN COALESCE(u.active_registered_user_count, 0) = 0 THEN 0
+            WHEN DATE_ADD(d.dt, INTERVAL 1 DAY) > DATE_SUB(
+                CURRENT_DATE('{TORONTO_TZ}'),
+                INTERVAL 1 DAY
+            )
+                THEN NULL
             ELSE ROUND(
-                CAST(COALESCE(r.retained_1d_user_count, 0) AS NUMERIC)
-                / CAST(r.active_registered_user_count AS NUMERIC),
+                CAST(COALESCE(u.retained_1d_user_count, 0) AS NUMERIC)
+                / CAST(u.active_registered_user_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS next_day_retention_rate,
         CAST(CASE
-            WHEN COALESCE(r.active_registered_user_count, 0) = 0 THEN 0
-            WHEN DATE_ADD(d.dt, INTERVAL 7 DAY) > DATE_SUB(CURRENT_DATE('{TORONTO_TZ}'), INTERVAL 1 DAY)
-            THEN NULL
+            WHEN COALESCE(u.active_registered_user_count, 0) = 0 THEN 0
+            WHEN DATE_ADD(d.dt, INTERVAL 7 DAY) > DATE_SUB(
+                CURRENT_DATE('{TORONTO_TZ}'),
+                INTERVAL 1 DAY
+            )
+                THEN NULL
             ELSE ROUND(
-                CAST(COALESCE(r.retained_7d_user_count, 0) AS NUMERIC)
-                / CAST(r.active_registered_user_count AS NUMERIC),
+                CAST(COALESCE(u.retained_7d_user_count, 0) AS NUMERIC)
+                / CAST(u.active_registered_user_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS day_7_retention_rate,
         CURRENT_TIMESTAMP() AS update_time
     FROM date_list d
-    LEFT JOIN video_metrics v USING (dt)
-    LEFT JOIN download_metrics dl USING (dt)
-    LEFT JOIN device_metrics dev USING (dt)
-    LEFT JOIN app_registered_device_metrics ard USING (dt)
-    LEFT JOIN app_registered_duration_metrics dur USING (dt)
-    LEFT JOIN content_metrics c USING (dt)
-    LEFT JOIN product_detail_metrics pd USING (dt)
-    LEFT JOIN retention_metrics r USING (dt);
+    LEFT JOIN video_metrics v
+        ON d.dt = v.dt
+    LEFT JOIN download_metrics dl
+        ON d.dt = dl.dt
+    LEFT JOIN device_metrics dev
+        ON d.dt = dev.dt
+    LEFT JOIN registered_user_metrics u
+        ON d.dt = u.dt
     """
 
-    logging.info("开始处理: ads_daily_investor")
-    job = client.query(query)
-    job.result()
-    logging.info(f"ads_daily_investor 刷新完成, 处理日期: {dates}")
+    logging.info("开始处理: %s", TABLE_NAME)
+    client.query(query).result()
+    logging.info("%s 刷新完成, 处理日期: %s", TABLE_NAME, dates)
+
+
+if __name__ == "__main__":
+    log_path = configure_logging()
+    logging.info("日志文件: %s", log_path)
+
+    start_time = datetime.now(timezone.utc)
+    dates = get_ads_daily_investor_dates_to_process()
+    logging.info("待处理日期: %s", dates if dates else "[]")
+
+    if not dates:
+        logging.info("没有新的 ads_daily_investor 日期需要处理")
+        raise SystemExit(0)
+
+    run_ads_daily_investor(dates)
+
+    elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+    logging.info("%s 完成, 耗时: %.1f 秒", TABLE_NAME, elapsed)

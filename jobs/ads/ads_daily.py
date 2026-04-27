@@ -17,7 +17,6 @@ if str(ADS_ROOT) not in sys.path:
 
 from ads_daily_new import run_ads_daily_new
 from ads_daily_total import run_ads_daily_total
-from ads_daily_investor import run_ads_daily_investor
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
@@ -96,51 +95,6 @@ def get_download_dates_to_process():
     )
 
 
-def get_investor_dates_to_process():
-    """
-    ads_daily_investor 的日期集合。
-    投资人报表跨事件、用户、视频、Appsflyer 与内容 DWS，多链路合并处理。
-    """
-    return execute_dates_query(
-        [
-            incremental_dates_sql(
-                "dws_device_daily",
-                "ads_daily_investor",
-            ),
-            incremental_dates_sql(
-                "dws_user_daily",
-                "ads_daily_investor",
-            ),
-            incremental_dates_sql(
-                "dws_user_daily",
-                "ads_daily_investor",
-                "DATE_SUB(dt, INTERVAL 1 DAY)",
-            ),
-            incremental_dates_sql(
-                "dws_user_daily",
-                "ads_daily_investor",
-                "DATE_SUB(dt, INTERVAL 7 DAY)",
-            ),
-            incremental_dates_sql(
-                "dws_video_daily",
-                "ads_daily_investor",
-            ),
-            incremental_dates_sql(
-                "dws_appsflyer_download_daily",
-                "ads_daily_investor",
-            ),
-            incremental_dates_sql(
-                "dws_content_item_device_daily",
-                "ads_daily_investor",
-            ),
-            incremental_dates_sql(
-                "dws_product_detail_daily",
-                "ads_daily_investor",
-            ),
-        ]
-    )
-
-
 def log_dates(label, dates):
     """统一打印每组待处理日期，空组也显式记录。"""
     logging.info(f"{label}待处理日期: {dates if dates else '[]'}")
@@ -151,15 +105,12 @@ if __name__ == "__main__":
 
     total_dates = get_total_dates_to_process()
     download_dates = get_download_dates_to_process()
-    investor_dates = get_investor_dates_to_process()
-
-    if not any([total_dates, download_dates, investor_dates]):
+    if not any([total_dates, download_dates]):
         logging.info("没有新数据需要处理")
         exit(0)
 
     log_dates("总量类", total_dates)
     log_dates("下载类", download_dates)
-    log_dates("投资人类", investor_dates)
 
     if download_dates:
         run_ads_daily_new(download_dates)
@@ -167,10 +118,6 @@ if __name__ == "__main__":
 
     if total_dates:
         run_ads_daily_total(total_dates)
-        logging.info("-" * 50)
-
-    if investor_dates:
-        run_ads_daily_investor(investor_dates)
         logging.info("-" * 50)
 
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
