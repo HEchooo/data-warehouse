@@ -13,6 +13,7 @@
 | 用增报表 | `ads_daily_new` | [88](https://bi.alvinclub.ca/superset/dashboard/88/) | [fact.md](./用增报表/fact.md) | [patterns.md](./用增报表/patterns.md) |
 | 平台整体内容表现 | `ads_daily_content_performance` | [91](https://bi.alvinclub.ca/superset/dashboard/91/) | [fact.md](./平台整体内容表现/fact.md) | [patterns.md](./平台整体内容表现/patterns.md) |
 | 首页模块曝光与点击明细 | `ads_daily_home_module_performance` | [92](https://bi.alvinclub.ca/superset/dashboard/92/) | [fact.md](./首页模块曝光与点击明细/fact.md) | [patterns.md](./首页模块曝光与点击明细/patterns.md) |
+| 模块追踪明细 | `ads_monthly_module_performance` | [105](https://bi.alvinclub.ca/superset/dashboard/105/) | [fact.md](./模块追踪明细/fact.md) | [patterns.md](./模块追踪明细/patterns.md) |
 | 内容维度日报 | `ads_daily_post_performance` | [94](https://bi.alvinclub.ca/superset/dashboard/94/) | [fact.md](./内容维度日报/fact.md) | [patterns.md](./内容维度日报/patterns.md) |
 | 专栏追踪明细 | `ads_daily_column_performance` / `ads_monthly_column_performance` | [93](https://bi.alvinclub.ca/superset/dashboard/93/) / [104](https://bi.alvinclub.ca/superset/dashboard/104/) | [fact.md](./专栏追踪明细/fact.md) | [patterns.md](./专栏追踪明细/patterns.md) |
 | 穿搭工具点击使用 | `ads_daily_tryon_confirm` / `ads_daily_post_tryon_confirm` | [96](https://bi.alvinclub.ca/superset/dashboard/96/) | [fact.md](./穿搭工具点击使用/fact.md) | [patterns.md](./穿搭工具点击使用/patterns.md) |

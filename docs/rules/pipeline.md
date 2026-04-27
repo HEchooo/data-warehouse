@@ -13,6 +13,7 @@
 - `ads_daily_post_performance`
 - `ads_daily_column_performance`
 - `ads_monthly_column_performance`
+- `ads_monthly_module_performance`
 - `ads_daily_content_performance`
 - `ads_daily_home_module_performance`
 - `ads_daily_tryon_confirm`
@@ -29,6 +30,7 @@
 独立表级入口：
 - `jobs/ads/ads_daily_content_performance.py`
 - `jobs/ads/ads_monthly_column_performance.py`
+- `jobs/ads/ads_monthly_module_performance.py`
 - `jobs/ads/ads_daily_home_module_performance.py`
 - `jobs/ads/ads_daily_tryon_confirm.py`
 - `jobs/ads/ads_daily_post_tryon_confirm.py`
@@ -73,6 +75,10 @@
   - `dwd_event_log + v3 服务端行为表 -> dws_column_interaction_monthly -> ads_monthly_column_performance`
 - 专栏月级帖子快照链路：
   - `v3_decom.community_post(status=1) -> dws_column_post_daily -> dws_column_post_monthly -> ads_monthly_column_performance`
+- 模块月级行为链路：
+  - `dwd_event_log + v3 服务端行为表 -> dws_module_interaction_monthly -> ads_monthly_module_performance`
+- 模块月级帖子快照链路：
+  - `v3_decom.community_post(status=1) -> dws_column_post_daily -> dws_module_post_monthly -> ads_monthly_module_performance`
 - 下载链路：
   - `ods_ios_download + ods_android_download -> dws_download_daily -> ads_daily_new`
 - AppsFlyer 下载链路：
