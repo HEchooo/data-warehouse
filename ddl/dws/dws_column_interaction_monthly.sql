@@ -19,3 +19,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_column_interaction_monthly` (
 )
 PARTITION BY month
 CLUSTER BY column_id, module;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_column_interaction_monthly`
+ADD COLUMN IF NOT EXISTS follow_like_uv INT64;

@@ -187,6 +187,7 @@ def run_ads_monthly_column_performance(months: list[date]) -> None:
         like_post_count,
         like_rate,
         new_follow_count,
+        like_follow_rate,
         update_time
     )
     WITH
@@ -228,6 +229,7 @@ def run_ads_monthly_column_performance(months: list[date]) -> None:
             like_post_count,
             like_uv,
             new_follow_count,
+            follow_like_uv,
             mau_uv
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_column_interaction_monthly`
         WHERE month IN (SELECT month FROM target_months)
@@ -270,6 +272,7 @@ def run_ads_monthly_column_performance(months: list[date]) -> None:
             COALESCE(i.like_post_count, 0) AS like_post_count,
             COALESCE(i.like_uv, 0) AS like_uv,
             COALESCE(i.new_follow_count, 0) AS new_follow_count,
+            COALESCE(i.follow_like_uv, 0) AS follow_like_uv,
             COALESCE(i.mau_uv, 0) AS mau_uv
         FROM keys k
         LEFT JOIN interaction_monthly i
@@ -350,6 +353,13 @@ def run_ads_monthly_column_performance(months: list[date]) -> None:
             )
         END AS NUMERIC) AS like_rate,
         new_follow_count,
+        CAST(CASE
+            WHEN new_follow_count = 0 THEN 0
+            ELSE ROUND(
+                CAST(follow_like_uv AS NUMERIC) / CAST(new_follow_count AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS like_follow_rate,
         CURRENT_TIMESTAMP() AS update_time
     FROM monthly
     """

@@ -38,6 +38,7 @@
 | like_post_count | 新增点赞数（帖子口径）；同一专栏中当天获得过点赞的去重帖子数 |
 | like_rate | 点赞率；`like_uv / column_exposure_uv`；其中 `like_uv` 为服务端当日已登录点赞去重用户数 |
 | new_follow_count | 新增关注数；`v3_decom.community_star_follow` 当天新增关注该专栏的去重用户数 |
+| like_follow_rate | 点赞关注率；仅月报产出，`follow_like_uv / new_follow_count`；其中 `follow_like_uv` 为同月同专栏“真实新增关注用户 ∩ 点赞用户”的去重人数 |
 | follow_conversion_rate_7d | 近7日关注转化率；同日同专栏 `(今日关注用户 ∩ 近7日点赞用户)` 去重人数 / 近7日点赞去重人数（窗口为 `[dt-6, dt]`） |
 
 月报补充说明：
@@ -45,6 +46,7 @@
 - 月报中的 UV / 人数类指标按自然月去重，不从日报简单求和
 - 月报 `post_total_count` 取该月最后一个已落地快照日的在线帖子存量；当前月若未结束，则取该月最新快照日
 - 月报不包含 `follow_conversion_rate_7d`
+- 月报新增 `like_follow_rate`，分母使用服务端真实新增关注人数 `new_follow_count`，不是事件侧 `follow_uv`
 - 月报 `product_click_penetration_rate` 使用当月任意已登录事件去重用户数作为分母
 
 补充说明：
@@ -61,7 +63,7 @@
 - `dws_column_post_daily` 只承载帖子在线存量快照，不承载试穿日发生指标
 - `dws_column_interaction_daily` 承接专栏曝光、商品事件、试穿、点赞、新增关注和 7 日关注转化分子分母
 - `ads_daily_column_performance` 只负责消费 `DWS + DIM` 并计算终层率指标
-- `dws_column_interaction_monthly` 承接月级去重后的专栏曝光、商品事件、试穿、点赞和新增关注
+- `dws_column_interaction_monthly` 承接月级去重后的专栏曝光、商品事件、试穿、点赞、新增关注以及点赞关注交集人数
 - `dws_column_post_monthly` 从 `dws_column_post_daily` 衍生每个月最后一个快照日的在线帖子存量
 - `ads_monthly_column_performance` 只负责消费月级 `DWS + DIM` 并计算终层率指标
 

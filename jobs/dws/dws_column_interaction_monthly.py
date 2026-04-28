@@ -401,6 +401,7 @@ def run_dws_column_interaction_monthly(months: list[date]) -> None:
         like_post_count,
         like_uv,
         new_follow_count,
+        follow_like_uv,
         mau_uv,
         update_time
     )
@@ -728,6 +729,21 @@ def run_dws_column_interaction_monthly(months: list[date]) -> None:
         FROM follow_service_base
         GROUP BY month, module, column_id
     ),
+    -- 按专栏聚合“新增关注用户 ∩ 点赞用户”的去重人数。
+    follow_like_monthly AS (
+        SELECT
+            f.month,
+            f.module,
+            f.column_id,
+            COUNT(DISTINCT f.user_id) AS follow_like_uv
+        FROM follow_service_base f
+        JOIN like_service_enriched l
+            ON f.month = l.month
+            AND f.module = l.module
+            AND f.column_id = l.column_id
+            AND f.user_id = l.user_id
+        GROUP BY f.month, f.module, f.column_id
+    ),
     -- 汇总所有可能产出指标的专栏主键。
     keys AS (
         SELECT DISTINCT month, module, column_id
@@ -767,6 +783,7 @@ def run_dws_column_interaction_monthly(months: list[date]) -> None:
         COALESCE(l.like_post_count, 0) AS like_post_count,
         COALESCE(l.like_uv, 0) AS like_uv,
         COALESCE(fs.new_follow_count, 0) AS new_follow_count,
+        COALESCE(fl.follow_like_uv, 0) AS follow_like_uv,
         COALESCE(m.mau_uv, 0) AS mau_uv,
         CURRENT_TIMESTAMP() AS update_time
     FROM keys k
@@ -798,6 +815,10 @@ def run_dws_column_interaction_monthly(months: list[date]) -> None:
         ON k.month = fs.month
         AND k.module = fs.module
         AND k.column_id = fs.column_id
+    LEFT JOIN follow_like_monthly fl
+        ON k.month = fl.month
+        AND k.module = fl.module
+        AND k.column_id = fl.column_id
     LEFT JOIN mau_monthly m
         ON k.month = m.month
     """

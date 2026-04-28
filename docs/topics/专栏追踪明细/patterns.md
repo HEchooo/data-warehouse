@@ -1,5 +1,11 @@
 # 专栏追踪明细经验
 
+## 月报新增率指标不能只改 Superset chart
+
+- 如果目标口径依赖新的月级分子或分母，例如 `like_follow_rate = follow_like_uv / new_follow_count`，不能只在 Superset table 里补一列
+- 先检查 `dws_column_interaction_monthly` 是否已经落了所需分子分母，再由 `ads_monthly_column_performance` 计算终层率指标
+- 否则会出现模块月报有字段、专栏月报 chart 能配但 dataset / 底表无字段的假完成
+
 ## `Unrecognized name: prop_user_id`
 
 - 根因是 CTE 从 `base` 读取，但仍引用了 `prop_user_id / prop_device_id`
