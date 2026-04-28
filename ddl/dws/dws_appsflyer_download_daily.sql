@@ -5,3 +5,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_appsflyer_download_daily` (
 )
 PARTITION BY
     dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_appsflyer_download_daily`
+ADD COLUMN IF NOT EXISTS platform STRING;

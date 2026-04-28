@@ -9,7 +9,7 @@
 
 ### `dws_appsflyer_download_daily`
 
-- 粒度：`dt`
+- 粒度：`dt × platform`
 - 说明：投资人报表 AppsFlyer 新增下载中间层，不是最终报表层
 
 ### `dws_registered_app_device_daily`
@@ -56,7 +56,7 @@
 | 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt`；当前仅保留 jhonson 团队视频 |
 | 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量；当前仅保留 jhonson 团队视频 |
 | 新增视频平均播放数 | `decom.ads_daily_investor` | `avg_new_video_view_count` | `new_video_contributed_view_count / new_video_count`；其中 `new_video_contributed_view_count` 是内部辅助字段，仅用于计算该指标，不在展示层单独输出 |
-| 新增下载 | `decom.dws_appsflyer_download_daily` | `new_download_count` | AppsFlyer `install` 口径的 iOS + Android 当日新增下载总数，按 `America/Toronto` 切天 |
+| 新增下载 | `decom.dws_appsflyer_download_daily` | `new_download_count` | `dws_appsflyer_download_daily` 先落 `dt × platform` 的 AppsFlyer `install` 日新增下载；`ads_daily_investor` 再按 `dt` 汇总 iOS + Android 总数，按 `America/Toronto` 切天 |
 | 新增设备数 | `decom.ads_daily_investor` | `new_device_count` | 来自 `decom.dws_registered_app_device_daily` 的 app 设备日事实，按 `COUNT(DISTINCT IF(first_app_active_dt = dt, prop_device_id, NULL))` 计算 |
 | 活跃设备数 | `decom.ads_daily_investor` | `active_device_count` | 来自 `decom.dws_registered_app_device_daily` 的 app 设备日事实，按 `COUNT(DISTINCT prop_device_id)` 计算 |
 | 活跃注册用户数 | `decom.ads_daily_investor` | `active_registered_user_count` | 来自 `decom.dws_registered_app_user_daily` 的 app 活跃注册用户事实，按 `COUNT(DISTINCT prop_user_id)` 计算 |
@@ -83,6 +83,7 @@
 - 新增视频平均播放数的分子使用内部辅助字段 `new_video_contributed_view_count`：取 `is_new_video = TRUE` 当天的 `raw_day_end_views`，表示该视频首次被采到正播放量时已经累计拿到的播放数；该辅助字段不在展示层单独输出
 - AppsFlyer `daily_report/v5` 返回值按 `date + media source + campaign` 分组，同一天需先汇总 `Installs`
 - `ods_appsflyer_download` 需保留完整原始行，当前通过 `raw_row_json` 存储 AppsFlyer 每行返回字段
+- `dws_appsflyer_download_daily` 当前已升级为 `dt × platform` 复用事实；投资人主题最终粒度仍为 `dt`，新增下载需要先按 `dt` 汇总 iOS + Android，不能继续假设中层一日一行
 - 投资人主题最终 ADS 粒度仍为 `dt`；复用 `dws_device_daily` / `dws_user_daily` 时，设备数和用户数要按 `id` 去重后再汇总，不能直接相加各 `platform`
 - `新增设备数`、`活跃设备数`、`活跃注册用户数` 已下沉到 `decom.dws_registered_app_device_daily` / `decom.dws_registered_app_user_daily`，当前仅保留 app 数据
 - 人均停留时长的分母要收敛到 app 已注册活跃设备；当前通过 `decom.dws_registered_app_device_daily.has_registered_user_activity` 控制分母

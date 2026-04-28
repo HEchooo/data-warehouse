@@ -27,8 +27,10 @@ def get_appsflyer_dates_to_process(rebuild_days=APPSFLYER_REBUILD_DAYS):
 
 def run_dws_appsflyer_download_daily(dates):
     """
-    聚合投资人报表使用的 AppsFlyer 新增下载。
-    当前仅保留按天总量，不拆平台。
+    聚合可复用的 AppsFlyer 新增下载事实。
+
+    粒度：
+    - dt × platform
     """
     if not dates:
         logging.info("dws_appsflyer_download_daily 无待处理日期，跳过")
@@ -42,28 +44,42 @@ def run_dws_appsflyer_download_daily(dates):
     INSERT INTO `{PROJECT_ID}.{DATASET_ID}.dws_appsflyer_download_daily`
     (
         dt,
+        platform,
         new_download_count,
         update_time
     )
-    WITH metric_dates AS (
+    WITH
+    -- 本批待处理日期列表。
+    metric_dates AS (
         SELECT DATE(dt_text) AS dt
         FROM UNNEST([{dates_str}]) AS dt_text
     ),
+    -- 固定保留 AppsFlyer 已接入的平台，确保缺数日期也能输出 0 值。
+    platform_list AS (
+        SELECT 'iOS' AS platform
+        UNION ALL
+        SELECT 'Android' AS platform
+    ),
+    -- 汇总 AppsFlyer 原始下载到日期 × 平台。
     daily_download AS (
         SELECT
             dt,
+            platform,
             CAST(SUM(installs) AS INT64) AS new_download_count
         FROM `{PROJECT_ID}.{DATASET_ID}.ods_appsflyer_download`
         WHERE dt IN ({dates_str})
-        GROUP BY dt
+        GROUP BY dt, platform
     )
     SELECT
         d.dt,
+        p.platform,
         COALESCE(a.new_download_count, 0) AS new_download_count,
         CURRENT_TIMESTAMP() AS update_time
     FROM metric_dates d
+    CROSS JOIN platform_list p
     LEFT JOIN daily_download a
-        ON d.dt = a.dt;
+        ON d.dt = a.dt
+        AND p.platform = a.platform;
     """
     logging.info("开始处理: dws_appsflyer_download_daily")
     job = client.query(query)

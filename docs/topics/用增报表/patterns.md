@@ -2,13 +2,13 @@
 
 ## 先分清自己走的是事件链路还是下载链路
 
-- `ads_daily_new` 除了事件链路，还会承接 `ods_ios_download + ods_android_download -> dws_download_daily -> ads_daily_new`
+- `ads_daily_new` 除了事件链路，还会承接 `ods_appsflyer_download -> dws_appsflyer_download_daily -> ads_daily_new`
 - 看"新增"异常时，不要只查事件链路
 
 ## 排查刷新异常时先看本表待处理日期判定，不要只盯单个指标
 
 - `ads_daily_new` 现在由 `jobs/ads/ads_daily_new.py` 独立判定待处理日期
-- 先确认 `dws_device_daily`、`dws_user_daily`、`dws_download_daily` 有没有把目标日期推进来，再继续往下查单表逻辑
+- 先确认 `dws_device_daily`、`dws_user_daily`、`dws_appsflyer_download_daily` 有没有把目标日期推进来，再继续往下查单表逻辑
 
 ## 匿名设备口径已经下沉到 `dws_device_daily`
 

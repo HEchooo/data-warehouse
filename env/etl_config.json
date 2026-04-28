@@ -475,7 +475,7 @@
       "depends_on": [
         "dws_device_daily",
         "dws_user_daily",
-        "dws_download_daily"
+        "dws_appsflyer_download_daily"
       ],
       "schedule_group": "ads_daily_new"
     },

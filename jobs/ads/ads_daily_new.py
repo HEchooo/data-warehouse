@@ -84,7 +84,7 @@ def get_ads_daily_new_dates_to_process() -> list[date]:
             UNION DISTINCT
             SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
             UNION DISTINCT
-            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+            SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_appsflyer_download_daily`
         )
         WHERE dt <= CURRENT_DATE('{TORONTO_TZ}')
         ORDER BY dt
@@ -120,7 +120,7 @@ def get_ads_daily_new_dates_to_process() -> list[date]:
         UNION DISTINCT
 
         SELECT dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_appsflyer_download_daily`
         WHERE update_time > (SELECT max_update_time FROM target_watermark)
     )
     SELECT DISTINCT dt
@@ -144,12 +144,12 @@ def run_ads_daily_new(dates: list[date]) -> None:
     - avg_duration_sec: 新增设备的平均停留时长
     - avg_content_consume_count: 新增设备的人均内容消费数
     - next_day_retention_rate: 新增设备的次日留存率
-    - new_download_count: 新增下载量（来自 dws_download_daily）
+    - new_download_count: 新增下载量（来自 dws_appsflyer_download_daily）
 
     当前版本只消费稳定中层：
     - dws_device_daily
     - dws_user_daily
-    - dws_download_daily
+    - dws_appsflyer_download_daily
     """
     if not dates:
         logging.info("没有新的 ads_daily_new 日期需要处理")
@@ -240,13 +240,13 @@ def run_ads_daily_new(dates: list[date]) -> None:
         WHERE dt IN ({dates_str})
         GROUP BY dt, platform
     ),
-    -- 下载指标：沿用下载日表汇总新增下载量。
+    -- 下载指标：复用 AppsFlyer 下载日事实。
     download_metrics AS (
         SELECT
             dt,
             platform,
             CAST(SUM(new_download_count) AS INT64) AS new_download_count
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_download_daily`
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_appsflyer_download_daily`
         WHERE dt IN ({dates_str})
         GROUP BY dt, platform
     ),

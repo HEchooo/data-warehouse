@@ -15,6 +15,12 @@
 - AppsFlyer 常见字段名不是固定的 `Media Source` / `Campaign`，实际可能是 `Media Source (pid)`、`Campaign (c)` 这类变体；解析时不能只做精确列名匹配。
 - AppsFlyer 某些 `campaign` 值可能出现编码异常，例如中文 campaign 在返回结果里显示成乱码；当前“新增下载总数”口径不受影响，但如果后续要按 campaign 分析，需优先回看 `raw_row_json` 并单独确认编码处理方案。
 
+## 不能把 `dws_appsflyer_download_daily` 继续当成 `dt` 一行
+
+- `dws_appsflyer_download_daily` 现在是 `dt × platform` 粒度，供用增报表和投资人报表复用同一套 AppsFlyer 下载事实
+- 投资人主题最终粒度仍是 `dt`；新增下载在 ADS 层必须先按 `dt` 汇总 iOS + Android 后再参与后续派生
+- 如果直接把 `dt × platform` 明细行和其他 `dt` 粒度指标做 join，同一天的视频、设备、用户指标都会被一对多放大
+
 ## 复用 `dws_device_daily` / `dws_user_daily` 时不能先按 `platform` 汇总再相加
 
 - 投资人主题最终粒度是 `dt`，而 `dws_device_daily` / `dws_user_daily` 的现有粒度包含 `platform`

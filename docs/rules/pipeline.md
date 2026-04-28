@@ -47,7 +47,7 @@
 - `jobs/ads/ads_daily_social_content.py`
 
 日期规则：
-1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_download_daily` 的并集判定待处理 `dt`
+1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定待处理 `dt`
 2. `ads_daily_total.py` 自己按 `dws_device_daily + dws_user_daily` 的并集判定待处理 `dt`
 3. 专题型 `ADS` 只按自己的直接依赖判定待处理范围，例如专栏、帖子、试穿、社媒、投资人主题都不应复用其他主题的共享 `dt`
 4. 涉及次留的 `ADS`，需要把设备事实变更对应的 `DATE_SUB(dt, INTERVAL 1 DAY)` 一并补刷，保证成熟口径及时更新
@@ -97,8 +97,8 @@
   - `dwd_event_log -> dws_device_activity_daily -> ads_daily_user_duration_frequency`
 - 用增链路：
   - `dwd_event_log -> dim_device_first_active + dim_user_first_active -> dws_device_daily + dws_user_daily`
-  - `dwd_download -> dws_download_daily`
-  - `dws_device_daily + dws_user_daily + dws_download_daily -> ads_daily_new`
+  - `ods_appsflyer_download -> dws_appsflyer_download_daily`
+  - `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily -> ads_daily_new`
 - 全量链路：
   - `dws_device_daily + dws_user_daily -> ads_daily_total`
 - 留存特征链路：
