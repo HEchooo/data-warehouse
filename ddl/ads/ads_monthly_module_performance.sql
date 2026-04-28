@@ -23,3 +23,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_monthly_module_performance` (
 )
 PARTITION BY month
 CLUSTER BY module;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_monthly_module_performance`
+ADD COLUMN IF NOT EXISTS like_follow_rate NUMERIC;

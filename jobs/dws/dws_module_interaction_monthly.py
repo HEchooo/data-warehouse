@@ -386,6 +386,7 @@ def run_dws_module_interaction_monthly(months: list[date]) -> None:
         like_post_count,
         like_uv,
         new_follow_count,
+        follow_like_uv,
         mau_uv,
         update_time
     )
@@ -697,6 +698,35 @@ def run_dws_module_interaction_monthly(months: list[date]) -> None:
         FROM follow_service_base
         GROUP BY month, module
     ),
+    -- 拉平“当月真实新增关注用户集合”，供点赞关注交集计算使用。
+    follow_user_monthly AS (
+        SELECT DISTINCT
+            month,
+            module,
+            user_id
+        FROM follow_service_base
+    ),
+    -- 拉平“当月点赞用户集合”，避免同一用户多次点赞重复计入交集。
+    like_user_monthly AS (
+        SELECT DISTINCT
+            month,
+            module,
+            user_id
+        FROM like_service_enriched
+    ),
+    -- 计算同月同模块“新增关注且点过赞”的去重用户数。
+    follow_like_monthly AS (
+        SELECT
+            f.month,
+            f.module,
+            COUNT(DISTINCT f.user_id) AS follow_like_uv
+        FROM follow_user_monthly f
+        JOIN like_user_monthly l
+            ON f.month = l.month
+            AND f.module = l.module
+            AND f.user_id = l.user_id
+        GROUP BY f.month, f.module
+    ),
     -- 汇总所有可能产出指标的模块主键。
     keys AS (
         SELECT DISTINCT month, module
@@ -735,6 +765,7 @@ def run_dws_module_interaction_monthly(months: list[date]) -> None:
         COALESCE(l.like_post_count, 0) AS like_post_count,
         COALESCE(l.like_uv, 0) AS like_uv,
         COALESCE(fs.new_follow_count, 0) AS new_follow_count,
+        COALESCE(fl.follow_like_uv, 0) AS follow_like_uv,
         COALESCE(m.mau_uv, 0) AS mau_uv,
         CURRENT_TIMESTAMP() AS update_time
     FROM keys k
@@ -759,6 +790,9 @@ def run_dws_module_interaction_monthly(months: list[date]) -> None:
     LEFT JOIN follow_service_monthly fs
         ON k.month = fs.month
         AND k.module = fs.module
+    LEFT JOIN follow_like_monthly fl
+        ON k.month = fl.month
+        AND k.module = fl.module
     LEFT JOIN mau_monthly m
         ON k.month = m.month
     """

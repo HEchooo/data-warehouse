@@ -32,6 +32,7 @@
 | like_post_count | 新增点赞数（帖子口径）；同一模块中当月获得过点赞的去重帖子数 |
 | like_rate | 点赞率；`like_uv / column_exposure_uv`；其中 `like_uv` 为服务端当月已登录点赞去重用户数 |
 | new_follow_count | 新增关注数；`v3_decom.community_star_follow` 当月新增关注该模块下专栏的去重用户数 |
+| 点赞关注率 | `follow_like_uv / new_follow_count`；其中 `follow_like_uv` 为同月同模块“真实新增关注用户 ∩ 点赞用户”的去重人数，分母 `new_follow_count` 为服务端真实新增关注去重用户数 |
 
 补充说明：
 - 指标口径与 `【AI-Fashion】专栏追踪明细（月×专栏）` 保持一致，仅维度从 `month × module × column_id` 改为 `month × module`
@@ -46,7 +47,8 @@
   - `args_post -> dim_post.post_code -> dim_post.column_id -> dim_column.module`
   - `args_post` 无法映射到帖子或模块的商品事件，不进入该模块明细表
 - `follow_total_count`、`like_post_count`、`tryon_post_count` 仍保留原事件/帖子次数口径，不属于 UV 人数指标
-- `dws_module_interaction_monthly` 承接月级去重后的模块曝光、商品事件、试穿、点赞和新增关注
+- `点赞关注率` 的分母使用服务端真实新增关注人数 `new_follow_count`，不是事件侧 `follow_uv`
+- `dws_module_interaction_monthly` 承接月级去重后的模块曝光、商品事件、试穿、点赞、新增关注以及点赞关注交集人数
 - `dws_module_post_monthly` 从 `dws_column_post_daily` 衍生每个月最后一个快照日的模块在线帖子存量
 - `ads_monthly_module_performance` 只负责消费月级 `DWS` 并计算终层率指标
 - 当前初始化状态：
