@@ -11,6 +11,17 @@
 
 - 执行脚本入口是 `etl_run.py`。
 
+## 凭据与密钥
+
+- 禁止把真实凭据、token、refresh token、私钥、`service account key`、`.p8` 文件提交到仓库
+- `jobs/`、`docs/`、`env/` 下都不应保存生产可用的真实密钥材料
+- 脚本读取凭据时，优先使用：
+  - 环境变量
+  - 本地未跟踪配置文件
+  - 外部密钥管理方案
+- 如果确实需要示例配置，仓库中只保留脱敏模板，不保留真实值
+- 一旦发现历史脚本中存在明文 secret 或已跟踪凭据文件，优先先治理凭据，再继续做功能开发
+
 ## PATH_MODE_OVERRIDE
 
 - `etl_run.py` 优先读取环境变量 `PATH_MODE_OVERRIDE`。

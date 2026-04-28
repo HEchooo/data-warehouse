@@ -63,7 +63,7 @@
 - 统一编排说明 → `docs/references/*`
 - 跨主题复用规则 → `docs/rules/*`
 - 运行环境约定 → `docs/rules/environment.md`
-- 全局映射规则 → `docs/rules/mapping.md`
+- 全局映射规则 → `docs/rules/post-mapping.md`
 
 ## 写作原则
 
