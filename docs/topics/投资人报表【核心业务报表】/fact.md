@@ -87,6 +87,7 @@
 - `新增设备数`、`活跃设备数`、`活跃注册用户数` 已下沉到 `decom.dws_registered_app_device_daily` / `decom.dws_registered_app_user_daily`，当前仅保留 app 数据
 - 人均停留时长的分母要收敛到 app 已注册活跃设备；当前通过 `decom.dws_registered_app_device_daily.has_registered_user_activity` 控制分母
 - 当前 `投资人报表（日表）-明细表` 直接读取物理 dataset `ads_daily_investor`（Superset dataset id=228）；若要让历史日期切到 Batch 7 新链路，仍需单独确认回填与切换方案
+- `ads_daily_investor` 默认只处理 `America/Toronto` 昨日及以前的成熟 `dt`；不再把多伦多当天的跨上游半成品写进日报
 - 内容展示量 / 点击量不能复用 `content_consume_count`；它们是 `post / spu` item 级指标，当前已下沉到 `decom.dws_registered_app_device_daily`
 - 商详页曝光 UV / PV 当前已下沉到 `decom.dws_registered_app_user_daily`
 - `dwd_event_log` 已提前展开 `args_spu` / `args_post`；同一原始事件若带多个 item，需要按 `raw_event_id + item_key` 统计，而不是只按 `raw_event_id`

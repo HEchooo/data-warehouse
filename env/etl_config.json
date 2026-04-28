@@ -395,6 +395,30 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_video_daily",
+      "stage": "DWS",
+      "name": "DWS 视频逐日播放事实 ETL",
+      "script": "jobs/dws/dws_video_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_auto_publish_video_task"
+      ],
+      "schedule_group": "dws_video_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_appsflyer_download_daily",
+      "stage": "DWS",
+      "name": "DWS AppsFlyer 下载日事实 ETL",
+      "script": "jobs/dws/dws_appsflyer_download_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "ods_appsflyer_download"
+      ],
+      "schedule_group": "dws_appsflyer_download_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_registered_app_device_daily",
       "stage": "DWS",
       "name": "DWS 已注册 app 设备活动事实 ETL",
@@ -630,6 +654,8 @@
       "enabled": true,
       "depends_on": [
         "dim_auto_publish_video_task",
+        "dws_video_daily",
+        "dws_appsflyer_download_daily",
         "dws_registered_app_device_daily",
         "dws_registered_app_user_daily"
       ],

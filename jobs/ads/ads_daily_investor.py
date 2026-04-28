@@ -1,7 +1,8 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import logging
 from pathlib import Path
 import sys
+from zoneinfo import ZoneInfo
 
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -76,6 +77,17 @@ def target_table_exists() -> bool:
         return False
 
 
+def get_latest_mature_dt() -> date:
+    """
+    投资人日报默认只处理多伦多昨日及以前的成熟日期。
+
+    原因：
+    - 视频与 AppsFlyer 源数据存在明显晚到
+    - 如果继续处理多伦多当天，ADS 容易读到跨上游成熟度不一致的半成品
+    """
+    return datetime.now(ZoneInfo(TORONTO_TZ)).date() - timedelta(days=1)
+
+
 def get_target_row_count() -> int:
     if not target_table_exists():
         return 0
@@ -97,8 +109,10 @@ def get_ads_daily_investor_dates_to_process(
     规则：
     - 目标表不存在或为空时，按上游事实已落地日期全量初始化
     - 目标表已存在时，只读取最近 6 小时内上游事实变更的 dt
+    - 为避免跨上游成熟度不一致，默认只处理多伦多昨日及以前的日期
     """
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+    latest_mature_dt = get_latest_mature_dt()
 
     if is_full_snapshot:
         query = f"""
@@ -112,6 +126,7 @@ def get_ads_daily_investor_dates_to_process(
             UNION DISTINCT
             SELECT dt FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_user_daily`
         )
+        WHERE dt <= DATE '{latest_mature_dt}'
         ORDER BY dt
         """
         results = client.query(query).result()
@@ -142,6 +157,7 @@ def get_ads_daily_investor_dates_to_process(
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_registered_app_user_daily`
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
     )
+    WHERE dt <= DATE '{latest_mature_dt}'
     ORDER BY dt
     """
     results = client.query(query).result()
@@ -164,6 +180,9 @@ def run_ads_daily_investor(dates: list[date]) -> None:
     - 下载转化派生
     - 设备 / 注册用户展示层派生
     """
+    latest_mature_dt = get_latest_mature_dt()
+    dates = sorted({dt for dt in dates if dt <= latest_mature_dt})
+
     if not dates:
         logging.info("没有新的 ads_daily_investor 日期需要处理")
         return
