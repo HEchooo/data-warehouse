@@ -25,6 +25,7 @@
 - `ads_daily_user_duration_frequency`
 - `ads_daily_retention_user_feature`
 - `ads_daily_social_content`
+- `ads_daily_closet_overview`
 
 ### 执行流程
 
@@ -45,6 +46,7 @@
 - `jobs/ads/ads_daily_user_duration_frequency.py`
 - `jobs/ads/ads_daily_retention_user_feature.py`
 - `jobs/ads/ads_daily_social_content.py`
+- `jobs/ads/ads_daily_closet_overview.py`
 
 日期规则：
 1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定待处理 `dt`
@@ -73,6 +75,7 @@
   - `ads_daily_user_duration_frequency`
   - `ads_daily_retention_user_feature`
   - `ads_daily_social_content`
+  - `ads_daily_closet_overview`
   - `ads_daily_investor`
 - 固定窗口重刷或全量回刷能力，优先留在 `DWS` / `DIM` 层处理；不要重新引入共享 `ADS` 总入口来兜底
 
@@ -125,6 +128,9 @@
   - `ods_appsflyer_download -> dws_appsflyer_download_daily`
 - 社媒内容链路：
   - `videos.* -> dws_social_video_daily + dim_auto_publish_video_task -> dws_social_channel_daily -> ads_daily_social_content`
+- 衣橱概览链路：
+  - `v3_decom.user_fashion_closet -> dim_user_closet_first_use`
+  - `dwd_event_log + dws_user_daily + dim_user_closet_first_use + v3_decom.user_fashion_closet -> dws_closet_daily -> ads_daily_closet_overview`
 - 默认要求：`ADS` 只消费本主题所需的 `DIM` / `DWS`；如果发现 `ADS` 直接读取 `ODS` / `DWD` / 外部源表，应优先视为待收口架构债，而不是常规模式
 - 总量和新增异常时，先确认自己走的是事件链路还是下载链路。
 - 非下载类 ADS 默认不要直接消费下载链路回刷日期；优先按自身依赖链路分发日期，避免全链路无效回刷。

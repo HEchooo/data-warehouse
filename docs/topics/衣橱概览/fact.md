@@ -1,0 +1,55 @@
+# 衣橱概览
+
+## 报表
+
+- 表：`ads_daily_closet_overview`
+- 粒度：`dt`
+- Dashboard：[【AI-Fashion】衣橱概览](https://bi.alvinclub.ca/superset/dashboard/106/)（id=106）
+- Superset：物理 dataset `ads_daily_closet_overview`（id=235），chart `衣橱概览（日表）-明细表`（id=584）
+
+## 字段
+
+| 需求字段 | 定义 |
+|------|------|
+| 日期 | 报表日期，按 `America/Toronto` 切天 |
+| 衣橱首页曝光uv | `event_name = 'v_closet'` 的已登录去重用户数；按 `COUNT(DISTINCT prop_user_id)`，且 `prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 新增衣橱使用用户 | 当日首次发生 `type = 'SINGLE'` 的去重用户数；首日以 `v3_decom.user_fashion_closet.gmt_create` 转 `America/Toronto` 业务日后计算 |
+| 新增item数量 | 当日 `v3_decom.user_fashion_closet.type = 'SINGLE'` 的行数；按 `COUNT(1)` |
+| 总计使用用户 | 历史累计去重用户数；用户在 `v3_decom.user_fashion_closet` 中曾出现过 `type IN ('SINGLE', 'OUTFIT')` 即计入，按首次衣橱使用日累计 |
+| 渗透人数 | 同日满足两件事的已登录去重用户数：日志中存在 `event_name = 'v_closet'`，且 `v3_decom.user_fashion_closet` 当日存在 `type = 'SINGLE'` |
+| 渗透率 | `渗透人数 / all_event_uv`；其中 `all_event_uv` 为日志中当日所有事件的已登录去重用户数 |
+
+## 已落地字段
+
+| 需求字段 | 落地表 | 落地字段 | 口径 |
+|------|------|------|------|
+| 日期 | `decom.ads_daily_closet_overview` | `dt` | 按 `America/Toronto` 切天 |
+| 衣橱首页曝光uv | `decom.ads_daily_closet_overview` | `closet_home_exposure_uv` | `event_name = 'v_closet'` 的 `COUNT(DISTINCT prop_user_id)`；仅统计非空 `prop_user_id` |
+| 新增衣橱使用用户 | `decom.ads_daily_closet_overview` | `new_closet_user_count` | 用户首次发生 `type = 'SINGLE'` 的业务日记 1 次 |
+| 新增item数量 | `decom.ads_daily_closet_overview` | `new_item_count` | 当日 `type = 'SINGLE'` 的服务端行数 |
+| 总计使用用户 | `decom.ads_daily_closet_overview` | `total_closet_user_count` | 先求每个用户首次 `type IN ('SINGLE', 'OUTFIT')` 的业务日，再按日期累计 |
+| 渗透人数 | `decom.ads_daily_closet_overview` | `penetration_user_count` | 同日 `v_closet` 用户集合与同日 `SINGLE` 用户集合的交集 UV |
+| 渗透率分母 | `decom.ads_daily_closet_overview` | `all_event_uv` | 当日日志所有事件的 `COUNT(DISTINCT prop_user_id)`；仅统计非空 `prop_user_id` |
+| 渗透率 | `decom.ads_daily_closet_overview` | `penetration_rate` | `penetration_user_count / all_event_uv`；`all_event_uv = 0` 时返回 `0` |
+
+补充说明：
+
+- 本主题所有 UV 相关指标均统一使用已登录用户口径：`COUNT(DISTINCT prop_user_id)`，并过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`
+- `user_fashion_closet.gmt_create` 视为 UTC `DATETIME`，统一按 `DATE(TIMESTAMP(gmt_create, 'UTC'), 'America/Toronto')` 切业务日
+- 用户首次衣橱使用口径已单独沉到 `decom.dim_user_closet_first_use`，不再由 `decom.dws_closet_daily` 每次全量重扫服务端表计算
+- `新增item数量` 当前按当日 `SINGLE` 行数统计，不再附着“首日用户”条件
+- `all_event_uv` 为渗透率加权分母保留字段；跨天聚合时应使用 `SUM(penetration_user_count) / SUM(all_event_uv)`，不要直接 `AVG(penetration_rate)`
+
+## 依赖
+
+- 上游：`decom.dws_closet_daily`
+- 中间表：`decom.dim_user_closet_first_use`, `decom.dws_closet_daily`, `decom.dws_user_daily`, `decom.dwd_event_log`, `v3_decom.user_fashion_closet`
+- 报表表：`decom.ads_daily_closet_overview`
+- 脚本：`jobs/ads/ads_daily_closet_overview.py`
+- DIM 脚本：`jobs/dim/dim_user_closet_first_use.py`
+- DWS 脚本：`jobs/dws/dws_closet_daily.py`
+- DIM DDL：`ddl/dim/dim_user_closet_first_use.sql`
+- DDL：`ddl/ads/ads_daily_closet_overview.sql`
+- DWS DDL：`ddl/dws/dws_closet_daily.sql`
+- 编排：独立表级入口 `jobs/ads/ads_daily_closet_overview.py`
+- Superset：物理 dataset `ads_daily_closet_overview`（id=235），chart `衣橱概览（日表）-明细表`（id=584），dashboard `【AI-Fashion】衣橱概览`（id=106）

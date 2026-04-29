@@ -128,6 +128,16 @@
       "schedule_group": "dim_user_first_active"
     },
     {
+      "layer": "DIM",
+      "table_name": "dim_user_closet_first_use",
+      "stage": "DIM",
+      "name": "DIM 用户首次衣橱使用维表 ETL",
+      "script": "jobs/dim/dim_user_closet_first_use.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dim_user_closet_first_use"
+    },
+    {
       "layer": "DWS",
       "table_name": "dws_device_daily",
       "stage": "DWS",
@@ -152,6 +162,20 @@
         "dim_user_first_active"
       ],
       "schedule_group": "dws_user_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_closet_daily",
+      "stage": "DWS",
+      "name": "DWS 衣橱主题日事实 ETL",
+      "script": "jobs/dws/dws_closet_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dim_user_closet_first_use",
+        "dws_user_daily"
+      ],
+      "schedule_group": "dws_closet_daily"
     },
     {
       "layer": "DWS",
@@ -464,6 +488,18 @@
         "dws_social_video_daily"
       ],
       "schedule_group": "dws_social_channel_daily"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_closet_overview",
+      "stage": "ADS",
+      "name": "ADS 衣橱概览日报 ETL",
+      "script": "jobs/ads/ads_daily_closet_overview.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_closet_daily"
+      ],
+      "schedule_group": "ads_daily_closet_overview"
     },
     {
       "layer": "ADS",
