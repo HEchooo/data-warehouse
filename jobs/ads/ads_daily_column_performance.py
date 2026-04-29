@@ -1,7 +1,8 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import logging
 from pathlib import Path
 import sys
+from zoneinfo import ZoneInfo
 
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -9,10 +10,12 @@ from google.cloud.exceptions import NotFound
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
+TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "ads_daily_column_performance"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
+DAILY_REBUILD_DAYS = 3
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -40,6 +43,15 @@ def configure_logging() -> Path:
 
 def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
+
+
+def clamp_recent_dates(dates: list[date]) -> list[date]:
+    if not dates:
+        return []
+
+    today = datetime.now(ZoneInfo(TORONTO_TZ)).date()
+    min_dt = today - timedelta(days=DAILY_REBUILD_DAYS - 1)
+    return sorted({dt for dt in dates if dt >= min_dt})
 
 
 def target_table_id() -> str:
@@ -95,7 +107,7 @@ def get_column_performance_dates_to_process(
         ORDER BY dt
         """
         results = client.query(query).result()
-        return [row.dt for row in results]
+        return clamp_recent_dates([row.dt for row in results])
 
     query = f"""
     WITH
@@ -139,7 +151,7 @@ def get_column_performance_dates_to_process(
     ORDER BY dt
     """
     results = client.query(query).result()
-    return [row.dt for row in results]
+    return clamp_recent_dates([row.dt for row in results])
 
 
 def run_ads_daily_column_performance(dates: list[date]) -> None:

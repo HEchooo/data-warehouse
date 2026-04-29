@@ -1,7 +1,8 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import logging
 from pathlib import Path
 import sys
+from zoneinfo import ZoneInfo
 
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -15,6 +16,7 @@ TABLE_NAME = "dws_column_interaction_daily"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
+DAILY_REBUILD_DAYS = 3
 
 COLUMN_EXPOSURE_EVENT_NAMES = (
     "v_star_post_detail",
@@ -69,6 +71,15 @@ def dates_to_sql_list(dates: list[date]) -> str:
 
 def string_values_to_sql_list(values: tuple[str, ...]) -> str:
     return ", ".join([f"'{value}'" for value in values])
+
+
+def clamp_recent_dates(dates: list[date]) -> list[date]:
+    if not dates:
+        return []
+
+    today = datetime.now(ZoneInfo(TORONTO_TZ)).date()
+    min_dt = today - timedelta(days=DAILY_REBUILD_DAYS - 1)
+    return sorted({dt for dt in dates if dt >= min_dt})
 
 
 def target_table_id() -> str:
@@ -250,7 +261,7 @@ def get_column_interaction_dates_to_process(
         ORDER BY dt
         """
         results = client.query(query).result()
-        return [row.dt for row in results]
+        return clamp_recent_dates([row.dt for row in results])
 
     product_event_names_sql = string_values_to_sql_list(
         PRODUCT_CLICK_EVENT_NAMES + PRODUCT_CARD_EXPOSURE_EVENT_NAMES
@@ -368,7 +379,7 @@ def get_column_interaction_dates_to_process(
     ORDER BY dt
     """
     results = client.query(query).result()
-    return [row.dt for row in results]
+    return clamp_recent_dates([row.dt for row in results])
 
 
 def run_dws_column_interaction_daily(dates: list[date]) -> None:
@@ -600,30 +611,32 @@ def run_dws_column_interaction_daily(dates: list[date]) -> None:
         WHERE event_name IN ({product_card_exposure_events_sql})
         GROUP BY dt, module, column_id
     ),
-    -- c_follow 事件先按 raw_event_id 去重，保留专栏级点击事实。
-    follow_events_dedup AS (
+    -- 服务端新增关注记录：关注相关指标统一改为服务端事实来源。
+    follow_service_base AS (
         SELECT
-            dt,
-            raw_event_id,
-            ANY_VALUE(user_id) AS user_id,
-            ANY_VALUE({module_sql}) AS module,
-            ANY_VALUE({column_id_sql}) AS column_id
-        FROM base
-        WHERE event_name = 'c_follow'
-            AND raw_event_id IS NOT NULL
-        GROUP BY dt, raw_event_id
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            c.module,
+            CAST(f.star_user_id AS STRING) AS column_id,
+            CAST(f.user_id AS STRING) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_star_follow` f
+        JOIN column_dim c
+            ON c.column_id = CAST(f.star_user_id AS STRING)
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN (SELECT dt FROM target_dates)
+            AND star_user_id IS NOT NULL
+            AND CAST(star_user_id AS STRING) != ''
+            AND user_id IS NOT NULL
+            AND CAST(user_id AS STRING) != ''
     ),
-    -- 按专栏聚合关注点击次数与关注点击 UV。
-    follow_daily AS (
+    -- 按专栏聚合关注总次数、关注 UV 与新增关注用户数（同源服务端口径）。
+    follow_service_daily AS (
         SELECT
             dt,
             module,
             column_id,
             COUNT(*) AS follow_total_count,
-            COUNT(DISTINCT user_id) AS follow_uv
-        FROM follow_events_dedup
-        WHERE module IS NOT NULL
-            AND column_id IS NOT NULL
+            COUNT(DISTINCT user_id) AS follow_uv,
+            COUNT(DISTINCT user_id) AS new_follow_count
+        FROM follow_service_base
         GROUP BY dt, module, column_id
     ),
     -- 当天试穿任务原始记录；试穿是日发生指标，不走快照。
@@ -710,32 +723,6 @@ def run_dws_column_interaction_daily(dates: list[date]) -> None:
         WHERE dt IN (SELECT dt FROM target_dates)
         GROUP BY dt, module, column_id
     ),
-    -- 服务端新增关注记录。
-    follow_service_base AS (
-        SELECT
-            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
-            c.module,
-            CAST(f.star_user_id AS STRING) AS column_id,
-            CAST(f.user_id AS STRING) AS user_id
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_star_follow` f
-        JOIN column_dim c
-            ON c.column_id = CAST(f.star_user_id AS STRING)
-        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN (SELECT dt FROM target_dates)
-            AND star_user_id IS NOT NULL
-            AND CAST(star_user_id AS STRING) != ''
-            AND user_id IS NOT NULL
-            AND CAST(user_id AS STRING) != ''
-    ),
-    -- 按专栏聚合新增关注用户数。
-    follow_service_daily AS (
-        SELECT
-            dt,
-            module,
-            column_id,
-            COUNT(DISTINCT user_id) AS new_follow_count
-        FROM follow_service_base
-        GROUP BY dt, module, column_id
-    ),
     -- 每个目标日期构建近 7 日点赞用户集合（含当日，向前 6 天）。
     like_user_window_7d AS (
         SELECT DISTINCT
@@ -787,7 +774,7 @@ def run_dws_column_interaction_daily(dates: list[date]) -> None:
         FROM exposure_daily
         UNION DISTINCT
         SELECT DISTINCT dt, module, column_id
-        FROM follow_daily
+        FROM follow_service_daily
         UNION DISTINCT
         SELECT DISTINCT dt, module, column_id
         FROM product_click_daily
@@ -802,9 +789,6 @@ def run_dws_column_interaction_daily(dates: list[date]) -> None:
         FROM like_daily
         UNION DISTINCT
         SELECT DISTINCT dt, module, column_id
-        FROM follow_service_daily
-        UNION DISTINCT
-        SELECT DISTINCT dt, module, column_id
         FROM like_user_7d_daily
         UNION DISTINCT
         SELECT DISTINCT dt, module, column_id
@@ -815,8 +799,8 @@ def run_dws_column_interaction_daily(dates: list[date]) -> None:
         k.module,
         k.column_id,
         COALESCE(e.column_exposure_uv, 0) AS column_exposure_uv,
-        COALESCE(f.follow_total_count, 0) AS follow_total_count,
-        COALESCE(f.follow_uv, 0) AS follow_uv,
+        COALESCE(fs.follow_total_count, 0) AS follow_total_count,
+        COALESCE(fs.follow_uv, 0) AS follow_uv,
         COALESCE(pc.product_click_uv, 0) AS product_click_uv,
         COALESCE(pc.product_click_pv, 0) AS product_click_pv,
         COALESCE(pe.product_card_exposure_uv, 0) AS product_card_exposure_uv,
@@ -835,10 +819,6 @@ def run_dws_column_interaction_daily(dates: list[date]) -> None:
         ON k.dt = e.dt
         AND k.module = e.module
         AND k.column_id = e.column_id
-    LEFT JOIN follow_daily f
-        ON k.dt = f.dt
-        AND k.module = f.module
-        AND k.column_id = f.column_id
     LEFT JOIN product_click_daily pc
         ON k.dt = pc.dt
         AND k.module = pc.module

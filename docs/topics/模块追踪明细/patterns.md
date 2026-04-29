@@ -1,5 +1,11 @@
 # 模块追踪明细经验
 
+## 关注指标已切服务端，不再读 `c_follow`
+
+- 当前 `follow_total_count / follow_uv / new_follow_count` 统一来自 `v3_decom.community_star_follow`
+- `follow_rate` 与 `点赞关注率` 的关注相关分子分母都按服务端关注事实计算
+- `c_follow` 事件仅保留在历史排查中作为对账参考，不再作为正式口径
+
 ## 月×模块不能从月×专栏 ADS 直接聚合
 
 - `ads_monthly_column_performance` 已经是 `month × module × column_id` 粒度的终层表

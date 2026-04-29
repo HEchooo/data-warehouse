@@ -1,7 +1,8 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import logging
 from pathlib import Path
 import sys
+from zoneinfo import ZoneInfo
 
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -9,10 +10,12 @@ from google.cloud.exceptions import NotFound
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
+NEW_YORK_TZ = "America/New_York"
 TABLE_NAME = "ads_monthly_column_performance"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
+MONTHLY_REBUILD_MONTHS = 2
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -40,6 +43,25 @@ def configure_logging() -> Path:
 
 def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
+
+
+def first_day_of_month(value: date) -> date:
+    return value.replace(day=1)
+
+
+def clamp_recent_months(months: list[date]) -> list[date]:
+    if not months:
+        return []
+
+    current_month = first_day_of_month(datetime.now(ZoneInfo(NEW_YORK_TZ)).date())
+    allowed_months = set()
+    cursor = current_month
+    for _ in range(MONTHLY_REBUILD_MONTHS):
+        allowed_months.add(cursor)
+        cursor = first_day_of_month(cursor - timedelta(days=1))
+
+    normalized_months = {first_day_of_month(month) for month in months}
+    return sorted(month for month in normalized_months if month in allowed_months)
 
 
 def target_table_id() -> str:
@@ -95,7 +117,7 @@ def get_column_performance_months_to_process(
         ORDER BY month
         """
         results = client.query(query).result()
-        return [row.month for row in results]
+        return clamp_recent_months([row.month for row in results])
 
     query = f"""
     WITH
@@ -139,7 +161,7 @@ def get_column_performance_months_to_process(
     ORDER BY month
     """
     results = client.query(query).result()
-    return [row.month for row in results]
+    return clamp_recent_months([row.month for row in results])
 
 
 def run_ads_monthly_column_performance(months: list[date]) -> None:

@@ -15,8 +15,8 @@
 | 字段 | 口径 |
 |------|------|
 | column_exposure_uv | 模块曝光 UV；事件：`v_star_post_feeds`, `v_brand_post_feeds`, `v_star_post_detail`, `v_brand_post_detail`, `v_magazine_post_detail`；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按自然月 `COUNT(DISTINCT prop_user_id)` |
-| follow_total_count | 关注点击次数；事件：`c_follow`；按 `raw_event_id` 去重后，在自然月内按模块聚合 |
-| follow_rate | `follow_uv / column_exposure_uv`；其中 `follow_uv` 仅统计已登录 `c_follow` 事件，并按自然月 `COUNT(DISTINCT prop_user_id)` |
+| follow_total_count | 新增关注次数（PV）；服务端表：`v3_decom.community_star_follow`；按 `gmt_create` 切月后在模块维度聚合 |
+| follow_rate | `follow_uv / column_exposure_uv`；其中 `follow_uv` 为服务端新增关注去重用户数（`v3_decom.community_star_follow.user_id`） |
 | product_click_uv | 商品点击 UV；事件：`c_go_product_detail`, `c_open_sku_popup`, `c_third_party_goods`；仅统计 `product_code` 非空、且 `prop_user_id` 非空的事件；模块归因只允许使用上报的 `args_post`，经 `dim_post -> dim_column` 映射到 `module`；按自然月 `COUNT(DISTINCT prop_user_id)` |
 | product_click_pv | 商品点击 PV；事件同 `product_click_uv`；仅统计 `product_code` 非空、且 `prop_user_id` 非空的事件；模块归因只允许使用上报的 `args_post`；按 `raw_event_id` 去重后，在自然月内按模块聚合 |
 | product_click_penetration_rate | 商品点击渗透率；`product_click_uv / mau_uv`；其中 `mau_uv` 为当月任意已登录事件去重用户数 |
@@ -46,8 +46,8 @@
 - 商品相关事件的模块归因只允许使用上报的 `args_post`
   - `args_post -> dim_post.post_code -> dim_post.column_id -> dim_column.module`
   - `args_post` 无法映射到帖子或模块的商品事件，不进入该模块明细表
-- `follow_total_count`、`like_post_count`、`tryon_post_count` 仍保留原事件/帖子次数口径，不属于 UV 人数指标
-- `点赞关注率` 的分母使用服务端真实新增关注人数 `new_follow_count`，不是事件侧 `follow_uv`
+- `follow_total_count`、`like_post_count`、`tryon_post_count` 仍保留次数口径，不属于 UV 人数指标
+- `点赞关注率` 的分母使用服务端真实新增关注人数 `new_follow_count`
 - `dws_module_interaction_monthly` 承接月级去重后的模块曝光、商品事件、试穿、点赞、新增关注以及点赞关注交集人数
 - `dws_module_post_monthly` 从 `dws_column_post_daily` 衍生每个月最后一个快照日的模块在线帖子存量
 - `ads_monthly_module_performance` 只负责消费月级 `DWS` 并计算终层率指标

@@ -1,5 +1,11 @@
 # 专栏追踪明细经验
 
+## 关注指标已切服务端，不再读 `c_follow`
+
+- 当前 `follow_total_count / follow_uv / new_follow_count` 统一来自 `v3_decom.community_star_follow`
+- `follow_rate` 与 `like_follow_rate` 的关注相关分子分母都按服务端关注事实计算
+- `c_follow` 事件仅保留在历史排查中作为对账参考，不再作为正式口径
+
 ## 月报新增率指标不能只改 Superset chart
 
 - 如果目标口径依赖新的月级分子或分母，例如 `like_follow_rate = follow_like_uv / new_follow_count`，不能只在 Superset table 里补一列
@@ -38,6 +44,7 @@
 
 ## `creator` 粒度升级后，`follow_total_count` 不能顺手改口径
 
+- 下述经验属于历史事件口径阶段（`c_follow`）的遗留风险，当前正式链路已切到服务端关注事实
 - `c_follow` 的 `creator` 只能在它自身已有的 `module + column_id` 范围内补归因
 - 否则会把历史 `follow_total_count` 放大
 - 回填前要做聚合校验，要求原 `dt × module × column_id` 视角下的 `follow_total_count / read_post_count` 保持不变
@@ -55,7 +62,7 @@
 
 ## 改成“已登录用户口径”时，阅读类分子也要一起收口
 
-- 专栏报表如果把 `column_exposure_uv`、`follow_uv` 这类 UV 改成 `COUNT(DISTINCT prop_user_id)`，不能保留原来的 `visitor_id` 阅读分子
+- 专栏报表如果把 `column_exposure_uv` 这类 UV 改成 `COUNT(DISTINCT prop_user_id)`，不能保留原来的 `visitor_id` 阅读分子
 - 否则会出现 `avg_read_post_count_per_user = 匿名+登录阅读帖子数 / 已登录曝光 UV` 的混合口径
 - 正确做法是事件侧先过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`，再按 `CONCAT(prop_user_id, '-', post_code)` 统计 `read_post_count`
 
