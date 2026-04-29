@@ -24,6 +24,7 @@
 - `ads_daily_product_tryon_performance`
 - `ads_daily_user_duration_frequency`
 - `ads_daily_retention_user_feature`
+- `ads_daily_retention_user_duration_bucket`
 - `ads_daily_social_content`
 - `ads_daily_closet_overview`
 
@@ -45,6 +46,7 @@
 - `jobs/ads/ads_daily_product_tryon_performance.py`
 - `jobs/ads/ads_daily_user_duration_frequency.py`
 - `jobs/ads/ads_daily_retention_user_feature.py`
+- `jobs/ads/ads_daily_retention_user_duration_bucket.py`
 - `jobs/ads/ads_daily_social_content.py`
 - `jobs/ads/ads_daily_closet_overview.py`
 
@@ -74,6 +76,7 @@
   - `ads_daily_product_tryon_performance`
   - `ads_daily_user_duration_frequency`
   - `ads_daily_retention_user_feature`
+  - `ads_daily_retention_user_duration_bucket`
   - `ads_daily_social_content`
   - `ads_daily_closet_overview`
   - `ads_daily_investor`
@@ -106,6 +109,8 @@
   - `dws_device_daily + dws_user_daily -> ads_daily_total`
 - 留存特征链路：
   - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> dws_user_retention_feature_daily -> ads_daily_retention_user_feature`
+- 留存时长分桶链路：
+  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_duration_bucket`
 - 投资人主题链路：
   - `videos.* -> dim_auto_publish_video_task + dws_video_daily`
   - `dwd_event_log -> dws_registered_app_device_daily + dws_registered_app_user_daily`

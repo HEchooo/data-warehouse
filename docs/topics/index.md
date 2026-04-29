@@ -22,5 +22,5 @@
 | 用户时长与访问频次 | `ads_daily_user_duration_frequency` | [95](https://bi.alvinclub.ca/superset/dashboard/95/) | [fact.md](./用户时长与访问频次/fact.md) | [patterns.md](./用户时长与访问频次/patterns.md) |
 | 投资人报表【核心业务报表】 | `ads_daily_investor` | [101](https://bi.alvinclub.ca/superset/dashboard/101/) | [fact.md](./投资人报表【核心业务报表】/fact.md) | [patterns.md](./投资人报表【核心业务报表】/patterns.md) |
 | 【Social Content】社媒表现数据看板 | `ads_daily_social_content` | [102](https://bi.alvinclub.ca/superset/dashboard/102/) | [fact.md](./【Social Content】社媒表现数据看板/fact.md) | [patterns.md](./【Social Content】社媒表现数据看板/patterns.md) |
-| 留存用户特征数据 | `ads_daily_retention_user_feature` | [103](https://bi.alvinclub.ca/superset/dashboard/103/) | [fact.md](./留存用户特征数据/fact.md) | [patterns.md](./留存用户特征数据/patterns.md) |
+| 留存用户特征数据 | `ads_daily_retention_user_feature` / `ads_daily_retention_user_duration_bucket` | [103](https://bi.alvinclub.ca/superset/dashboard/103/) | [fact.md](./留存用户特征数据/fact.md) | [patterns.md](./留存用户特征数据/patterns.md) |
 | 衣橱概览 | `ads_daily_closet_overview` | [106](https://bi.alvinclub.ca/superset/dashboard/106/) | [fact.md](./衣橱概览/fact.md) | [patterns.md](./衣橱概览/patterns.md) |

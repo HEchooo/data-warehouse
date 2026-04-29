@@ -2,21 +2,37 @@
 
 ## 报表
 
+### 留存用户与非留存用户特征对比
+
 - 表：`ads_daily_retention_user_feature`
 - 粒度：`dt × user_group × feature_name`
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
-- 首个 Chart：`留存用户与非留存用户特征对比`（id=581）
+- Chart：`留存用户与非留存用户特征对比`（id=581）
+
+### 留存与非留存用户时长分布
+
+- 表：`ads_daily_retention_user_duration_bucket`
+- 粒度：`dt × user_group × duration_bucket`
+- Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
+- 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
 
 ## 字段
+
+### 主题共用口径
 
 | 需求字段 | 定义 |
 |------|------|
 | 日期 | cohort 日期；以 `dt` 当日活跃的已登录用户为观察对象 |
 | 用户群 | `新用户 / 老用户 / 全量登录用户`；新用户 = `first_active_date = dt`，老用户 = `first_active_date < dt` |
-| 次日留存用户 | `dt` 当日活跃、`dt+1` 仍活跃的已登录用户 |
-| 7日留存用户 | `dt` 当日活跃、`dt+7` 仍活跃的已登录用户 |
-| 次日非留存用户 | `dt` 当日活跃、`dt+1` 未活跃的已登录用户 |
-| 7日非留存用户 | `dt` 当日活跃、`dt+7` 未活跃的已登录用户 |
+| 次日留存用户数 | `dt` 当日活跃、`dt+1` 仍活跃的已登录用户 |
+| 7日留存用户数 | `dt` 当日活跃、`dt+7` 仍活跃的已登录用户 |
+| 次日非留存用户数 | `dt` 当日活跃、`dt+1` 未活跃的已登录用户 |
+| 7日非留存用户数 | `dt` 当日活跃、`dt+7` 未活跃的已登录用户 |
+
+### 留存用户与非留存用户特征对比
+
+| 需求字段 | 定义 |
+|------|------|
 | 日均停留时长 | 对应 cohort 用户在 `dt` 当日的平均停留时长；仅统计 `app_launch.args_session_duration`，按 `COALESCE(raw_event_id, hash_id)` 去重后汇总，单位秒 |
 | AI试穿 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type IN ('TRY_ON', 'OUTFIT')` 的去重用户数 |
 | 关注账号 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.community_star_follow` 的去重用户数 |
@@ -24,7 +40,19 @@
 | 创建模特 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type = 'MODEL'` 的去重用户数 |
 | 搜索 | 对应 cohort 用户中，在 `dt` 当日发生过 `event_name IN ('c_home_search', 'c_shop_search')` 的去重用户数 |
 
+### 留存与非留存用户时长分布
+
+| 需求字段 | 定义 |
+|------|------|
+| 时长 | 对应 cohort 用户在 `dt` 当日的停留时长分桶；只统计 `duration_sec > 0` 的已登录用户；其中 `duration_sec` 为 `app_launch.args_session_duration` 按 `COALESCE(raw_event_id, hash_id)` 去重后汇总的秒数，再按分钟桶映射到 `(0~1]`、`(1~3]`、`(3~5]`、`(5~10]`、`(10~15]`、`15分钟以上` |
+| 次日留存用户数 | 对应时长桶内，`dt` 当日活跃且 `dt+1` 仍活跃的已登录去重用户数 |
+| 7日留存用户数 | 对应时长桶内，`dt` 当日活跃且 `dt+7` 仍活跃的已登录去重用户数 |
+| 次日非留存用户数 | 对应时长桶内，`dt` 当日活跃且 `dt+1` 未活跃的已登录去重用户数 |
+| 7日非留存用户数 | 对应时长桶内，`dt` 当日活跃且 `dt+7` 未活跃的已登录去重用户数 |
+
 ## 已落地字段
+
+### 留存用户与非留存用户特征对比
 
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |------|------|------|------|
@@ -44,26 +72,38 @@
 | 次日非留存时长分子 | `decom.ads_daily_retention_user_feature` | `next_day_not_retained_duration_sum_sec` | 仅 `feature_name = '日均停留时长'` 时写入；值为次日非留存 cohort 在 `dt` 当日的停留时长总和（秒），供展示层做 `SUM(分子) / SUM(分母)` |
 | 7日非留存时长分子 | `decom.ads_daily_retention_user_feature` | `day_7_not_retained_duration_sum_sec` | 仅 `feature_name = '日均停留时长'` 时写入；值为 7 日非留存 cohort 在 `dt` 当日的停留时长总和（秒），供展示层做 `SUM(分子) / SUM(分母)` |
 
+### 留存与非留存用户时长分布
+
+| 需求字段 | 落地表 | 落地字段 | 口径 |
+|------|------|------|------|
+| 用户群 | `decom.ads_daily_retention_user_duration_bucket` | `user_group` | `新用户 / 老用户 / 全量登录用户`；与特征对比报表完全复用同一 cohort 分群 |
+| 时长桶排序 | `decom.ads_daily_retention_user_duration_bucket` | `duration_bucket_order` | 固定为 `1-6`，对应 `(0~1]`、`(1~3]`、`(3~5]`、`(5~10]`、`(10~15]`、`15分钟以上` |
+| 时长桶名称 | `decom.ads_daily_retention_user_duration_bucket` | `duration_bucket` | 展示层直接使用的时长分桶标签 |
+| 次日留存用户数 | `decom.ads_daily_retention_user_duration_bucket` | `next_day_retained_user_count` | 若 `dt+1` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内次日留存去重用户数 |
+| 7日留存用户数 | `decom.ads_daily_retention_user_duration_bucket` | `day_7_retained_user_count` | 若 `dt+7` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内 7 日留存去重用户数 |
+| 次日非留存用户数 | `decom.ads_daily_retention_user_duration_bucket` | `next_day_not_retained_user_count` | 若 `dt+1` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内次日非留存去重用户数 |
+| 7日非留存用户数 | `decom.ads_daily_retention_user_duration_bucket` | `day_7_not_retained_user_count` | 若 `dt+7` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内 7 日非留存去重用户数 |
+
 补充说明：
 
 - 当前主题只统计已登录用户，不含游客设备
-- cohort 主体先沉到 `decom.dws_user_activity_daily`，再聚合到 `decom.dws_user_retention_feature_daily`
+- cohort 主体先沉到 `decom.dws_user_activity_daily`，再分别聚合到 `decom.dws_user_retention_feature_daily` 和 `decom.ads_daily_retention_user_duration_bucket`
 - 服务端行为 `AI试穿 / 关注账号 / 创建模特` 分别来自 `v3_decom.common_ext_ai_task`、`v3_decom.community_star_follow`、`v3_decom.common_ext_ai_task`
-- 事件侧行为 `浏览商详 / 搜索` 先沉到 `decom.dws_user_activity_daily`
+- 事件侧行为 `浏览商详 / 搜索 / 停留时长` 先沉到 `decom.dws_user_activity_daily`
 - 行为类指标采用布尔判定口径：用户在 `dt` 当日只要发生过至少 1 次，就记入该行为人数
 - `日均停留时长` 为了支持跨天聚合，除单日平均值外，额外落地 4 个时长分子字段；报表层应使用 `SUM(分子) / SUM(对应用户数)` 计算区间平均值
-- 当前已完成生产表字段扩展、Superset 资产更新，并已回刷 `2026-04-01 ~ 2026-04-17` 历史分区
-- Batch 6 的代码链路已把 cohort 与特征识别拆到 `decom.dws_user_activity_daily` / `decom.dws_user_retention_feature_daily`；生产切换与是否补更早历史仍需单独确认
-- 若要继续补更早历史数据，需要单独确认回填范围和执行方案
+- 时长分桶图明确排除 `0 秒` 用户，因此各时长桶用户数加总默认不会回对到第一张图里的 cohort 总人数
+- 当前主题已完成特征对比表的生产表字段扩展、Superset 资产更新，并已回刷 `2026-04-01 ~ 2026-04-17` 历史分区
+- 时长分桶表的代码、DDL 与调度配置已补齐；是否创建生产表、刷新历史分区并创建 Superset 资产，需要单独执行
 
 ## 依赖
 
-- 上游：`decom.dws_user_retention_feature_daily`
+- 上游：`decom.dws_user_retention_feature_daily`, `decom.dws_user_activity_daily`
 - 中间表：`decom.dws_user_activity_daily`, `decom.dws_user_retention_feature_daily`, `decom.dws_user_daily`, `decom.dwd_event_log`, `v3_decom.common_ext_ai_task`, `v3_decom.community_star_follow`
-- 报表表：`decom.ads_daily_retention_user_feature`
+- 报表表：`decom.ads_daily_retention_user_feature`, `decom.ads_daily_retention_user_duration_bucket`
 - Superset：物理 dataset `ads_daily_retention_user_feature`（id=232），chart `留存用户与非留存用户特征对比`（id=581），dashboard `【AI-Fashion】留存用户的特征数据`（id=103）
-- 脚本：`jobs/ads/ads_daily_retention_user_feature.py`
+- 脚本：`jobs/ads/ads_daily_retention_user_feature.py`, `jobs/ads/ads_daily_retention_user_duration_bucket.py`
 - DWS 脚本：`jobs/dws/dws_user_activity_daily.py`, `jobs/dws/dws_user_retention_feature_daily.py`
-- DDL：`ddl/ads/ads_daily_retention_user_feature.sql`
+- DDL：`ddl/ads/ads_daily_retention_user_feature.sql`, `ddl/ads/ads_daily_retention_user_duration_bucket.sql`
 - DWS DDL：`ddl/dws/dws_user_activity_daily.sql`, `ddl/dws/dws_user_retention_feature_daily.sql`
-- 编排：独立表级入口 `jobs/ads/ads_daily_retention_user_feature.py`
+- 编排：独立表级入口 `jobs/ads/ads_daily_retention_user_feature.py`, `jobs/ads/ads_daily_retention_user_duration_bucket.py`
