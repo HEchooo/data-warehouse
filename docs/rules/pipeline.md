@@ -132,7 +132,7 @@
 - AppsFlyer 下载链路：
   - `ods_appsflyer_download -> dws_appsflyer_download_daily`
 - 社媒内容链路：
-  - `videos.* -> dws_social_video_daily + dim_auto_publish_video_task -> dws_social_channel_daily -> ads_daily_social_content`
+  - `videos.* -> dim_video -> dws_social_video_snapshot_daily -> dws_social_video_state_daily + dim_auto_publish_video_task -> dws_social_channel_daily -> ads_daily_social_content`
 - 衣橱概览链路：
   - `v3_decom.user_fashion_closet -> dim_user_closet_first_use`
   - `dwd_event_log + dws_user_daily + dim_user_closet_first_use + v3_decom.user_fashion_closet -> dws_closet_daily -> ads_daily_closet_overview`

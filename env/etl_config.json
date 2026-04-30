@@ -105,6 +105,16 @@
     },
     {
       "layer": "DIM",
+      "table_name": "dim_video",
+      "stage": "DIM",
+      "name": "DIM 社媒视频主维表 ETL",
+      "script": "jobs/dim/dim_video.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dim_video"
+    },
+    {
+      "layer": "DIM",
       "table_name": "dim_device_first_active",
       "stage": "DIM",
       "name": "DIM 设备首活维表 ETL",
@@ -468,13 +478,28 @@
     },
     {
       "layer": "DWS",
-      "table_name": "dws_social_video_daily",
+      "table_name": "dws_social_video_snapshot_daily",
       "stage": "DWS",
-      "name": "DWS 社媒视频逐日事实 ETL",
-      "script": "jobs/dws/dws_social_video_daily.py",
+      "name": "DWS 社媒视频日快照 ETL",
+      "script": "jobs/dws/dws_social_video_snapshot_daily.py",
       "enabled": true,
-      "depends_on": [],
-      "schedule_group": "dws_social_video_daily"
+      "depends_on": [
+        "dim_video"
+      ],
+      "schedule_group": "dws_social_video_snapshot_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_social_video_state_daily",
+      "stage": "DWS",
+      "name": "DWS 社媒视频日状态 ETL",
+      "script": "jobs/dws/dws_social_video_state_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video",
+        "dws_social_video_snapshot_daily"
+      ],
+      "schedule_group": "dws_social_video_state_daily"
     },
     {
       "layer": "DWS",
@@ -485,7 +510,7 @@
       "enabled": true,
       "depends_on": [
         "dim_auto_publish_video_task",
-        "dws_social_video_daily"
+        "dws_social_video_state_daily"
       ],
       "schedule_group": "dws_social_channel_daily"
     },

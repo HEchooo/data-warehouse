@@ -139,6 +139,8 @@ def build_select_sql(dates: list[date]) -> str:
             daily_like_increment,
             new_video_count,
             new_video_contributed_view_count,
+            published_7d_cohort_video_count,
+            published_7d_cohort_view_count,
             creator_count_to_prev_day,
             latest_3_sample_creator_count,
             latest_3_sample_video_count,
@@ -162,6 +164,16 @@ def build_select_sql(dates: list[date]) -> str:
                 4
             )
         END AS NUMERIC) AS avg_new_video_view_count,
+        published_7d_cohort_video_count,
+        published_7d_cohort_view_count,
+        CAST(CASE
+            WHEN COALESCE(published_7d_cohort_video_count, 0) = 0 THEN 0
+            ELSE ROUND(
+                CAST(COALESCE(published_7d_cohort_view_count, 0) AS NUMERIC)
+                / CAST(published_7d_cohort_video_count AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS published_7d_cohort_avg_view_count,
         creator_count_to_prev_day,
         CAST(CASE
             WHEN COALESCE(creator_count_to_prev_day, 0) = 0 THEN 0
@@ -207,6 +219,9 @@ def run_ads_daily_social_content(dates: list[date]) -> None:
         new_video_count,
         new_video_contributed_view_count,
         avg_new_video_view_count,
+        published_7d_cohort_video_count,
+        published_7d_cohort_view_count,
+        published_7d_cohort_avg_view_count,
         creator_count_to_prev_day,
         daily_view_increment_per_creator,
         latest_3_sample_creator_count,

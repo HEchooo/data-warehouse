@@ -13,6 +13,7 @@ PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "dws_social_channel_daily"
+SOURCE_TABLE_NAME = "dws_social_video_state_daily"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 SOCIAL_CHANNEL_REBUILD_DAYS = 30
@@ -49,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--full-refresh",
         action="store_true",
-        help="按 dws_social_video_daily 已落地历史日期全量重刷，而不是默认最近 30 天",
+        help="按 dws_social_video_state_daily 已落地历史日期全量重刷，而不是默认最近 30 天",
     )
     return parser.parse_args()
 
@@ -70,6 +71,10 @@ def target_table_id() -> str:
     return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
 
 
+def source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{SOURCE_TABLE_NAME}"
+
+
 def target_table_exists() -> bool:
     try:
         client.get_table(target_table_id())
@@ -82,8 +87,7 @@ def get_social_channel_dates_to_process(
     rebuild_days: int = SOCIAL_CHANNEL_REBUILD_DAYS,
 ) -> list[date]:
     """
-    Social 渠道级事实依赖视频快照和自动发布映射，默认固定重刷最近 30 天。
-    这样可以直接覆盖视频补采和自动发布映射修正的常见场景。
+    Social 渠道级事实直接依赖视频日状态表与自动发布映射，默认固定重刷最近 30 天。
     """
     end_date = datetime.now(ZoneInfo(TORONTO_TZ)).date()
     start_date = end_date - timedelta(days=rebuild_days - 1)
@@ -92,11 +96,11 @@ def get_social_channel_dates_to_process(
 
 def get_social_channel_full_dates_to_process() -> list[date]:
     """
-    全量重刷时，按 dws_social_video_daily 已落地日期全量展开。
+    全量重刷时，按 dws_social_video_state_daily 已落地日期全量展开。
     """
     query = f"""
     SELECT DISTINCT dt
-    FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily`
+    FROM `{source_table_id()}`
     ORDER BY dt
     """
     results = client.query(query).result()
@@ -107,10 +111,18 @@ def build_select_sql(dates: list[date]) -> str:
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
     channels_array_sql = strings_to_array_sql(DISPLAY_CHANNELS)
+    min_date = min(dates)
     max_date = max(dates)
 
     return f"""
     WITH
+    -- 本次窗口参数；seed_dt 只用于窗口首日的差分和新增视频判断。
+    params AS (
+        SELECT
+            DATE('{min_date}') AS min_dt,
+            DATE('{max_date}') AS max_dt,
+            DATE_SUB(DATE('{min_date}'), INTERVAL 1 DAY) AS seed_dt
+    ),
     -- 本次需要产出的目标日期列表。
     date_list AS (
         SELECT dt
@@ -121,12 +133,55 @@ def build_select_sql(dates: list[date]) -> str:
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel
     ),
-    -- 当前窗口涉及的社媒视频逐日事实。
+    -- 读取 seed_dt 到 max_dt 的视频日状态，为 lag 差分提供窗口前一天的累计值。
+    social_video_state AS (
+        SELECT
+            dt,
+            channel,
+            creator_id,
+            video_id,
+            video_key,
+            published_dt,
+            published_ts_utc,
+            day_end_views,
+            day_end_likes
+        FROM `{source_table_id()}`
+        WHERE dt BETWEEN (SELECT seed_dt FROM params) AND (SELECT max_dt FROM params)
+    ),
+    -- 基于视频日状态直接派生 daily increment 与新增视频标记。
     social_video_daily AS (
         SELECT
             dt,
             channel,
             creator_id,
+            video_id,
+            video_key,
+            published_dt,
+            published_ts_utc,
+            day_end_views,
+            day_end_likes,
+            day_end_views - LAG(day_end_views, 1, 0) OVER (
+                PARTITION BY video_key
+                ORDER BY dt
+            ) AS daily_view_increment,
+            day_end_likes - LAG(day_end_likes, 1, 0) OVER (
+                PARTITION BY video_key
+                ORDER BY dt
+            ) AS daily_like_increment,
+            day_end_views > 0
+                AND LAG(day_end_views, 1, 0) OVER (
+                    PARTITION BY video_key
+                    ORDER BY dt
+                ) = 0 AS is_new_video
+        FROM social_video_state
+    ),
+    -- 只保留本次待产出日期的视频逐日事实。
+    social_video_daily_output AS (
+        SELECT
+            dt,
+            channel,
+            creator_id,
+            video_id,
             video_key,
             published_dt,
             published_ts_utc,
@@ -134,18 +189,28 @@ def build_select_sql(dates: list[date]) -> str:
             day_end_likes,
             daily_view_increment,
             daily_like_increment,
-            has_snapshot_to_dt,
             is_new_video,
-            new_video_contributed_view_count
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily`
+            CASE
+                WHEN is_new_video THEN day_end_views
+                ELSE 0
+            END AS new_video_contributed_view_count
+        FROM social_video_daily
         WHERE dt IN ({dates_str})
     ),
-    -- 自动发布映射统一从 DIM 读取，不再在社媒主题重复拼平台上传表。
+    -- 自动发布映射统一从 DIM 读取。
     auto_publish_video_task_dim AS (
         SELECT
             video_key,
             unified_video_key
         FROM `{PROJECT_ID}.{DATASET_ID}.dim_auto_publish_video_task`
+    ),
+    -- 读取 seed_dt 当天的状态，用来判断窗口前是否已经出现过正播放。
+    seed_state AS (
+        SELECT
+            video_key,
+            day_end_views
+        FROM `{source_table_id()}`
+        WHERE dt = (SELECT seed_dt FROM params)
     ),
     -- 为待刷窗口内的新增视频准备“全部渠道”统一视频键。
     all_channel_new_video_base AS (
@@ -154,28 +219,42 @@ def build_select_sql(dates: list[date]) -> str:
             s.video_key,
             s.new_video_contributed_view_count,
             COALESCE(m.unified_video_key, s.video_key) AS all_channel_video_key
-        FROM social_video_daily s
+        FROM social_video_daily_output s
         LEFT JOIN auto_publish_video_task_dim m
             ON s.video_key = m.video_key
         WHERE s.is_new_video
     ),
-    -- 取待刷窗口涉及的统一视频键，后续只回看这些键的历史新增日，控制扫描范围。
+    -- 只保留本窗口里真正出现过新增的统一视频键。
     relevant_all_channel_video_keys AS (
         SELECT DISTINCT all_channel_video_key
         FROM all_channel_new_video_base
     ),
-    -- 回看统一视频键的历史新增日，确保自动发布跨平台视频只在最早首次正播放日期记一次新增。
+    -- 先把 seed_dt 当天的统一视频键状态折叠成一行。
+    seed_all_channel_state AS (
+        SELECT
+            COALESCE(m.unified_video_key, s.video_key) AS all_channel_video_key,
+            MAX(s.day_end_views) AS seed_day_end_views
+        FROM seed_state s
+        LEFT JOIN auto_publish_video_task_dim m
+            ON s.video_key = m.video_key
+        GROUP BY all_channel_video_key
+    ),
+    -- 判断统一视频键在窗口开始前是否已经有正播放；若已有，本窗口不再记新增。
+    all_channel_positive_before_window AS (
+        SELECT
+            r.all_channel_video_key,
+            COALESCE(MAX(s.seed_day_end_views), 0) > 0 AS has_positive_before_window
+        FROM relevant_all_channel_video_keys r
+        LEFT JOIN seed_all_channel_state s
+            ON r.all_channel_video_key = s.all_channel_video_key
+        GROUP BY r.all_channel_video_key
+    ),
+    -- 当前窗口内统一视频键最早变成正播放的日期。
     all_channel_video_first_positive_dt AS (
         SELECT
-            COALESCE(m.unified_video_key, v.video_key) AS all_channel_video_key,
-            MIN(v.dt) AS first_positive_view_dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_social_video_daily` v
-        LEFT JOIN auto_publish_video_task_dim m
-            ON v.video_key = m.video_key
-        INNER JOIN relevant_all_channel_video_keys r
-            ON COALESCE(m.unified_video_key, v.video_key) = r.all_channel_video_key
-        WHERE v.is_new_video
-            AND v.dt <= DATE '{max_date}'
+            all_channel_video_key,
+            MIN(dt) AS first_positive_view_dt
+        FROM all_channel_new_video_base
         GROUP BY all_channel_video_key
     ),
     -- 先汇总真实渠道的每日新增 views / likes。
@@ -185,7 +264,7 @@ def build_select_sql(dates: list[date]) -> str:
             channel,
             COALESCE(SUM(daily_view_increment), 0) AS daily_view_increment,
             COALESCE(SUM(daily_like_increment), 0) AS daily_like_increment
-        FROM social_video_daily
+        FROM social_video_daily_output
         GROUP BY dt, channel
     ),
     -- 在真实渠道结果基础上补出“全部渠道”聚合行。
@@ -204,7 +283,7 @@ def build_select_sql(dates: list[date]) -> str:
             '全部渠道' AS channel,
             COALESCE(SUM(daily_view_increment), 0) AS daily_view_increment,
             COALESCE(SUM(daily_like_increment), 0) AS daily_like_increment
-        FROM social_video_daily
+        FROM social_video_daily_output
         GROUP BY dt
     ),
     -- 先汇总真实渠道的每日新增视频数与新增视频贡献播放数。
@@ -215,7 +294,7 @@ def build_select_sql(dates: list[date]) -> str:
             COUNT(DISTINCT IF(is_new_video, video_key, NULL)) AS new_video_count,
             COALESCE(SUM(new_video_contributed_view_count), 0)
                 AS new_video_contributed_view_count
-        FROM social_video_daily
+        FROM social_video_daily_output
         GROUP BY dt, channel
     ),
     -- 在真实渠道结果基础上补出“全部渠道”的新增视频聚合行。
@@ -234,7 +313,8 @@ def build_select_sql(dates: list[date]) -> str:
             '全部渠道' AS channel,
             COUNT(
                 DISTINCT IF(
-                    f.first_positive_view_dt = b.dt,
+                    NOT COALESCE(p.has_positive_before_window, FALSE)
+                    AND f.first_positive_view_dt = b.dt,
                     b.all_channel_video_key,
                     NULL
                 )
@@ -244,6 +324,87 @@ def build_select_sql(dates: list[date]) -> str:
         FROM all_channel_new_video_base b
         LEFT JOIN all_channel_video_first_positive_dt f
             ON b.all_channel_video_key = f.all_channel_video_key
+        LEFT JOIN all_channel_positive_before_window p
+            ON b.all_channel_video_key = p.all_channel_video_key
+        GROUP BY b.dt
+    ),
+    -- 先汇总真实渠道“发布满 7 天视频 cohort”的样本数与 7 天累计播放数。
+    base_published_7d_cohort_metrics AS (
+        SELECT
+            dt,
+            channel,
+            COUNT(DISTINCT video_key) AS published_7d_cohort_video_count,
+            COALESCE(SUM(day_end_views), 0) AS published_7d_cohort_view_count
+        FROM social_video_daily_output
+        WHERE published_dt = DATE_SUB(dt, INTERVAL 6 DAY)
+        GROUP BY dt, channel
+    ),
+    -- 为“全部渠道”7 天 cohort 口径准备统一视频键。
+    all_channel_video_base AS (
+        SELECT
+            s.dt,
+            s.video_key,
+            s.published_dt,
+            s.day_end_views,
+            COALESCE(m.unified_video_key, s.video_key) AS all_channel_video_key
+        FROM social_video_daily_output s
+        LEFT JOIN auto_publish_video_task_dim m
+            ON s.video_key = m.video_key
+    ),
+    -- 取待刷窗口涉及的统一视频键，后续只回看这些键的最早发布时间。
+    relevant_all_channel_published_video_keys AS (
+        SELECT DISTINCT all_channel_video_key
+        FROM all_channel_video_base
+    ),
+    -- max_dt 当天每个视频天然一行，可直接复用其发布时间元数据。
+    video_metadata_at_max_dt AS (
+        SELECT
+            video_key,
+            published_dt
+        FROM `{source_table_id()}`
+        WHERE dt = DATE '{max_date}'
+    ),
+    -- 回看统一视频键最早发布时间，确保“全部渠道”按统一视频 cohort 对齐到首发日。
+    all_channel_video_first_published_dt AS (
+        SELECT
+            COALESCE(m.unified_video_key, v.video_key) AS all_channel_video_key,
+            MIN(v.published_dt) AS first_published_dt
+        FROM video_metadata_at_max_dt v
+        LEFT JOIN auto_publish_video_task_dim m
+            ON v.video_key = m.video_key
+        INNER JOIN relevant_all_channel_published_video_keys r
+            ON COALESCE(m.unified_video_key, v.video_key) = r.all_channel_video_key
+        GROUP BY all_channel_video_key
+    ),
+    -- 在真实渠道结果基础上补出“全部渠道”7 天 cohort 聚合行。
+    published_7d_cohort_metrics AS (
+        SELECT
+            dt,
+            channel,
+            published_7d_cohort_video_count,
+            published_7d_cohort_view_count
+        FROM base_published_7d_cohort_metrics
+
+        UNION ALL
+
+        SELECT
+            b.dt,
+            '全部渠道' AS channel,
+            COUNT(
+                DISTINCT IF(
+                    f.first_published_dt = DATE_SUB(b.dt, INTERVAL 6 DAY),
+                    b.all_channel_video_key,
+                    NULL
+                )
+            ) AS published_7d_cohort_video_count,
+            COALESCE(SUM(IF(
+                f.first_published_dt = DATE_SUB(b.dt, INTERVAL 6 DAY),
+                b.day_end_views,
+                0
+            )), 0) AS published_7d_cohort_view_count
+        FROM all_channel_video_base b
+        LEFT JOIN all_channel_video_first_published_dt f
+            ON b.all_channel_video_key = f.all_channel_video_key
         GROUP BY b.dt
     ),
     -- 统计各真实渠道截至前一天已发布过视频的历史去重博主数。
@@ -252,7 +413,7 @@ def build_select_sql(dates: list[date]) -> str:
             dt,
             channel,
             COUNT(DISTINCT creator_id) AS creator_count_to_prev_day
-        FROM social_video_daily
+        FROM social_video_daily_output
         WHERE creator_id IS NOT NULL
             AND published_dt < dt
         GROUP BY dt, channel
@@ -271,12 +432,12 @@ def build_select_sql(dates: list[date]) -> str:
             dt,
             '全部渠道' AS channel,
             COUNT(DISTINCT CONCAT(channel, ':', creator_id)) AS creator_count_to_prev_day
-        FROM social_video_daily
+        FROM social_video_daily_output
         WHERE creator_id IS NOT NULL
             AND published_dt < dt
         GROUP BY dt
     ),
-    -- 对每个日期、渠道、博主挑出截至当天已有数据的最新 3 条视频样本。
+    -- 对每个日期、渠道、博主挑出截至当天播放量已正的最新 3 条视频样本。
     latest_3_pool AS (
         SELECT
             dt,
@@ -297,9 +458,8 @@ def build_select_sql(dates: list[date]) -> str:
                     PARTITION BY dt, channel, creator_id
                     ORDER BY published_ts_utc DESC, video_key DESC
                 ) AS rn
-            FROM social_video_daily
+            FROM social_video_daily_output
             WHERE creator_id IS NOT NULL
-                AND has_snapshot_to_dt
                 AND day_end_views > 0
         )
         WHERE rn <= 3
@@ -347,6 +507,10 @@ def build_select_sql(dates: list[date]) -> str:
         COALESCE(n.new_video_count, 0) AS new_video_count,
         COALESCE(n.new_video_contributed_view_count, 0)
             AS new_video_contributed_view_count,
+        COALESCE(p.published_7d_cohort_video_count, 0)
+            AS published_7d_cohort_video_count,
+        COALESCE(p.published_7d_cohort_view_count, 0)
+            AS published_7d_cohort_view_count,
         COALESCE(b.creator_count_to_prev_day, 0) AS creator_count_to_prev_day,
         COALESCE(l.latest_3_sample_creator_count, 0)
             AS latest_3_sample_creator_count,
@@ -365,6 +529,9 @@ def build_select_sql(dates: list[date]) -> str:
     LEFT JOIN new_video_channel_metrics n
         ON d.dt = n.dt
         AND c.channel = n.channel
+    LEFT JOIN published_7d_cohort_metrics p
+        ON d.dt = p.dt
+        AND c.channel = p.channel
     LEFT JOIN creator_base b
         ON d.dt = b.dt
         AND c.channel = b.channel
@@ -392,6 +559,8 @@ def run_dws_social_channel_daily(dates: list[date]) -> None:
         daily_like_increment,
         new_video_count,
         new_video_contributed_view_count,
+        published_7d_cohort_video_count,
+        published_7d_cohort_view_count,
         creator_count_to_prev_day,
         latest_3_sample_creator_count,
         latest_3_sample_video_count,

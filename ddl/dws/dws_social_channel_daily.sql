@@ -14,3 +14,9 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_social_channel_daily` (
 )
 PARTITION BY dt
 CLUSTER BY channel;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_channel_daily`
+ADD COLUMN IF NOT EXISTS published_7d_cohort_video_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_channel_daily`
+ADD COLUMN IF NOT EXISTS published_7d_cohort_view_count INT64;
