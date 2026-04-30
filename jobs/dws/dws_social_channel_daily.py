@@ -197,6 +197,23 @@ def build_select_sql(dates: list[date]) -> str:
         FROM social_video_daily
         WHERE dt IN ({dates_str})
     ),
+    -- 只取本批涉及视频键，避免全表回看首个正播放日。
+    relevant_video_keys AS (
+        SELECT DISTINCT video_key
+        FROM social_video_daily_output
+    ),
+    -- 计算每个视频全历史首次累计播放转正日期（首采正播放日）。
+    video_first_positive_view_dt AS (
+        SELECT
+            s.video_key,
+            MIN(s.dt) AS first_positive_view_dt
+        FROM `{source_table_id()}` s
+        INNER JOIN relevant_video_keys r
+            ON s.video_key = r.video_key
+        WHERE s.dt <= (SELECT max_dt FROM params)
+            AND s.day_end_views > 0
+        GROUP BY s.video_key
+    ),
     -- 自动发布映射统一从 DIM 读取。
     auto_publish_video_task_dim AS (
         SELECT
@@ -328,23 +345,24 @@ def build_select_sql(dates: list[date]) -> str:
             ON b.all_channel_video_key = p.all_channel_video_key
         GROUP BY b.dt
     ),
-    -- 先汇总真实渠道“发布满 7 天视频 cohort”的样本数与 7 天累计播放数。
+    -- 先汇总真实渠道“首采正播放满 7 天视频 cohort”的样本数与 7 天累计播放数。
     base_published_7d_cohort_metrics AS (
         SELECT
-            dt,
-            channel,
-            COUNT(DISTINCT video_key) AS published_7d_cohort_video_count,
-            COALESCE(SUM(day_end_views), 0) AS published_7d_cohort_view_count
-        FROM social_video_daily_output
-        WHERE published_dt = DATE_SUB(dt, INTERVAL 6 DAY)
-        GROUP BY dt, channel
+            s.dt,
+            s.channel,
+            COUNT(DISTINCT s.video_key) AS published_7d_cohort_video_count,
+            COALESCE(SUM(s.day_end_views), 0) AS published_7d_cohort_view_count
+        FROM social_video_daily_output s
+        INNER JOIN video_first_positive_view_dt f
+            ON s.video_key = f.video_key
+        WHERE f.first_positive_view_dt = DATE_SUB(s.dt, INTERVAL 6 DAY)
+        GROUP BY s.dt, s.channel
     ),
     -- 为“全部渠道”7 天 cohort 口径准备统一视频键。
     all_channel_video_base AS (
         SELECT
             s.dt,
             s.video_key,
-            s.published_dt,
             s.day_end_views,
             COALESCE(m.unified_video_key, s.video_key) AS all_channel_video_key
         FROM social_video_daily_output s
@@ -356,24 +374,16 @@ def build_select_sql(dates: list[date]) -> str:
         SELECT DISTINCT all_channel_video_key
         FROM all_channel_video_base
     ),
-    -- max_dt 当天每个视频天然一行，可直接复用其发布时间元数据。
-    video_metadata_at_max_dt AS (
+    -- 回看统一视频键最早首采正播放日，确保“全部渠道”按统一视频 cohort 对齐。
+    all_channel_video_first_positive_dt_for_cohort AS (
         SELECT
-            video_key,
-            published_dt
-        FROM `{source_table_id()}`
-        WHERE dt = DATE '{max_date}'
-    ),
-    -- 回看统一视频键最早发布时间，确保“全部渠道”按统一视频 cohort 对齐到首发日。
-    all_channel_video_first_published_dt AS (
-        SELECT
-            COALESCE(m.unified_video_key, v.video_key) AS all_channel_video_key,
-            MIN(v.published_dt) AS first_published_dt
-        FROM video_metadata_at_max_dt v
+            COALESCE(m.unified_video_key, f.video_key) AS all_channel_video_key,
+            MIN(f.first_positive_view_dt) AS first_positive_view_dt
+        FROM video_first_positive_view_dt f
         LEFT JOIN auto_publish_video_task_dim m
-            ON v.video_key = m.video_key
+            ON f.video_key = m.video_key
         INNER JOIN relevant_all_channel_published_video_keys r
-            ON COALESCE(m.unified_video_key, v.video_key) = r.all_channel_video_key
+            ON COALESCE(m.unified_video_key, f.video_key) = r.all_channel_video_key
         GROUP BY all_channel_video_key
     ),
     -- 在真实渠道结果基础上补出“全部渠道”7 天 cohort 聚合行。
@@ -392,18 +402,18 @@ def build_select_sql(dates: list[date]) -> str:
             '全部渠道' AS channel,
             COUNT(
                 DISTINCT IF(
-                    f.first_published_dt = DATE_SUB(b.dt, INTERVAL 6 DAY),
+                    f.first_positive_view_dt = DATE_SUB(b.dt, INTERVAL 6 DAY),
                     b.all_channel_video_key,
                     NULL
                 )
             ) AS published_7d_cohort_video_count,
             COALESCE(SUM(IF(
-                f.first_published_dt = DATE_SUB(b.dt, INTERVAL 6 DAY),
+                f.first_positive_view_dt = DATE_SUB(b.dt, INTERVAL 6 DAY),
                 b.day_end_views,
                 0
             )), 0) AS published_7d_cohort_view_count
         FROM all_channel_video_base b
-        LEFT JOIN all_channel_video_first_published_dt f
+        LEFT JOIN all_channel_video_first_positive_dt_for_cohort f
             ON b.all_channel_video_key = f.all_channel_video_key
         GROUP BY b.dt
     ),
