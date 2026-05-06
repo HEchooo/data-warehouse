@@ -71,3 +71,7 @@
 3. tiktok
 `video_uploads.task_id + video_uploads.status = "COMPLETED"`
 `video_uploads.user_id + video_uploads.tiktok_video_id -> video_stats_log.user_id + video_stats_log.video_id`
+
+
+## 自动发布视频对应 8 位数字编码
+`JSON_VALUE(video_upload_tasks.ext_info, '$.promotion_code')`
