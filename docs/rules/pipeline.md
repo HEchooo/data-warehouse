@@ -27,6 +27,7 @@
 - `ads_daily_retention_user_duration_bucket`
 - `ads_daily_social_content`
 - `ads_daily_closet_overview`
+- `ads_daily_video_code_conversion`
 
 ### 执行流程
 
@@ -49,6 +50,7 @@
 - `jobs/ads/ads_daily_retention_user_duration_bucket.py`
 - `jobs/ads/ads_daily_social_content.py`
 - `jobs/ads/ads_daily_closet_overview.py`
+- `jobs/ads/ads_daily_video_code_conversion.py`
 
 日期规则：
 1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定待处理 `dt`
@@ -80,6 +82,7 @@
   - `ads_daily_social_content`
   - `ads_daily_closet_overview`
   - `ads_daily_investor`
+  - `ads_daily_video_code_conversion`
 - 固定窗口重刷或全量回刷能力，优先留在 `DWS` / `DIM` 层处理；不要重新引入共享 `ADS` 总入口来兜底
 
 
@@ -133,6 +136,8 @@
   - `ods_appsflyer_download -> dws_appsflyer_download_daily`
 - 社媒内容链路：
   - `videos.* -> dim_video -> dws_social_video_snapshot_daily -> dws_social_video_state_daily + dim_auto_publish_video_task -> dws_social_channel_daily -> ads_daily_social_content`
+- 视频编码转化链路：
+  - `videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dwd_event_log + dim_user_first_active -> dws_video_code_conversion_daily -> ads_daily_video_code_conversion`
 - 衣橱概览链路：
   - `v3_decom.user_fashion_closet -> dim_user_closet_first_use`
   - `dwd_event_log + dws_user_daily + dim_user_closet_first_use + v3_decom.user_fashion_closet -> dws_closet_daily -> ads_daily_closet_overview`

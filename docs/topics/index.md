@@ -23,4 +23,5 @@
 | 投资人报表【核心业务报表】 | `ads_daily_investor` | [101](https://bi.alvinclub.ca/superset/dashboard/101/) | [fact.md](./投资人报表【核心业务报表】/fact.md) | [patterns.md](./投资人报表【核心业务报表】/patterns.md) |
 | 【Social Content】社媒表现数据看板 | `ads_daily_social_content` | [102](https://bi.alvinclub.ca/superset/dashboard/102/) | [fact.md](./【Social Content】社媒表现数据看板/fact.md) | [patterns.md](./【Social Content】社媒表现数据看板/patterns.md) |
 | 留存用户特征数据 | `ads_daily_retention_user_feature` / `ads_daily_retention_user_duration_bucket` | [103](https://bi.alvinclub.ca/superset/dashboard/103/) | [fact.md](./留存用户特征数据/fact.md) | [patterns.md](./留存用户特征数据/patterns.md) |
+| 视频编码转化 | `ads_daily_video_code_conversion` | [107](https://bi.alvinclub.ca/superset/dashboard/107/) | [fact.md](./视频编码转化/fact.md) | [patterns.md](./视频编码转化/patterns.md) |
 | 衣橱概览 | `ads_daily_closet_overview` | [106](https://bi.alvinclub.ca/superset/dashboard/106/) | [fact.md](./衣橱概览/fact.md) | [patterns.md](./衣橱概览/patterns.md) |

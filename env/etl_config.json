@@ -441,6 +441,21 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_video_code_conversion_daily",
+      "stage": "DWS",
+      "name": "DWS 视频编码转化事实 ETL",
+      "script": "jobs/dws/dws_video_code_conversion_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_video_daily",
+        "dim_auto_publish_video_task",
+        "dim_user_first_active",
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_video_code_conversion_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_appsflyer_download_daily",
       "stage": "DWS",
       "name": "DWS AppsFlyer 下载日事实 ETL",
@@ -745,6 +760,18 @@
         "dws_social_channel_daily"
       ],
       "schedule_group": "ads_daily_social_content"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_video_code_conversion",
+      "stage": "ADS",
+      "name": "ADS 视频编码转化日报 ETL",
+      "script": "jobs/ads/ads_daily_video_code_conversion.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_video_code_conversion_daily"
+      ],
+      "schedule_group": "ads_daily_video_code_conversion"
     }
   ]
 }
