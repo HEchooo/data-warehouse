@@ -205,8 +205,10 @@ def run_ads_daily_investor(dates: list[date]) -> None:
         active_video_count,
         new_video_view_count,
         new_video_contributed_view_count,
-        avg_video_view_count,
         avg_new_video_view_count,
+        new_video_7d_avg_view_count,
+        video_production_cost_usd,
+        cost_per_thousand_views_usd,
         new_download_count,
         play_download_conversion_rate,
         avg_video_download_conversion_count,
@@ -259,10 +261,13 @@ def run_ads_daily_investor(dates: list[date]) -> None:
     investor_video_base AS (
         SELECT
             v.dt,
+            v.channel,
+            v.video_id,
             v.video_key,
             v.is_new_video,
             v.is_active_video,
             v.daily_view_increment,
+            v.day_end_views,
             v.new_video_contributed_view_count,
             COALESCE(m.unified_video_key, v.video_key) AS investor_video_key
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily` v
@@ -293,6 +298,22 @@ def run_ads_daily_investor(dates: list[date]) -> None:
             AND v.dt <= DATE '{max_date}'
         GROUP BY investor_video_key
     ),
+    -- 读取 YouTube 视频时长，供制作成本口径复用。
+    youtube_video_duration_dim AS (
+        SELECT
+            CAST(video_id AS STRING) AS video_id,
+            SAFE_CAST(duration AS INT64) AS duration_sec
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
+        WHERE channel_id NOT IN ({youtube_bob_team_channel_ids_sql})
+    ),
+    -- 汇率表当前是单值字典，直接取 CNY -> USD 汇率。
+    cny_usd_exchange_rate AS (
+        SELECT
+            MAX(exchange_rate) AS cny_to_usd_rate
+        FROM `{PROJECT_ID}.{DATASET_ID}.currency_conversion_dict`
+        WHERE UPPER(from_currency) = 'CNY'
+            AND UPPER(to_currency) = 'USD'
+    ),
     -- 汇总投资人口径的视频相关指标；只有视频数量按统一视频键去重，播放量保持原口径。
     video_metrics AS (
         SELECT
@@ -309,10 +330,30 @@ def run_ads_daily_investor(dates: list[date]) -> None:
             ) AS active_video_count,
             COALESCE(SUM(v.daily_view_increment), 0) AS new_video_view_count,
             COALESCE(SUM(v.new_video_contributed_view_count), 0)
-                AS new_video_contributed_view_count
+                AS new_video_contributed_view_count,
+            COUNT(
+                DISTINCT IF(
+                    f.first_positive_view_dt = DATE_SUB(v.dt, INTERVAL 6 DAY),
+                    v.investor_video_key,
+                    NULL
+                )
+            ) AS published_7d_cohort_video_count,
+            COALESCE(SUM(IF(
+                f.first_positive_view_dt = DATE_SUB(v.dt, INTERVAL 6 DAY),
+                v.day_end_views,
+                0
+            )), 0) AS published_7d_cohort_view_count,
+            COALESCE(SUM(IF(
+                v.channel = 'youtube' AND v.is_new_video,
+                COALESCE(y.duration_sec, 0),
+                0
+            )), 0) AS new_youtube_video_duration_sec
         FROM investor_video_base v
         LEFT JOIN investor_video_first_positive_dt f
             ON v.investor_video_key = f.investor_video_key
+        LEFT JOIN youtube_video_duration_dim y
+            ON v.channel = 'youtube'
+            AND v.video_id = y.video_id
         GROUP BY v.dt
     ),
     -- 汇总当日新增下载数。
@@ -368,14 +409,6 @@ def run_ads_daily_investor(dates: list[date]) -> None:
         COALESCE(v.new_video_contributed_view_count, 0)
             AS new_video_contributed_view_count,
         CAST(CASE
-            WHEN COALESCE(v.active_video_count, 0) = 0 THEN 0
-            ELSE ROUND(
-                CAST(COALESCE(v.new_video_view_count, 0) AS NUMERIC)
-                / CAST(v.active_video_count AS NUMERIC),
-                4
-            )
-        END AS NUMERIC) AS avg_video_view_count,
-        CAST(CASE
             WHEN COALESCE(v.new_video_count, 0) = 0 THEN 0
             ELSE ROUND(
                 CAST(COALESCE(v.new_video_contributed_view_count, 0) AS NUMERIC)
@@ -383,6 +416,33 @@ def run_ads_daily_investor(dates: list[date]) -> None:
                 4
             )
         END AS NUMERIC) AS avg_new_video_view_count,
+        CAST(CASE
+            WHEN COALESCE(v.published_7d_cohort_video_count, 0) = 0 THEN 0
+            ELSE ROUND(
+                CAST(COALESCE(v.published_7d_cohort_view_count, 0) AS NUMERIC)
+                / CAST(v.published_7d_cohort_video_count AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS new_video_7d_avg_view_count,
+        CAST(ROUND(
+            CAST(COALESCE(v.new_youtube_video_duration_sec, 0) AS NUMERIC)
+            * 1.05
+            * COALESCE(r.cny_to_usd_rate, 0),
+            4
+        ) AS NUMERIC) AS video_production_cost_usd,
+        CAST(CASE
+            WHEN COALESCE(v.new_video_view_count, 0) = 0 THEN 0
+            ELSE ROUND(
+                (
+                    CAST(COALESCE(v.new_youtube_video_duration_sec, 0) AS NUMERIC)
+                    * 1.05
+                    * COALESCE(r.cny_to_usd_rate, 0)
+                )
+                / CAST(v.new_video_view_count AS NUMERIC)
+                * 1000,
+                4
+            )
+        END AS NUMERIC) AS cost_per_thousand_views_usd,
         COALESCE(dl.new_download_count, 0) AS new_download_count,
         CAST(CASE
             WHEN COALESCE(v.new_video_view_count, 0) = 0 THEN 0
@@ -474,6 +534,7 @@ def run_ads_daily_investor(dates: list[date]) -> None:
         ON d.dt = dev.dt
     LEFT JOIN registered_user_metrics u
         ON d.dt = u.dt
+    CROSS JOIN cny_usd_exchange_rate r
     """
 
     logging.info("开始处理: %s", TABLE_NAME)

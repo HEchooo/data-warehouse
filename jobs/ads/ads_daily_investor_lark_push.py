@@ -106,8 +106,10 @@ def fetch_investor_row(target_date: date) -> dict:
         new_video_count,
         active_video_count,
         new_video_view_count,
-        avg_video_view_count,
         avg_new_video_view_count,
+        new_video_7d_avg_view_count,
+        video_production_cost_usd,
+        cost_per_thousand_views_usd,
         new_download_count,
         play_download_conversion_rate,
         new_device_count,
@@ -183,10 +185,21 @@ def build_card_payload(row: dict) -> dict:
             f"**新增视频**：{format_int(row['new_video_count'])}",
             f"**活跃视频数**：{format_int(row['active_video_count'])}",
             f"**新增视频播放数**：{format_int(row['new_video_view_count'])}",
-            f"**视频平均播放数**：{format_rounded_int(row['avg_video_view_count'])}",
             (
                 "**新增视频平均播放数**："
                 f"{format_rounded_int(row['avg_new_video_view_count'])}"
+            ),
+            (
+                "**新增视频 7 日播放数**："
+                f"{format_rounded_int(row['new_video_7d_avg_view_count'])}"
+            ),
+            (
+                "**视频制作成本（美元）**："
+                f"{format_decimal(row['video_production_cost_usd'])}"
+            ),
+            (
+                "**每千次播放成本（美元）**："
+                f"{format_decimal(row['cost_per_thousand_views_usd'], 4)}"
             ),
         ]
     )

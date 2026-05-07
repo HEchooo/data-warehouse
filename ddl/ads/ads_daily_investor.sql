@@ -34,3 +34,15 @@ ADD COLUMN IF NOT EXISTS product_detail_exposure_pv INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_investor`
 ADD COLUMN IF NOT EXISTS avg_product_detail_exposure_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_investor`
+DROP COLUMN IF EXISTS avg_video_view_count;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_investor`
+ADD COLUMN IF NOT EXISTS new_video_7d_avg_view_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_investor`
+ADD COLUMN IF NOT EXISTS video_production_cost_usd NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_investor`
+ADD COLUMN IF NOT EXISTS cost_per_thousand_views_usd NUMERIC;

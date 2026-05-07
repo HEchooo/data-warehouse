@@ -30,8 +30,10 @@
 | 新增视频 | 某视频第一次被采集到且播放量大于 0 的那一天计为新增，后续日期不重复计数；自动发布跨平台复用同一 `task_id` 时，只要成功发布的平台数 `>= 1` 就按一个视频计算，手动发布不去重 |
 | 活跃视频数 | 当天有播放的视频数量；自动发布跨平台复用同一 `task_id` 时，只要成功发布的平台数 `>= 1` 就按一个视频计算，手动发布不去重 |
 | 新增视频播放数 | 当天新增播放次数 |
-| 视频平均播放数 | 新增视频播放数 / 活跃视频数 |
 | 新增视频平均播放数 | 新增视频产生的播放数 / 新增视频 |
+| 新增视频 7 日播放数 | 统计日 `dt` 回看 `dt-6` 新增视频 cohort，计算这些视频在 `dt` 当天累计播放数均值 |
+| 视频制作成本（美元） | 当天新增视频累计时长（秒）× `1.05`（人民币/秒）× `CNY->USD` 汇率 |
+| 每千次播放成本（美元） | `视频制作成本（美元） / 新增视频播放数 * 1000` |
 | 新增下载 | 当日新增的下载数 |
 | 播放下载转化率 | 新增下载 / 新增视频播放数 |
 | 新增设备数 | 当日新增的设备数 |
@@ -54,8 +56,10 @@
 | 新增视频 | `decom.ads_daily_investor` | `new_video_count` | 先按 `decom.dws_video_daily.is_new_video` 识别各平台视频首次正播放日期，再通过 `decom.dim_auto_publish_video_task.unified_video_key` 把自动发布且跨平台复用同一 `task_id` 的成功发布平台视频收敛成一个统一视频键；同一 `task_id` 只要成功平台数 `>= 1`，就只在该统一键最早的首次正播放日计 `1`；手动发布视频仍按原始 `video_key` 计数；当前仅保留 jhonson 团队视频 |
 | 活跃视频数 | `decom.ads_daily_investor` | `active_video_count` | 先按 `decom.dws_video_daily.is_active_video` 识别当天有播放增量的视频，再通过 `decom.dim_auto_publish_video_task.unified_video_key` 把自动发布且跨平台复用同一 `task_id` 的成功发布平台视频收敛成一个统一视频键做去重；同一 `task_id` 只要当天任一成功平台活跃，就记 `1`；手动发布视频仍按原始 `video_key` 计数；当前仅保留 jhonson 团队视频 |
 | 新增视频播放数 | `decom.dws_video_daily` | `daily_view_increment` 聚合 | `dt` 当天全量视频的播放增量之和，不限定 `发布时间 = dt`；当前仅保留 jhonson 团队视频 |
-| 视频平均播放数 | `decom.dws_video_daily` | 派生指标 | `new_video_view_count / active_video_count`，即活跃视频的平均播放增量；当前仅保留 jhonson 团队视频 |
 | 新增视频平均播放数 | `decom.ads_daily_investor` | `avg_new_video_view_count` | `new_video_contributed_view_count / new_video_count`；其中 `new_video_contributed_view_count` 是内部辅助字段，仅用于计算该指标，不在展示层单独输出 |
+| 新增视频 7 日播放数 | `decom.ads_daily_investor` | `new_video_7d_avg_view_count` | `published_7d_cohort_view_count / published_7d_cohort_video_count`；其中 `published_7d_cohort_video_count` / `published_7d_cohort_view_count` 为内部聚合分子分母：按统一视频键回看 `dt-6` 新增 cohort，统计 `dt` 当天累计播放样本数与总和 |
+| 视频制作成本（美元） | `decom.ads_daily_investor` | `video_production_cost_usd` | `new_youtube_video_duration_sec * 1.05 * cny_to_usd_rate`；`new_youtube_video_duration_sec` 仅统计 jhonson 团队 YouTube 渠道 `is_new_video = TRUE` 的 `videos.yt_videos.duration` 累计秒数，汇率来自 `decom.currency_conversion_dict` |
+| 每千次播放成本（美元） | `decom.ads_daily_investor` | `cost_per_thousand_views_usd` | `video_production_cost_usd / new_video_view_count * 1000`，分母直接复用表内“新增视频播放数” |
 | 新增下载 | `decom.dws_appsflyer_download_daily` | `new_download_count` | `dws_appsflyer_download_daily` 先落 `dt × platform` 的 AppsFlyer `install` 日新增下载；`ads_daily_investor` 再按 `dt` 汇总 iOS + Android 总数，按 `America/Toronto` 切天 |
 | 新增设备数 | `decom.ads_daily_investor` | `new_device_count` | 来自 `decom.dws_registered_app_device_daily` 的 app 设备日事实，按 `COUNT(DISTINCT IF(first_app_active_dt = dt, prop_device_id, NULL))` 计算 |
 | 活跃设备数 | `decom.ads_daily_investor` | `active_device_count` | 来自 `decom.dws_registered_app_device_daily` 的 app 设备日事实，按 `COUNT(DISTINCT prop_device_id)` 计算 |
@@ -81,6 +85,8 @@
 - 若源头累计播放值较前一日回落，则播放增量出现负数属于正常情况，当前口径保留该负值，不做截断为 `0`
 - 若某视频次日没有采集记录，则次日的日末累计播放数沿用前一日，次日播放增量记为 `0`
 - 新增视频平均播放数的分子使用内部辅助字段 `new_video_contributed_view_count`：取 `is_new_video = TRUE` 当天的 `raw_day_end_views`，表示该视频首次被采到正播放量时已经累计拿到的播放数；该辅助字段不在展示层单独输出
+- 新增视频 7 日播放数按 `first_positive_view_dt = dt-6` 的统一视频 cohort 计算，分子取 cohort 视频在 `dt` 当天的累计播放总和，分母取 cohort 视频去重数
+- 视频制作成本（美元）只使用 jhonson 团队 YouTube 新增视频的 `videos.yt_videos.duration`（秒）作为时长分子，先乘 `1.05` 人民币单价，再乘 `decom.currency_conversion_dict` 的 `CNY->USD` 汇率
 - AppsFlyer `daily_report/v5` 返回值按 `date + media source + campaign` 分组，同一天需先汇总 `Installs`
 - `ods_appsflyer_download` 需保留完整原始行，当前通过 `raw_row_json` 存储 AppsFlyer 每行返回字段
 - `dws_appsflyer_download_daily` 当前已升级为 `dt × platform` 复用事实；投资人主题最终粒度仍为 `dt`，新增下载需要先按 `dt` 汇总 iOS + Android，不能继续假设中层一日一行
@@ -97,7 +103,7 @@
 - Lark 推送不挂在高频共享 ETL 成功回调上；当前远程服务器高频运行主链路，若直接复用会重复发送
 - Lark 推送脚本默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的一行明细数据
 - Lark 卡片展示核心明细指标，当前包含 `人均商详页点击量`，且不再展示 `视频平均下载转化数`；仍不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
-- Lark 卡片中的“视频平均播放数”“新增视频平均播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
+- Lark 卡片中的“新增视频平均播放数”“新增视频 7 日播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
 - 本次仅修改逻辑与展示层，不包含历史分区回填；若要让历史日期统一新口径，需要单独确认回填方案
 - 推送时间若按上海固定时刻配置，需要考虑 `America/Toronto` 夏令时；要稳定拿到多伦多昨日完整数据，建议独立 cron 配到上海 `13:00` 之后
 
@@ -106,7 +112,7 @@
 - 外部来源：AppsFlyer Aggregate Pull API `daily_report/v5`
 - 配置：`env/appsflyer.json`
 - 配置：`env/lark_webhook.json`
-- 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `decom.dwd_event_log`, `decom.ods_appsflyer_download`
+- 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `decom.dwd_event_log`, `decom.ods_appsflyer_download`, `decom.currency_conversion_dict`
 - 中间表：`decom.dim_auto_publish_video_task`, `decom.dws_video_daily`, `decom.dws_appsflyer_download_daily`, `decom.dws_registered_app_device_daily`, `decom.dws_registered_app_user_daily`
 - 报表表：`decom.ads_daily_investor`
 - Superset：物理 dataset `ads_daily_investor`（id=228），chart `投资人报表（日表）-明细表`（id=574）
