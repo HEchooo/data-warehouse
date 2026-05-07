@@ -199,7 +199,7 @@ def build_card_payload(row: dict) -> dict:
             ),
             (
                 "**每千次播放成本（美元）**："
-                f"{format_decimal(row['cost_per_thousand_views_usd'], 4)}"
+                f"{format_decimal(row['cost_per_thousand_views_usd'], 2)}"
             ),
         ]
     )
@@ -224,16 +224,16 @@ def build_card_payload(row: dict) -> dict:
         [
             (
                 "**人均内容展示量**："
-                f"{format_decimal(row['avg_content_exposure_count'], 4)}"
+                f"{format_decimal(row['avg_content_exposure_count'], 2)}"
             ),
             (
                 "**人均内容点击量**："
-                f"{format_decimal(row['avg_content_click_count'], 4)}"
+                f"{format_decimal(row['avg_content_click_count'], 2)}"
             ),
             f"**内容点击率**：{format_percent(row['content_ctr'])}",
             (
                 "**人均商详页点击量**："
-                f"{format_decimal(row['avg_product_detail_exposure_count'], 4)}"
+                f"{format_decimal(row['avg_product_detail_exposure_count'], 2)}"
             ),
         ]
     )
