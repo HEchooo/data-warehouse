@@ -200,6 +200,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     - is_new_user：是否首活日
     - is_next_day_retained / is_day_7_retained：未来观察日回访标记
     - duration_sec：当日停留时长
+    - followed_account_count：当日关注的去重账号数
     - viewed_product_detail / used_search / used_ai_tryon /
       created_model / followed_account：行为特征布尔值
     """
@@ -228,6 +229,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         is_next_day_retained,
         is_day_7_retained,
         duration_sec,
+        followed_account_count,
         viewed_product_detail,
         used_search,
         used_ai_tryon,
@@ -339,11 +341,14 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     follow_behavior_daily AS (
         SELECT
             DATE({service_ts}, '{TORONTO_TZ}') AS dt,
-            CAST(user_id AS STRING) AS user_id
+            CAST(user_id AS STRING) AS user_id,
+            COUNT(DISTINCT CAST(star_user_id AS STRING)) AS followed_account_count
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_star_follow`
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
             AND user_id IS NOT NULL
             AND CAST(user_id AS STRING) != ''
+            AND star_user_id IS NOT NULL
+            AND CAST(star_user_id AS STRING) != ''
         GROUP BY dt, user_id
     )
     SELECT
@@ -358,11 +363,12 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         n1.user_id IS NOT NULL AS is_next_day_retained,
         n7.user_id IS NOT NULL AS is_day_7_retained,
         COALESCE(d.duration_sec, 0) AS duration_sec,
+        COALESCE(f.followed_account_count, 0) AS followed_account_count,
         COALESCE(e.viewed_product_detail, 0) AS viewed_product_detail,
         COALESCE(e.used_search, 0) AS used_search,
         IF(t.user_id IS NOT NULL, 1, 0) AS used_ai_tryon,
         IF(m.user_id IS NOT NULL, 1, 0) AS created_model,
-        IF(f.user_id IS NOT NULL, 1, 0) AS followed_account,
+        IF(COALESCE(f.followed_account_count, 0) > 0, 1, 0) AS followed_account,
         CURRENT_TIMESTAMP() AS update_time
     FROM cohort_users c
     LEFT JOIN future_active_users n1

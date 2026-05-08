@@ -30,3 +30,9 @@
 - `decom.ads_daily_retention_user_feature` 只再消费 `decom.dws_user_retention_feature_daily`
 - `decom.ads_daily_retention_user_duration_bucket` 直接消费 `decom.dws_user_activity_daily`
 - 如果是单个行为人数不对，优先查 `dws_user_activity_daily` 对应日期和用户，再决定是否回溯 `dwd_event_log` 或服务端事实表
+
+## “累计关注账号数” 是展示名，实际按 cohort 当天关注去重账号数分桶
+
+- 本主题新 chart 虽然沿用“累计关注账号数”这个展示名，但实际口径不是历史累计
+- 正确口径是：对 `dt` 当天 cohort 用户，统计其在 `dt` 当天关注的去重账号数，再看这些用户在 `dt+1` / `dt+7` 是否留存
+- 排查桶人数异常时，先看 `dws_user_activity_daily.followed_account_count`，不要先去查历史累计关系
