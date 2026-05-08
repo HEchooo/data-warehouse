@@ -189,6 +189,16 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_push_daily",
+      "stage": "DWS",
+      "name": "DWS push 主题日事实 ETL",
+      "script": "jobs/dws/dws_push_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dws_push_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_content_item_device_daily",
       "stage": "DWS",
       "name": "DWS 设备级内容 item 曝光点击事实 ETL",
@@ -540,6 +550,18 @@
         "dws_closet_daily"
       ],
       "schedule_group": "ads_daily_closet_overview"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_push",
+      "stage": "ADS",
+      "name": "ADS push 日报 ETL",
+      "script": "jobs/ads/ads_daily_push.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_push_daily"
+      ],
+      "schedule_group": "ads_daily_push"
     },
     {
       "layer": "ADS",
