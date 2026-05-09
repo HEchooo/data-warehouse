@@ -20,3 +20,6 @@ CLUSTER BY user_id;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
 ADD COLUMN followed_account_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
+ADD COLUMN closet_penetrated INT64;

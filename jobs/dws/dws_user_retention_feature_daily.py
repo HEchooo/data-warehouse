@@ -111,7 +111,7 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
 
     指标：
     - retained / not retained 的用户数
-    - 六类特征的 retained_value / not_retained_value
+    - 八类特征的 retained_value / not_retained_value
     - 停留时长的四类分子字段
     """
     if not dates:
@@ -191,6 +191,10 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
         SELECT 5 AS feature_order, '创建模特' AS feature_name
         UNION ALL
         SELECT 6 AS feature_order, '搜索' AS feature_name
+        UNION ALL
+        SELECT 7 AS feature_order, '衣橱渗透' AS feature_name
+        UNION ALL
+        SELECT 8 AS feature_order, '非衣橱渗透' AS feature_name
     ),
     -- 当前批次用户活动明细，只保留目标日期。
     user_activity AS (
@@ -208,7 +212,8 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
             used_search,
             used_ai_tryon,
             created_model,
-            followed_account
+            followed_account,
+            closet_penetrated
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_activity_daily`
         WHERE dt IN ({dates_str})
     ),
@@ -227,7 +232,8 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
             used_search,
             used_ai_tryon,
             created_model,
-            followed_account
+            followed_account,
+            closet_penetrated
         FROM user_activity
 
         UNION ALL
@@ -245,7 +251,8 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
             used_search,
             used_ai_tryon,
             created_model,
-            followed_account
+            followed_account,
+            closet_penetrated
         FROM user_activity
         WHERE is_new_user
 
@@ -264,7 +271,8 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
             used_search,
             used_ai_tryon,
             created_model,
-            followed_account
+            followed_account,
+            closet_penetrated
         FROM user_activity
         WHERE NOT is_new_user
     ),
@@ -675,6 +683,110 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
             k.is_next_day_observation_started,
             k.is_day_7_observation_started
     ),
+    -- 衣橱渗透特征聚合层。
+    closet_penetration_feature AS (
+        SELECT
+            k.dt,
+            k.user_group,
+            7 AS feature_order,
+            '衣橱渗透' AS feature_name,
+            CASE
+                WHEN NOT k.is_next_day_observation_started
+                    THEN NULL
+                ELSE COUNTIF(b.is_next_day_retained AND b.closet_penetrated = 1)
+            END AS next_day_retained_value,
+            CASE
+                WHEN NOT k.is_day_7_observation_started
+                    THEN NULL
+                ELSE COUNTIF(b.is_day_7_retained AND b.closet_penetrated = 1)
+            END AS day_7_retained_value,
+            CASE
+                WHEN NOT k.is_next_day_observation_started
+                    THEN NULL
+                ELSE COUNTIF(
+                    b.user_id IS NOT NULL
+                    AND NOT COALESCE(b.is_next_day_retained, FALSE)
+                    AND b.closet_penetrated = 1
+                )
+            END AS next_day_not_retained_value,
+            CASE
+                WHEN NOT k.is_day_7_observation_started
+                    THEN NULL
+                ELSE COUNTIF(
+                    b.user_id IS NOT NULL
+                    AND NOT COALESCE(b.is_day_7_retained, FALSE)
+                    AND b.closet_penetrated = 1
+                )
+            END AS day_7_not_retained_value,
+            NULL AS next_day_retained_duration_sum_sec,
+            NULL AS day_7_retained_duration_sum_sec,
+            NULL AS next_day_not_retained_duration_sum_sec,
+            NULL AS day_7_not_retained_duration_sum_sec
+        FROM group_keys_with_observation_status k
+        LEFT JOIN activity_by_group b
+            ON b.dt = k.dt
+            AND b.user_group = k.user_group
+        GROUP BY
+            k.dt,
+            k.user_group,
+            k.is_next_day_observation_started,
+            k.is_day_7_observation_started
+    ),
+    -- 非衣橱渗透特征聚合层。
+    non_closet_penetration_feature AS (
+        SELECT
+            k.dt,
+            k.user_group,
+            8 AS feature_order,
+            '非衣橱渗透' AS feature_name,
+            CASE
+                WHEN NOT k.is_next_day_observation_started
+                    THEN NULL
+                ELSE COUNTIF(
+                    b.is_next_day_retained
+                    AND b.closet_penetrated = 0
+                )
+            END AS next_day_retained_value,
+            CASE
+                WHEN NOT k.is_day_7_observation_started
+                    THEN NULL
+                ELSE COUNTIF(
+                    b.is_day_7_retained
+                    AND b.closet_penetrated = 0
+                )
+            END AS day_7_retained_value,
+            CASE
+                WHEN NOT k.is_next_day_observation_started
+                    THEN NULL
+                ELSE COUNTIF(
+                    b.user_id IS NOT NULL
+                    AND NOT COALESCE(b.is_next_day_retained, FALSE)
+                    AND b.closet_penetrated = 0
+                )
+            END AS next_day_not_retained_value,
+            CASE
+                WHEN NOT k.is_day_7_observation_started
+                    THEN NULL
+                ELSE COUNTIF(
+                    b.user_id IS NOT NULL
+                    AND NOT COALESCE(b.is_day_7_retained, FALSE)
+                    AND b.closet_penetrated = 0
+                )
+            END AS day_7_not_retained_value,
+            NULL AS next_day_retained_duration_sum_sec,
+            NULL AS day_7_retained_duration_sum_sec,
+            NULL AS next_day_not_retained_duration_sum_sec,
+            NULL AS day_7_not_retained_duration_sum_sec
+        FROM group_keys_with_observation_status k
+        LEFT JOIN activity_by_group b
+            ON b.dt = k.dt
+            AND b.user_group = k.user_group
+        GROUP BY
+            k.dt,
+            k.user_group,
+            k.is_next_day_observation_started,
+            k.is_day_7_observation_started
+    ),
     -- 汇总所有特征行，供最终结果统一回写。
     feature_values AS (
         SELECT * FROM duration_feature
@@ -688,8 +800,12 @@ def run_dws_user_retention_feature_daily(dates: list[date]) -> None:
         SELECT * FROM model_feature
         UNION ALL
         SELECT * FROM search_feature
+        UNION ALL
+        SELECT * FROM closet_penetration_feature
+        UNION ALL
+        SELECT * FROM non_closet_penetration_feature
     ),
-    -- 生成最终结果主键，保证每个日期和用户群都有完整 6 行。
+    -- 生成最终结果主键，保证每个日期和用户群都有完整 8 行。
     keys AS (
         SELECT
             g.dt,

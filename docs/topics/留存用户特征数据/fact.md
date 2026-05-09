@@ -46,6 +46,8 @@
 | 浏览商详 | 对应 cohort 用户中，在 `dt` 当日发生过 `event_name = 'v_product_detail'` 的去重用户数 |
 | 创建模特 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type = 'MODEL'` 的去重用户数 |
 | 搜索 | 对应 cohort 用户中，在 `dt` 当日发生过 `event_name IN ('c_home_search', 'c_shop_search')` 的去重用户数 |
+| 衣橱渗透 | 对应 cohort 用户中，在 `dt` 当日同时满足两件事的去重用户数：日志中存在 `event_name = 'v_closet'`，且 `v3_decom.user_fashion_closet` 当日存在 `type IN ('SINGLE', 'OUTFIT')` |
+| 非衣橱渗透 | 对应 cohort 用户中，在 `dt` 当日不满足“衣橱渗透”条件的去重用户数；等价于 cohort 总人数减去衣橱渗透用户数 |
 
 ### 留存与非留存用户时长分布
 
@@ -74,8 +76,8 @@
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |------|------|------|------|
 | 用户群 | `decom.ads_daily_retention_user_feature` | `user_group` | `新用户 / 老用户 / 全量登录用户`；按用户粒度从 `decom.dws_user_activity_daily` 收敛，不直接复用平台粒度 `is_new_user` |
-| 指标行顺序 | `decom.ads_daily_retention_user_feature` | `feature_order` | 固定为 `1-6`，对应停留时长、AI试穿、关注、商详、创建模特、搜索 |
-| 指标名称 | `decom.ads_daily_retention_user_feature` | `feature_name` | 当前固定输出 6 个特征项，供 Superset 直接展示 |
+| 指标行顺序 | `decom.ads_daily_retention_user_feature` | `feature_order` | 固定为 `1-8`，对应停留时长、AI试穿、关注、商详、创建模特、搜索、衣橱渗透、非衣橱渗透 |
+| 指标名称 | `decom.ads_daily_retention_user_feature` | `feature_name` | 当前固定输出 8 个特征项，供 Superset 直接展示 |
 | 次日留存用户值 | `decom.ads_daily_retention_user_feature` | `next_day_retained_value` | 若 `dt+1` 的观察日尚未开始则返回 `NULL`；观察日开始后按实时回访进度滚动更新。停留时长行为平均秒数，其余行为为做过该行为的去重用户数 |
 | 7日留存用户值 | `decom.ads_daily_retention_user_feature` | `day_7_retained_value` | 若 `dt+7` 的观察日尚未开始则返回 `NULL`；观察日开始后按实时回访进度滚动更新。停留时长行为平均秒数，其余行为为做过该行为的去重用户数 |
 | 次日非留存用户值 | `decom.ads_daily_retention_user_feature` | `next_day_not_retained_value` | 若 `dt+1` 的观察日尚未开始则返回 `NULL`；观察日开始后按实时未回访进度滚动更新。停留时长行为平均秒数，其余行为为做过该行为的去重用户数 |
@@ -118,20 +120,22 @@
 - 当前主题只统计已登录用户，不含游客设备
 - cohort 主体先沉到 `decom.dws_user_activity_daily`，再分别聚合到 `decom.dws_user_retention_feature_daily` 和 `decom.ads_daily_retention_user_duration_bucket`
 - 服务端行为 `AI试穿 / 关注账号 / 创建模特` 分别来自 `v3_decom.common_ext_ai_task`、`v3_decom.community_star_follow`、`v3_decom.common_ext_ai_task`
-- 事件侧行为 `浏览商详 / 搜索 / 停留时长` 先沉到 `decom.dws_user_activity_daily`
+- 事件侧行为 `浏览商详 / 搜索 / 停留时长 / 衣橱首页曝光` 先沉到 `decom.dws_user_activity_daily`
+- `衣橱渗透` 的留存主题口径为“同日 `v_closet` + 同日 `type IN ('SINGLE', 'OUTFIT')` 的 cohort 用户数”；这里不直接复用 `【AI-Fashion】衣橱概览` 中 `type = 'SINGLE'` 的分子定义
+- `非衣橱渗透` 为同一 cohort 下“不满足衣橱渗透条件”的补集用户数
 - 行为类指标采用布尔判定口径：用户在 `dt` 当日只要发生过至少 1 次，就记入该行为人数
 - `日均停留时长` 为了支持跨天聚合，除单日平均值外，额外落地 4 个时长分子字段；报表层应使用 `SUM(分子) / SUM(对应用户数)` 计算区间平均值
 - 时长分桶图明确排除 `0 秒` 用户，因此各时长桶用户数加总默认不会回对到第一张图里的 cohort 总人数
 - `dws_user_activity_daily.followed_account_count` 表示 cohort 用户在 `dt` 当天关注的去重账号数；新 chart 虽沿用“累计关注账号数”展示名，但实际按该字段分桶
 - 关注账号数分桶图明确排除 `0` 个当日关注账号的用户，因此各关注桶用户数加总默认不会回对到第一张图里的 cohort 总人数
-- 当前主题已完成特征对比表的生产表字段扩展、Superset 资产更新，并已回刷 `2026-04-01 ~ 2026-04-17` 历史分区
+- 特征对比表原有字段已完成生产表扩展与 Superset 资产更新；本次新增“衣橱渗透”后，是否执行 DDL、刷新受影响分区并让 dashboard 生效，需要单独执行
 - 时长分桶表的代码、DDL 与调度配置已补齐；是否创建生产表、刷新历史分区并创建 Superset 资产，需要单独执行
 - 累计关注账号数分桶表的代码、DDL 与调度配置已补齐；是否创建生产表、刷新历史分区并创建 Superset 资产，需要单独执行
 
 ## 依赖
 
 - 上游：`decom.dws_user_retention_feature_daily`, `decom.dws_user_activity_daily`
-- 中间表：`decom.dws_user_activity_daily`, `decom.dws_user_retention_feature_daily`, `decom.dws_user_daily`, `decom.dwd_event_log`, `v3_decom.common_ext_ai_task`, `v3_decom.community_star_follow`
+- 中间表：`decom.dws_user_activity_daily`, `decom.dws_user_retention_feature_daily`, `decom.dws_user_daily`, `decom.dwd_event_log`, `v3_decom.common_ext_ai_task`, `v3_decom.community_star_follow`, `v3_decom.user_fashion_closet`
 - 报表表：`decom.ads_daily_retention_user_feature`, `decom.ads_daily_retention_user_duration_bucket`, `decom.ads_daily_retention_user_follow_bucket`
 - Superset：物理 dataset `ads_daily_retention_user_feature`（id=232），chart `留存用户与非留存用户特征对比`（id=581），dashboard `【AI-Fashion】留存用户的特征数据`（id=103）
 - 脚本：`jobs/ads/ads_daily_retention_user_feature.py`, `jobs/ads/ads_daily_retention_user_duration_bucket.py`, `jobs/ads/ads_daily_retention_user_follow_bucket.py`

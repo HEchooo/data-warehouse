@@ -86,6 +86,19 @@ def service_ts_expr(field_name: str = "gmt_create") -> str:
     return f"TIMESTAMP({field_name}, 'UTC')"
 
 
+def service_change_ts_expr() -> str:
+    """
+    Datastream 源表优先用 source_timestamp 判断最近变更；
+    缺失时回退到 gmt_update / gmt_create，避免漏掉最近同步的新行。
+    """
+    return (
+        "COALESCE("
+        "TIMESTAMP_MILLIS(datastream_metadata.source_timestamp), "
+        "TIMESTAMP(COALESCE(gmt_update, gmt_create), 'UTC')"
+        ")"
+    )
+
+
 def get_user_activity_dates_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
 ) -> list[date]:
@@ -100,6 +113,7 @@ def get_user_activity_dates_to_process(
     """
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
+    service_change_ts = service_change_ts_expr()
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
@@ -121,7 +135,7 @@ def get_user_activity_dates_to_process(
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
             AND dt IS NOT NULL
     ),
-    -- 最近 6 小时更新的登录事件业务日，直接影响时长、搜索、商详等行为特征。
+    -- 最近 6 小时更新的登录事件业务日，直接影响时长、搜索、商详、衣橱曝光等行为特征。
     changed_event_dates AS (
         SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS source_dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
@@ -150,6 +164,15 @@ def get_user_activity_dates_to_process(
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.community_star_follow`
         WHERE {service_ts} >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
     ),
+    -- 最近 6 小时衣橱服务端行为业务日，影响衣橱渗透特征。
+    changed_closet_service_dates AS (
+        SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS source_dt
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_fashion_closet`
+        WHERE {service_change_ts} >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND user_id IS NOT NULL
+            AND user_id != ''
+            AND type IN ('SINGLE', 'OUTFIT')
+    ),
     -- 当天行为变化直接重刷当天分区。
     direct_dates AS (
         SELECT source_dt AS dt
@@ -166,6 +189,9 @@ def get_user_activity_dates_to_process(
         UNION DISTINCT
         SELECT source_dt AS dt
         FROM changed_follow_dates
+        UNION DISTINCT
+        SELECT source_dt AS dt
+        FROM changed_closet_service_dates
     ),
     -- 次留 / 7 留依赖未来活跃变化，需要把未来活跃回推到更早 cohort 日期。
     retention_dates AS (
@@ -202,7 +228,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     - duration_sec：当日停留时长
     - followed_account_count：当日关注的去重账号数
     - viewed_product_detail / used_search / used_ai_tryon /
-      created_model / followed_account：行为特征布尔值
+      created_model / followed_account / closet_penetrated：行为特征布尔值
     """
     if not dates:
         logging.info("没有新的 dws_user_activity_daily 日期需要处理")
@@ -235,6 +261,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         used_ai_tryon,
         created_model,
         followed_account,
+        closet_penetrated,
         update_time
     )
     WITH
@@ -299,13 +326,14 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         )
         GROUP BY dt, user_id
     ),
-    -- 事件侧行为聚合层：统计商详和搜索是否发生过。
+    -- 事件侧行为聚合层：统计商详、搜索和衣橱曝光是否发生过。
     event_behavior_daily AS (
         SELECT
             dt,
             user_id,
             MAX(IF(event_name = 'v_product_detail', 1, 0)) AS viewed_product_detail,
-            MAX(IF(event_name IN ('c_home_search', 'c_shop_search'), 1, 0)) AS used_search
+            MAX(IF(event_name IN ('c_home_search', 'c_shop_search'), 1, 0)) AS used_search,
+            MAX(IF(event_name = 'v_closet', 1, 0)) AS viewed_closet
         FROM logged_in_event_base
         GROUP BY dt, user_id
     ),
@@ -350,6 +378,18 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
             AND star_user_id IS NOT NULL
             AND CAST(star_user_id AS STRING) != ''
         GROUP BY dt, user_id
+    ),
+    -- 服务端衣橱使用行为聚合层：按天去重到用户。
+    closet_use_behavior_daily AS (
+        SELECT
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            CAST(user_id AS STRING) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_fashion_closet`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND user_id IS NOT NULL
+            AND user_id != ''
+            AND type IN ('SINGLE', 'OUTFIT')
+        GROUP BY dt, user_id
     )
     SELECT
         c.dt,
@@ -369,6 +409,12 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         IF(t.user_id IS NOT NULL, 1, 0) AS used_ai_tryon,
         IF(m.user_id IS NOT NULL, 1, 0) AS created_model,
         IF(COALESCE(f.followed_account_count, 0) > 0, 1, 0) AS followed_account,
+        IF(
+            COALESCE(e.viewed_closet, 0) = 1
+            AND u.user_id IS NOT NULL,
+            1,
+            0
+        ) AS closet_penetrated,
         CURRENT_TIMESTAMP() AS update_time
     FROM cohort_users c
     LEFT JOIN future_active_users n1
@@ -391,7 +437,10 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         AND m.user_id = c.user_id
     LEFT JOIN follow_behavior_daily f
         ON f.dt = c.dt
-        AND f.user_id = c.user_id;
+        AND f.user_id = c.user_id
+    LEFT JOIN closet_use_behavior_daily u
+        ON u.dt = c.dt
+        AND u.user_id = c.user_id;
     """
     logging.info("开始处理: dws_user_activity_daily")
     job = client.query(query)
