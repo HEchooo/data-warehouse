@@ -70,19 +70,26 @@ def get_ads_video_code_conversion_dates_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
 ) -> list[date]:
     """
-    视频编码转化 ADS 只消费 dws_video_code_conversion_daily。
+    视频编码转化 ADS 同时消费 task 粒度事实和搜索用户中间层。
 
     规则：
-    - 目标表不存在或为空时，按 DWS 已落地历史分区全量初始化
-    - 目标表已存在时，只读取最近 6 小时内 DWS 变更的 dt
+    - 目标表不存在或为空时，按相关 DWS 已落地历史分区全量初始化
+    - 目标表已存在时，只读取最近 6 小时内相关 DWS 变更的 dt
     """
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
         query = f"""
         SELECT DISTINCT dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_conversion_daily`
-        WHERE dt IS NOT NULL
+        FROM (
+            SELECT dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_conversion_daily`
+            WHERE dt IS NOT NULL
+            UNION DISTINCT
+            SELECT dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_search_user_daily`
+            WHERE dt IS NOT NULL
+        )
         ORDER BY dt
         """
         results = client.query(query).result()
@@ -90,9 +97,17 @@ def get_ads_video_code_conversion_dates_to_process(
 
     query = f"""
     SELECT DISTINCT dt
-    FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_conversion_daily`
-    WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-        AND dt IS NOT NULL
+    FROM (
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_conversion_daily`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND dt IS NOT NULL
+        UNION DISTINCT
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_search_user_daily`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND dt IS NOT NULL
+    )
     ORDER BY dt
     """
     results = client.query(query).result()
@@ -103,8 +118,9 @@ def run_ads_daily_video_code_conversion(dates: list[date]) -> None:
     """
     视频编码转化 ADS。
 
-    当前版本只消费：
+    当前版本消费：
     - dws_video_code_conversion_daily
+    - dws_video_code_search_user_daily
 
     ADS 只保留报表展示字段和转化率轻派生。
     """
@@ -143,18 +159,60 @@ def run_ads_daily_video_code_conversion(dates: list[date]) -> None:
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_conversion_daily`
         WHERE dt IN ({dates_str})
     ),
+    -- overall 口径覆盖的编码集合，仅保留已映射到任务的编码。
+    overall_code_scope AS (
+        SELECT DISTINCT
+            dt,
+            promotion_code
+        FROM task_level
+        WHERE promotion_code IS NOT NULL
+            AND promotion_code != ''
+    ),
+    -- overall 粒度播放增量分母。
+    overall_play_metric_daily AS (
+        SELECT
+            dt,
+            COALESCE(SUM(play_view_increment), 0) AS play_view_increment
+        FROM task_level
+        GROUP BY dt
+    ),
+    -- overall 粒度搜索用户数，按用户全局去重。
+    overall_search_metric_daily AS (
+        SELECT
+            s.dt,
+            COUNT(DISTINCT s.user_id) AS search_user_count,
+            COUNT(DISTINCT IF(s.is_first_active_today, s.user_id, NULL))
+                AS first_active_search_user_count
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_search_user_daily` s
+        INNER JOIN overall_code_scope c
+            ON s.dt = c.dt
+            AND s.promotion_code = c.promotion_code
+        WHERE s.dt IN ({dates_str})
+        GROUP BY s.dt
+    ),
+    -- overall 粒度日期键集合。
+    overall_date_keys AS (
+        SELECT dt
+        FROM overall_play_metric_daily
+        UNION DISTINCT
+        SELECT dt
+        FROM overall_search_metric_daily
+    ),
     -- 全局汇总（不区分 task_id）。
     overall_level AS (
         SELECT
-            dt,
+            k.dt,
             CAST(NULL AS STRING) AS task_id,
             CAST(NULL AS STRING) AS promotion_code,
-            COALESCE(SUM(play_view_increment), 0) AS play_view_increment,
-            COALESCE(SUM(search_user_count), 0) AS search_user_count,
-            COALESCE(SUM(first_active_search_user_count), 0)
+            COALESCE(p.play_view_increment, 0) AS play_view_increment,
+            COALESCE(s.search_user_count, 0) AS search_user_count,
+            COALESCE(s.first_active_search_user_count, 0)
                 AS first_active_search_user_count
-        FROM task_level
-        GROUP BY dt
+        FROM overall_date_keys k
+        LEFT JOIN overall_play_metric_daily p
+            ON k.dt = p.dt
+        LEFT JOIN overall_search_metric_daily s
+            ON k.dt = s.dt
     ),
     -- 合并 task 粒度与 overall 粒度。
     merged AS (

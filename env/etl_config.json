@@ -451,6 +451,19 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_video_code_search_user_daily",
+      "stage": "DWS",
+      "name": "DWS 视频编码搜索用户明细 ETL",
+      "script": "jobs/dws/dws_video_code_search_user_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dim_user_first_active"
+      ],
+      "schedule_group": "dws_video_code_search_user_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_video_code_conversion_daily",
       "stage": "DWS",
       "name": "DWS 视频编码转化事实 ETL",
@@ -459,8 +472,7 @@
       "depends_on": [
         "dws_video_daily",
         "dim_auto_publish_video_task",
-        "dim_user_first_active",
-        "dwd_event_log"
+        "dws_video_code_search_user_daily"
       ],
       "schedule_group": "dws_video_code_conversion_daily"
     },
@@ -803,7 +815,8 @@
       "script": "jobs/ads/ads_daily_video_code_conversion.py",
       "enabled": true,
       "depends_on": [
-        "dws_video_code_conversion_daily"
+        "dws_video_code_conversion_daily",
+        "dws_video_code_search_user_daily"
       ],
       "schedule_group": "ads_daily_video_code_conversion"
     }

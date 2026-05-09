@@ -145,7 +145,9 @@
 - 社媒内容链路：
   - `videos.* -> dim_video -> dws_social_video_snapshot_daily -> dws_social_video_state_daily + dim_auto_publish_video_task -> dws_social_channel_daily -> ads_daily_social_content`
 - 视频编码转化链路：
-  - `videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dwd_event_log + dim_user_first_active -> dws_video_code_conversion_daily -> ads_daily_video_code_conversion`
+  - `dwd_event_log + dim_user_first_active -> dws_video_code_search_user_daily`
+  - `videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dws_video_code_search_user_daily -> dws_video_code_conversion_daily`
+  - `dws_video_code_conversion_daily + dws_video_code_search_user_daily -> ads_daily_video_code_conversion`
 - 衣橱概览链路：
   - `v3_decom.user_fashion_closet -> dim_user_closet_first_use`
   - `dwd_event_log + dws_user_daily + dim_user_closet_first_use + v3_decom.user_fashion_closet -> dws_closet_daily -> ads_daily_closet_overview`

@@ -103,21 +103,27 @@ def get_video_code_conversion_dates_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
 ) -> list[date]:
     """
-    视频编码转化 DWS 同时依赖视频播放、搜索事件、首活维表和视频任务映射。
+    视频编码转化 DWS 同时依赖视频播放、搜索用户中间层和视频任务映射。
 
     规则：
-    - 目标表不存在或为空时，按 dws_video_daily 全量初始化历史日期
+    - 目标表不存在或为空时，按播放事实与搜索用户中间层全量初始化历史日期
     - 目标表已存在时，按最近 6 小时受影响日期增量重刷
     """
-    event_ts = event_ts_expr()
     task_change_ts = video_task_change_ts_expr()
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
         query = f"""
         SELECT DISTINCT dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily`
-        WHERE dt IS NOT NULL
+        FROM (
+            SELECT dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_daily`
+            WHERE dt IS NOT NULL
+            UNION DISTINCT
+            SELECT dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_search_user_daily`
+            WHERE dt IS NOT NULL
+        )
         ORDER BY dt
         """
         results = client.query(query).result()
@@ -132,22 +138,12 @@ def get_video_code_conversion_dates_to_process(
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
             AND dt IS NOT NULL
     ),
-    -- 最近 6 小时变更的搜索事件日期（仅保留 8 位编码搜索）。
-    changed_search_dates AS (
-        SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+    -- 最近 6 小时变更的搜索用户中间层日期。
+    changed_search_user_dates AS (
+        SELECT DISTINCT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_search_user_daily`
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-            AND event_name IN ('c_home_search', 'c_shop_search', 'c_tag')
-            AND NULLIF(prop_user_id, '') IS NOT NULL
-            AND REGEXP_CONTAINS(JSON_VALUE(ext, '$.search_content'), r'^\\d{{8}}$')
-            AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
-    ),
-    -- 最近 6 小时变更的用户首活日期。
-    changed_first_active_dates AS (
-        SELECT DISTINCT first_active_date AS dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dim_user_first_active`
-        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-            AND first_active_date IS NOT NULL
+            AND dt IS NOT NULL
     ),
     -- 最近 6 小时发生变更的自动发布 task_id。
     changed_task_ids AS (
@@ -200,24 +196,19 @@ def get_video_code_conversion_dates_to_process(
     ),
     -- 最近变更 promotion_code 对应的搜索日期。
     changed_task_search_dates AS (
-        SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE event_name IN ('c_home_search', 'c_shop_search', 'c_tag')
-            AND NULLIF(prop_user_id, '') IS NOT NULL
-            AND REGEXP_CONTAINS(JSON_VALUE(ext, '$.search_content'), r'^\\d{{8}}$')
-            AND JSON_VALUE(ext, '$.search_content') IN (
+        SELECT DISTINCT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_search_user_daily`
+        WHERE promotion_code IN (
                 SELECT promotion_code
                 FROM changed_task_codes
             )
-            AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
+            AND dt IS NOT NULL
     )
     SELECT DISTINCT dt
     FROM (
         SELECT dt FROM changed_video_dates
         UNION DISTINCT
-        SELECT dt FROM changed_search_dates
-        UNION DISTINCT
-        SELECT dt FROM changed_first_active_dates
+        SELECT dt FROM changed_search_user_dates
         UNION DISTINCT
         SELECT dt FROM changed_task_video_dates
         UNION DISTINCT
@@ -248,7 +239,6 @@ def run_dws_video_code_conversion_daily(dates: list[date]) -> None:
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
-    event_ts = event_ts_expr()
     task_change_ts = video_task_change_ts_expr()
 
     query = f"""
@@ -317,31 +307,19 @@ def run_dws_video_code_conversion_daily(dates: list[date]) -> None:
             ON v.dt = d.dt
         GROUP BY v.dt, t.task_id, t.promotion_code
     ),
-    -- 搜索事件基础明细（仅保留 8 位编码和已登录用户）。
-    search_event_daily AS (
-        SELECT DISTINCT
-            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
-            NULLIF(prop_user_id, '') AS user_id,
-            JSON_VALUE(ext, '$.search_content') AS promotion_code
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE event_name IN ('c_home_search', 'c_shop_search', 'c_tag')
-            AND NULLIF(prop_user_id, '') IS NOT NULL
-            AND REGEXP_CONTAINS(JSON_VALUE(ext, '$.search_content'), r'^\\d{{8}}$')
-            AND DATE({event_ts}, '{TORONTO_TZ}') IN (
-                SELECT dt
-                FROM date_list
-            )
-    ),
-    -- 任务维度搜索用户集合。
+    -- 搜索用户级中间层明细。
     task_search_user_daily AS (
         SELECT DISTINCT
             s.dt,
             p.task_id,
             s.promotion_code,
-            s.user_id
-        FROM search_event_daily s
+            s.user_id,
+            s.is_first_active_today
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_video_code_search_user_daily` s
         INNER JOIN task_promotion_map p
             ON s.promotion_code = p.promotion_code
+        INNER JOIN date_list d
+            ON s.dt = d.dt
     ),
     -- 任务维度搜索分子聚合（含首活下载分子）。
     task_search_metric_daily AS (
@@ -350,12 +328,9 @@ def run_dws_video_code_conversion_daily(dates: list[date]) -> None:
             s.task_id,
             s.promotion_code,
             COUNT(DISTINCT s.user_id) AS search_user_count,
-            COUNT(
-                DISTINCT IF(f.first_active_date = s.dt, s.user_id, NULL)
-            ) AS first_active_search_user_count
+            COUNT(DISTINCT IF(s.is_first_active_today, s.user_id, NULL))
+                AS first_active_search_user_count
         FROM task_search_user_daily s
-        LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dim_user_first_active` f
-            ON s.user_id = f.prop_user_id
         GROUP BY s.dt, s.task_id, s.promotion_code
     ),
     -- 本批 task_id 粒度键集合（播放或搜索任一侧出现即保留）。
