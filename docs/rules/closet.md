@@ -28,12 +28,17 @@
 - `type = 'SINGLE'`
   - 表示衣橱单品创建
   - 用于：
-    - 新增衣橱使用用户
     - 新增 item 数量
-    - 渗透人数的“当日加入衣橱”侧
+    - 具体按非空 `uuid` 计 1 个 item
 - `type = 'OUTFIT'`
   - 表示衣橱穿搭结果创建
-  - 当前只参与“总计使用用户”口径
+  - 用于：
+    - 新增衣橱使用用户
+    - 总计使用用户
+    - 渗透人数的“当日加入衣橱”侧
+    - 新增 item 数量；具体按 `item_uuids` 拆数组后的有效元素个数计数
+- 服务端相关通用口径
+  - 只要指标依赖 `user_fashion_closet`，默认统一使用 `type IN ('SINGLE', 'OUTFIT')`
 
 ## 指标口径
 
@@ -42,11 +47,13 @@
   - `COUNT(DISTINCT prop_user_id)`
   - 必须过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`
 - 新增衣橱使用用户
-  - 先取 `decom.dim_user_closet_first_use.first_single_dt`
+  - 先取 `decom.dim_user_closet_first_use.first_any_dt`
   - 再按首日做 `COUNT(DISTINCT user_id)`
 - 新增 item 数量
-  - 当日 `type = 'SINGLE'` 的服务端行数
-  - 直接 `COUNT(1)`，不再附着“首日用户”条件
+  - 当日 `type = 'SINGLE'` 的记录，按非空 `uuid` 计数
+  - 当日 `type = 'OUTFIT'` 的记录，按 `item_uuids` 拆数组后的有效元素个数求和
+  - `item_uuids` 中若出现 `NULL` / 空字符串等异常元素，需先过滤再计数
+  - 不再附着“首日用户”条件
 - 总计使用用户
   - 先取 `decom.dim_user_closet_first_use.first_any_dt`
   - 再按业务日累计 `COUNT(DISTINCT user_id)`
@@ -64,7 +71,7 @@
 - 渗透人数
   - 同日满足两件事的去重用户数：
     - 日志中存在 `event_name = 'v_closet'`
-    - 服务端当日存在 `type = 'SINGLE'`
+    - 服务端当日存在 `type IN ('SINGLE', 'OUTFIT')`
 - 渗透率
   - 分子：渗透人数
   - 分母：日志中当日所有事件的 `COUNT(DISTINCT prop_user_id)`

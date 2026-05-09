@@ -229,10 +229,10 @@ def run_dws_closet_daily(dates: list[date]) -> None:
     指标：
     - closet_home_exposure_uv：衣橱首页曝光 UV
     - all_event_uv：全站当日已登录事件 UV，作为渗透率分母
-    - new_closet_user_count：首次发生 SINGLE 的新增衣橱使用用户数
-    - new_item_count：当日新增 SINGLE 行数
+    - new_closet_user_count：首次发生 SINGLE / OUTFIT 的新增衣橱使用用户数
+    - new_item_count：当日新增 item 数量
     - total_closet_user_count：历史累计衣橱使用用户数
-    - penetration_user_count：当日曝光且当日新增 SINGLE 的交集用户数
+    - penetration_user_count：当日曝光且当日存在 SINGLE / OUTFIT 的交集用户数
     """
     if not dates:
         logging.info("没有新的 dws_closet_daily 日期需要处理")
@@ -299,13 +299,16 @@ def run_dws_closet_daily(dates: list[date]) -> None:
             AND prop_user_id != ''
         GROUP BY dt
     ),
-    -- 当日 SINGLE 行明细：复用到新增 item、新增用户和渗透人数。
-    single_item_daily AS (
+    -- 当日衣橱服务端明细：统一纳入 SINGLE / OUTFIT。
+    closet_service_daily AS (
         SELECT
             DATE({service_ts}, '{TORONTO_TZ}') AS dt,
-            user_id
+            user_id,
+            type,
+            uuid,
+            item_uuids
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_fashion_closet`
-        WHERE type = 'SINGLE'
+        WHERE type IN ('SINGLE', 'OUTFIT')
             AND user_id IS NOT NULL
             AND user_id != ''
             AND DATE({service_ts}, '{TORONTO_TZ}')
@@ -321,29 +324,54 @@ def run_dws_closet_daily(dates: list[date]) -> None:
         WHERE first_any_dt IS NOT NULL
             AND first_any_dt <= DATE '{max_date}'
     ),
-    -- 当日 SINGLE 去重用户集合。
-    single_user_daily AS (
+    -- 当日衣橱服务端去重用户集合：SINGLE / OUTFIT 任一类型都算。
+    closet_use_user_daily AS (
         SELECT DISTINCT
             dt,
             user_id
-        FROM single_item_daily
+        FROM closet_service_daily
     ),
-    -- 当日新增 SINGLE 行数。
-    single_item_metric_daily AS (
+    -- 当日新增 item 数量：
+    -- - SINGLE：按非空 uuid 记 1
+    -- - OUTFIT：拆 item_uuids JSON 数组后计元素个数；异常空值元素会被过滤
+    closet_item_metric_daily AS (
         SELECT
             dt,
-            COUNT(*) AS new_item_count
-        FROM single_item_daily
+            SUM(
+                CASE
+                    WHEN type = 'SINGLE' THEN
+                        CASE
+                            WHEN uuid IS NULL OR uuid = '' THEN 0
+                            ELSE 1
+                        END
+                    WHEN type = 'OUTFIT' THEN
+                        ARRAY_LENGTH(
+                            ARRAY(
+                                SELECT JSON_VALUE(item_uuid_json)
+                                FROM UNNEST(
+                                    COALESCE(
+                                        JSON_QUERY_ARRAY(item_uuids, '$'),
+                                        ARRAY<JSON>[]
+                                    )
+                                ) AS item_uuid_json
+                                WHERE JSON_VALUE(item_uuid_json) IS NOT NULL
+                                    AND JSON_VALUE(item_uuid_json) != ''
+                            )
+                        )
+                    ELSE 0
+                END
+            ) AS new_item_count
+        FROM closet_service_daily
         GROUP BY dt
     ),
-    -- 新增衣橱使用用户：首次 SINGLE 首日记 1 次。
+    -- 新增衣橱使用用户：首次 SINGLE / OUTFIT 首日记 1 次。
     new_closet_user_metric_daily AS (
         SELECT
-            first_single_dt AS dt,
+            first_any_dt AS dt,
             COUNT(*) AS new_closet_user_count
         FROM first_use_dim
-        WHERE first_single_dt BETWEEN DATE '{start_date}' AND DATE '{max_date}'
-        GROUP BY first_single_dt
+        WHERE first_any_dt BETWEEN DATE '{start_date}' AND DATE '{max_date}'
+        GROUP BY first_any_dt
     ),
     -- 窗口起点之前的累计存量基数：增量重算时要把历史存量带入。
     prior_total_user_base AS (
@@ -372,15 +400,15 @@ def run_dws_closet_daily(dates: list[date]) -> None:
         CROSS JOIN prior_total_user_base b
         LEFT JOIN new_total_user_metric_daily n USING (dt)
     ),
-    -- 当日渗透人数：同日进入衣橱首页且同日新增 SINGLE 的交集用户。
+    -- 当日渗透人数：同日进入衣橱首页且同日存在 SINGLE / OUTFIT 的交集用户。
     penetration_metric_daily AS (
         SELECT
             h.dt,
             COUNT(DISTINCT h.user_id) AS penetration_user_count
         FROM closet_home_user_daily h
-        INNER JOIN single_user_daily s
-            ON h.dt = s.dt
-            AND h.user_id = s.user_id
+        INNER JOIN closet_use_user_daily u
+            ON h.dt = u.dt
+            AND h.user_id = u.user_id
         GROUP BY h.dt
     )
     SELECT
@@ -396,7 +424,7 @@ def run_dws_closet_daily(dates: list[date]) -> None:
     LEFT JOIN closet_home_metric_daily h USING (dt)
     LEFT JOIN all_event_metric_daily a USING (dt)
     LEFT JOIN new_closet_user_metric_daily n USING (dt)
-    LEFT JOIN single_item_metric_daily i USING (dt)
+    LEFT JOIN closet_item_metric_daily i USING (dt)
     LEFT JOIN total_closet_user_metric_daily t USING (dt)
     LEFT JOIN penetration_metric_daily p USING (dt)
     WHERE c.dt IN ({dates_str});
