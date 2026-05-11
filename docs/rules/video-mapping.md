@@ -75,3 +75,7 @@
 
 ## 自动发布视频对应 8 位数字编码
 `JSON_VALUE(video_upload_tasks.ext_info, '$.promotion_code')`
+
+
+## 正式号视频
+`videos.platform_video_tags.tag_type = 'env' AND videos.platform_video_tags.tag_value = 'prod'`
