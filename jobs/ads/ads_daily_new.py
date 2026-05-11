@@ -72,7 +72,7 @@ def get_ads_daily_new_dates_to_process() -> list[date]:
     规则：
     - 目标表不存在或为空时，按设备 / 用户 / 下载三条上游事实的并集全量初始化
     - 目标表已存在时，合并所有 update_time 晚于目标表最大 update_time 的上游日期
-    - 次留成熟依赖次日设备活跃，因此设备事实变更还要补回前一天
+    - 用户留存成熟依赖后续用户活跃，因此用户事实变更还要补回前 1 天和前 7 天
     """
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
@@ -107,13 +107,19 @@ def get_ads_daily_new_dates_to_process() -> list[date]:
 
         UNION DISTINCT
 
-        SELECT DATE_SUB(dt, INTERVAL 1 DAY) AS dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily`
+        SELECT dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
         WHERE update_time > (SELECT max_update_time FROM target_watermark)
 
         UNION DISTINCT
 
-        SELECT dt
+        SELECT DATE_SUB(dt, INTERVAL 1 DAY) AS dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
+        WHERE update_time > (SELECT max_update_time FROM target_watermark)
+
+        UNION DISTINCT
+
+        SELECT DATE_SUB(dt, INTERVAL 7 DAY) AS dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
         WHERE update_time > (SELECT max_update_time FROM target_watermark)
 
@@ -143,7 +149,8 @@ def run_ads_daily_new(dates: list[date]) -> None:
     - anonymous_old_device_rate: 未登录老设备数 / 当日总设备数
     - avg_duration_sec: 新增设备的平均停留时长
     - avg_content_consume_count: 新增设备的人均内容消费数
-    - next_day_retention_rate: 新增设备的次日留存率
+    - next_day_retention_rate: 新增注册用户的次日留存率
+    - day_7_retention_rate: 新增注册用户的第七日留存率
     - new_download_count: 新增下载量（来自 dws_appsflyer_download_daily）
 
     当前版本只消费稳定中层：
@@ -173,6 +180,7 @@ def run_ads_daily_new(dates: list[date]) -> None:
         avg_duration_sec,
         avg_content_consume_count,
         next_day_retention_rate,
+        day_7_retention_rate,
         new_download_count,
         update_time
     )
@@ -201,20 +209,25 @@ def run_ads_daily_new(dates: list[date]) -> None:
             AND is_new_user = TRUE
         GROUP BY dt, platform
     ),
-    -- 新增设备次留：以新增设备 cohort 关联次日同平台活跃。
-    new_device_retention AS (
+    -- 新增注册用户留存：以新增用户 cohort 关联后续同平台活跃。
+    new_user_retention AS (
         SELECT
             t.dt,
             t.platform,
-            COUNT(DISTINCT t.prop_device_id) AS new_count,
-            COUNT(DISTINCT n.prop_device_id) AS retained_count
-        FROM `{PROJECT_ID}.{DATASET_ID}.dws_device_daily` t
-        LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dws_device_daily` n
-            ON t.prop_device_id = n.prop_device_id
-            AND n.dt = DATE_ADD(t.dt, INTERVAL 1 DAY)
-            AND n.platform = t.platform
+            COUNT(DISTINCT t.prop_user_id) AS new_count,
+            COUNT(DISTINCT n1.prop_user_id) AS next_day_retained_count,
+            COUNT(DISTINCT n7.prop_user_id) AS day_7_retained_count
+        FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily` t
+        LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dws_user_daily` n1
+            ON t.prop_user_id = n1.prop_user_id
+            AND n1.dt = DATE_ADD(t.dt, INTERVAL 1 DAY)
+            AND n1.platform = t.platform
+        LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dws_user_daily` n7
+            ON t.prop_user_id = n7.prop_user_id
+            AND n7.dt = DATE_ADD(t.dt, INTERVAL 7 DAY)
+            AND n7.platform = t.platform
         WHERE t.dt IN ({dates_str})
-            AND t.is_new_device = TRUE
+            AND t.is_new_user = TRUE
         GROUP BY t.dt, t.platform
     ),
     -- 全量活跃设备：为未登录占比提供统一分母。
@@ -256,7 +269,7 @@ def run_ads_daily_new(dates: list[date]) -> None:
         UNION DISTINCT
         SELECT dt, platform FROM new_user_metrics
         UNION DISTINCT
-        SELECT dt, platform FROM new_device_retention
+        SELECT dt, platform FROM new_user_retention
         UNION DISTINCT
         SELECT dt, platform FROM total_device_metrics
         UNION DISTINCT
@@ -306,8 +319,30 @@ def run_ads_daily_new(dates: list[date]) -> None:
         COALESCE(d.avg_content_consume_count, 0) AS avg_content_consume_count,
         CAST(CASE
             WHEN COALESCE(r.new_count, 0) = 0 THEN 0
-            ELSE ROUND(r.retained_count / r.new_count, 4)
+            WHEN DATE_ADD(k.dt, INTERVAL 1 DAY) > DATE_SUB(
+                CURRENT_DATE('{TORONTO_TZ}'),
+                INTERVAL 1 DAY
+            )
+                THEN NULL
+            ELSE ROUND(
+                CAST(COALESCE(r.next_day_retained_count, 0) AS NUMERIC)
+                / CAST(r.new_count AS NUMERIC),
+                4
+            )
         END AS NUMERIC) AS next_day_retention_rate,
+        CAST(CASE
+            WHEN COALESCE(r.new_count, 0) = 0 THEN 0
+            WHEN DATE_ADD(k.dt, INTERVAL 7 DAY) > DATE_SUB(
+                CURRENT_DATE('{TORONTO_TZ}'),
+                INTERVAL 1 DAY
+            )
+                THEN NULL
+            ELSE ROUND(
+                CAST(COALESCE(r.day_7_retained_count, 0) AS NUMERIC)
+                / CAST(r.new_count AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS day_7_retention_rate,
         COALESCE(dl.new_download_count, 0) AS new_download_count,
         CURRENT_TIMESTAMP() AS update_time
     FROM metric_keys k
@@ -315,7 +350,7 @@ def run_ads_daily_new(dates: list[date]) -> None:
         ON k.dt = d.dt AND k.platform = d.platform
     LEFT JOIN new_user_metrics u
         ON k.dt = u.dt AND k.platform = u.platform
-    LEFT JOIN new_device_retention r
+    LEFT JOIN new_user_retention r
         ON k.dt = r.dt AND k.platform = r.platform
     LEFT JOIN total_device_metrics t
         ON k.dt = t.dt AND k.platform = t.platform

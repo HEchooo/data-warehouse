@@ -17,7 +17,8 @@
 | anonymous_old_device_rate | 当日 `dws_device_daily.has_anonymous_event = TRUE AND is_new_device = FALSE` 的去重设备数 / 当日全部去重设备数 |
 | avg_duration_sec | `SUM(session_duration_sec) / COUNT(DISTINCT prop_device_id)`；`app_launch` 的 `args_session_duration` 按 `COALESCE(raw_event_id, hash_id)` 去重后求和，单位秒 |
 | avg_content_consume_count | `SUM(content_consume_count) / COUNT(DISTINCT prop_device_id)`；内容消费事件：`v_product_detail`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail` |
-| next_day_retention_rate | 次日仍活跃新增设备数 / 当日新增设备总数 |
+| next_day_retention_rate | 次日仍活跃新增注册用户数 / 当日新增注册用户数；基于 `dws_user_daily.is_new_user = TRUE` 的 `prop_user_id` cohort，同平台关联 `dt+1` 活跃；未成熟返回 `NULL` |
+| day_7_retention_rate | 第七日仍活跃新增注册用户数 / 当日新增注册用户数；基于 `dws_user_daily.is_new_user = TRUE` 的 `prop_user_id` cohort，同平台关联 `dt+7` 活跃；未成熟返回 `NULL` |
 | new_download_count | AppsFlyer 当日新增下载量；iOS / Android 取 `install`，按 `America/Toronto` 切天，h5=0 |
 
 ## 依赖

@@ -22,3 +22,6 @@ ADD COLUMN anonymous_device_rate NUMERIC;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_new`
 ADD COLUMN anonymous_old_device_rate NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_new`
+ADD COLUMN day_7_retention_rate NUMERIC;
