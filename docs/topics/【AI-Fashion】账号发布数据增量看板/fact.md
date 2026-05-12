@@ -33,7 +33,7 @@
 | 全部已发布视频新增总播放量 | 当天统计截至当日已经发布过的全部正式号视频，当日 `day_end_views - 前一日 day_end_views` 的总和 |
 | 当日新增发布视频数 | 首次采集到 `views > 0` 的日期落在当天的正式号视频数 |
 | 平均 LTV | 首次采集正播放日期为 `dt-6` 的正式号视频，在 `dt` 当天的累计 `views` 均值 |
-| 内容账号总数 | 截至当天，账号下至少有一个视频已经被打上正式号 tag 的去重内容账号数；账号键为 `channel + creator_id` |
+| 内容账号总数 | 截至当天，账号下至少有一个正式号视频首次采集到 `views > 0` 的去重内容账号数；账号键为 `channel + creator_id` |
 | 全部已发布视频新增总点赞数 | 当天统计截至当日已经发布过的全部正式号视频，当日 `day_end_likes - 前一日 day_end_likes` 的总和 |
 | 每日新增总 views 的周均值 | 从 `2026-03-30` 起每 7 天聚合，窗口内 `daily_view_increment` 的算术平均值 |
 | 周增长倍数 | 当前 7 天窗口的每日新增 views 周均值 / 上一个 7 天窗口的每日新增 views 周均值；首周展示为 `1` |
@@ -61,8 +61,8 @@
 | 平均 LTV | `decom.ads_daily_formal_video_increment` | `avg_ltv_7d_views` | `ltv_7d_view_count / ltv_7d_video_count` |
 | LTV 样本视频数 | `decom.ads_daily_formal_video_increment` | `ltv_7d_video_count` | 首次采集正播放日期为 `dt-6` 的正式号视频数 |
 | LTV 样本累计 views | `decom.ads_daily_formal_video_increment` | `ltv_7d_view_count` | LTV 样本视频在 `dt` 当天的累计 views 总和 |
-| 内容账号总数 | `decom.ads_daily_formal_video_increment` | `creator_count` | 先取账号下正式号视频最早 `formal_tag_created_dt`，从该日期起每日累计去重 `channel + creator_id` |
-| 正式号视频累计数 | `decom.ads_daily_formal_video_increment` | `formal_video_count_to_date` | 按视频最早 `formal_tag_created_dt` 从该日期起每日累计去重视频数 |
+| 内容账号总数 | `decom.ads_daily_formal_video_increment` | `creator_count` | 先取账号下正式号视频最早 `first_positive_view_dt`，从该日期起每日累计去重 `channel + creator_id` |
+| 正式号视频累计数 | `decom.ads_daily_formal_video_increment` | `formal_video_count_to_date` | 按视频 `first_positive_view_dt` 从该日期起每日累计去重视频数 |
 
 ### `decom.ads_weekly_formal_video_increment_growth`
 
@@ -80,10 +80,10 @@
 
 - 该主题只看正式号视频，不再额外维护 AI-Fashion 账号名单
 - `dim_video` 保留 Social Content 原有 YouTube AI 团队排除规则，但正式号 tag 命中的视频会作为例外保留
-- 内容账号总数不按视频发布时间累计，而是按账号下第一个视频被打正式号 tag 的日期累计；账号进入正式号集合后，后续每日都计入
+- 内容账号总数不按视频发布时间或正式号 tag `created_at` 累计，而是按账号下第一个正式号视频首次采集到 `views > 0` 的日期累计；账号进入正式号集合后，后续每日都计入
 - 如果正式号 tag 视频尚未出现在平台主视频表中，`dim_video` 使用 tag 创建时间作为 `published_dt` 兜底；新增视频和 LTV 仍以首次采集正播放日期为准
-- 截至 2026-05-12 本次上线校验，`env=prod` 正式号视频共 292 条、内容账号 289 个，正式号 tag 日期均为美东 `2026-05-11`
-- 截至 2026-05-12 本次上线校验，正式号视频暂无 analytics 正播放快照，因此播放、点赞、新增视频与增长倍数类指标暂为 0 或空值，待采集日志到达后自然补数
+- 截至 2026-05-12 本次上线校验，`env=prod` 正式号视频共 292 条、内容账号 289 个，正式号 tag 日期均为美东 `2026-05-11`；正式号累计账号/视频不使用该 tag 日期入表，而等待首次采集正播放日期
+- 截至 2026-05-12 本次上线校验，正式号视频暂无 analytics 正播放快照，因此播放、点赞、新增视频、正式号累计账号/视频与增长倍数类指标暂为 0 或空值，待采集日志到达后自然补数
 
 ## 依赖
 

@@ -101,8 +101,7 @@ def build_select_sql(dates: list[date]) -> str:
             channel,
             creator_id,
             video_key,
-            published_dt,
-            DATE(formal_tag_created_ts_utc, '{EASTERN_TZ}') AS formal_tag_created_dt
+            published_dt
         FROM `{dim_video_table_id()}`
         WHERE is_formal_video
             AND formal_tag_created_ts_utc IS NOT NULL
@@ -115,7 +114,6 @@ def build_select_sql(dates: list[date]) -> str:
             s.creator_id,
             s.video_key,
             d.published_dt,
-            d.formal_tag_created_dt,
             s.day_end_views,
             s.day_end_likes
         FROM `{social_video_state_table_id()}` s
@@ -131,7 +129,6 @@ def build_select_sql(dates: list[date]) -> str:
             creator_id,
             video_key,
             published_dt,
-            formal_tag_created_dt,
             day_end_views,
             day_end_likes,
             day_end_views - LAG(day_end_views, 1, 0) OVER (
@@ -186,24 +183,25 @@ def build_select_sql(dates: list[date]) -> str:
             AND d.dt BETWEEN (SELECT min_dt FROM params) AND (SELECT max_dt FROM params)
         GROUP BY d.dt
     ),
-    -- 每个账号首次拥有正式号视频的日期，按视频正式号 tag 创建日期累计。
+    -- 每个账号首次拥有正式号视频的日期，复用首次采集正播放日期累计。
     creator_first_formal_video AS (
         SELECT
-            CONCAT(channel, ':', creator_id) AS creator_key,
-            MIN(formal_tag_created_dt) AS first_formal_video_dt
-        FROM formal_video_dim
-        WHERE creator_id IS NOT NULL
-            AND formal_tag_created_dt IS NOT NULL
+            CONCAT(d.channel, ':', d.creator_id) AS creator_key,
+            MIN(f.first_positive_view_dt) AS first_formal_video_dt
+        FROM formal_video_dim d
+        INNER JOIN video_first_positive_view f
+            ON d.video_key = f.video_key
+        WHERE d.creator_id IS NOT NULL
         GROUP BY creator_key
     ),
-    -- 每个视频首次成为正式号视频的日期，同样按 tag 创建日期累计。
+    -- 每个视频首次成为正式号视频的日期，同样复用首次采集正播放日期累计。
     formal_video_tag_base AS (
         SELECT
-            video_key,
-            MIN(formal_tag_created_dt) AS first_formal_video_dt
-        FROM formal_video_dim
-        WHERE formal_tag_created_dt IS NOT NULL
-        GROUP BY video_key
+            d.video_key,
+            f.first_positive_view_dt AS first_formal_video_dt
+        FROM formal_video_dim d
+        INNER JOIN video_first_positive_view f
+            ON d.video_key = f.video_key
     ),
     -- 汇总图 4 所需的内容账号累计数，以及辅助视频累计数。
     cumulative_metrics AS (
