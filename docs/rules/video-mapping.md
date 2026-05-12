@@ -80,4 +80,5 @@
 ## 正式号视频
 `videos.platform_video_tags.tag_type = 'env' AND videos.platform_video_tags.tag_value = 'prod'`
 平台: `videos.platform_video_tags.platform`
-视频 id：`videos.platform_video_tags.video_id`
+视频 id：`videos.platform_video_tags.platform_video_id`
+账号 id：`videos.platform_video_tags.platform_channel_id`

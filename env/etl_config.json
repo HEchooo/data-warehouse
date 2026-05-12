@@ -809,6 +809,31 @@
     },
     {
       "layer": "ADS",
+      "table_name": "ads_daily_formal_video_increment",
+      "stage": "ADS",
+      "name": "ADS 正式号视频发布增量日报 ETL",
+      "script": "jobs/ads/ads_daily_formal_video_increment.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video",
+        "dws_social_video_state_daily"
+      ],
+      "schedule_group": "ads_daily_formal_video_increment"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_weekly_formal_video_increment_growth",
+      "stage": "ADS",
+      "name": "ADS 正式号视频发布增量周增长 ETL",
+      "script": "jobs/ads/ads_weekly_formal_video_increment_growth.py",
+      "enabled": true,
+      "depends_on": [
+        "ads_daily_formal_video_increment"
+      ],
+      "schedule_group": "ads_weekly_formal_video_increment_growth"
+    },
+    {
+      "layer": "ADS",
       "table_name": "ads_daily_video_code_conversion",
       "stage": "ADS",
       "name": "ADS 视频编码转化日报 ETL",

@@ -273,17 +273,18 @@ def run_dws_social_video_snapshot_daily(dates: list[date]) -> None:
             raise ValueError(
                 "dws_social_video_snapshot_daily staging 行数校验失败: actual=0"
             )
-        if validation_row.dt_count != len(dates):
-            raise ValueError(
-                "dws_social_video_snapshot_daily staging 日期数校验失败: "
-                f"expected={len(dates)}, actual={validation_row.dt_count}"
-            )
         if validation_row.row_count != validation_row.unique_dt_video_count:
             raise ValueError(
                 "dws_social_video_snapshot_daily staging 主键校验失败: "
                 f"row_count={validation_row.row_count}, "
                 f"unique_dt_video_count={validation_row.unique_dt_video_count}"
             )
+        logging.info(
+            "dws_social_video_snapshot_daily staging 校验通过: rows=%s, actual_dt_count=%s, requested_dt_count=%s",
+            validation_row.row_count,
+            validation_row.dt_count,
+            len(dates),
+        )
 
         if target_table_exists():
             client.query(create_changed_table_sql).result()

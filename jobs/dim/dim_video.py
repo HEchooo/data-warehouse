@@ -67,15 +67,35 @@ def build_select_sql() -> str:
     excluded_channel_ids_sql = strings_to_sql_list(YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS)
     return f"""
     WITH
+    -- 正式号视频标记统一来自服务端 tag 表，供下游复用。
+    formal_video_tag AS (
+        SELECT
+            platform AS channel,
+            CAST(platform_channel_id AS STRING) AS creator_id,
+            CAST(platform_video_id AS STRING) AS video_id,
+            CONCAT(platform, ':', CAST(platform_video_id AS STRING)) AS video_key,
+            MIN(TIMESTAMP(created_at, 'UTC')) AS formal_tag_created_ts_utc
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.platform_video_tags`
+        WHERE tag_type = 'env'
+            AND tag_value = 'prod'
+            AND platform IN ('youtube', 'tiktok', 'ins')
+            AND NULLIF(CAST(platform_video_id AS STRING), '') IS NOT NULL
+        GROUP BY channel, creator_id, video_id, video_key
+    ),
+    -- 汇总三端视频主数据；YouTube AI 团队渠道仍按 Social Content 规则排除，但正式号视频例外保留。
     raw_video_union AS (
         SELECT
             'youtube' AS channel,
             CAST(channel_id AS STRING) AS creator_id,
             CAST(video_id AS STRING) AS video_id,
             CONCAT('youtube:', CAST(video_id AS STRING)) AS video_key,
-            TIMESTAMP(published_at, 'UTC') AS published_ts_utc
+            TIMESTAMP(published_at, 'UTC') AS published_ts_utc,
+            1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
         WHERE channel_id NOT IN ({excluded_channel_ids_sql})
+            OR CONCAT('youtube:', CAST(video_id AS STRING)) IN (
+                SELECT video_key FROM formal_video_tag
+            )
 
         UNION ALL
 
@@ -84,7 +104,8 @@ def build_select_sql() -> str:
             CAST(user_id AS STRING) AS creator_id,
             CAST(id AS STRING) AS video_id,
             CONCAT('tiktok:', CAST(id AS STRING)) AS video_key,
-            TIMESTAMP_SECONDS(SAFE_CAST(create_time AS INT64)) AS published_ts_utc
+            TIMESTAMP_SECONDS(SAFE_CAST(create_time AS INT64)) AS published_ts_utc,
+            1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos`
 
         UNION ALL
@@ -94,9 +115,22 @@ def build_select_sql() -> str:
             CAST(account_id AS STRING) AS creator_id,
             CAST(media_id AS STRING) AS video_id,
             CONCAT('ins:', CAST(media_id AS STRING)) AS video_key,
-            TIMESTAMP(published_at, 'UTC') AS published_ts_utc
+            TIMESTAMP(published_at, 'UTC') AS published_ts_utc,
+            1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media`
+
+        UNION ALL
+
+        SELECT
+            channel,
+            creator_id,
+            video_id,
+            video_key,
+            formal_tag_created_ts_utc AS published_ts_utc,
+            2 AS source_priority
+        FROM formal_video_tag
     ),
+    -- video_key 去重，优先使用平台主视频表时间；tag-only 视频用 tag 创建时间兜底。
     deduped_video AS (
         SELECT
             channel,
@@ -108,18 +142,22 @@ def build_select_sql() -> str:
         WHERE published_ts_utc IS NOT NULL
         QUALIFY ROW_NUMBER() OVER (
             PARTITION BY video_key
-            ORDER BY published_ts_utc DESC
+            ORDER BY source_priority, published_ts_utc DESC
         ) = 1
     )
     SELECT
-        channel,
-        creator_id,
-        video_id,
-        video_key,
-        published_ts_utc,
-        DATE(published_ts_utc, '{TORONTO_TZ}') AS published_dt,
+        deduped_video.channel,
+        deduped_video.creator_id,
+        deduped_video.video_id,
+        deduped_video.video_key,
+        deduped_video.published_ts_utc,
+        DATE(deduped_video.published_ts_utc, '{TORONTO_TZ}') AS published_dt,
+        formal_video_tag.formal_tag_created_ts_utc IS NOT NULL AS is_formal_video,
+        formal_video_tag.formal_tag_created_ts_utc,
         CURRENT_TIMESTAMP() AS update_time
     FROM deduped_video
+    LEFT JOIN formal_video_tag
+        USING (video_key)
     """
 
 
@@ -144,7 +182,9 @@ def run_dim_video() -> None:
         SELECT
             COUNT(*) AS total_rows,
             COUNT(DISTINCT video_key) AS distinct_video_keys,
-            COUNTIF(video_key IS NULL OR video_key = '') AS invalid_video_key_rows
+            COUNTIF(video_key IS NULL OR video_key = '') AS invalid_video_key_rows,
+            COUNTIF(is_formal_video AND formal_tag_created_ts_utc IS NULL)
+                AS invalid_formal_video_rows
         FROM `{staging_table_id}`
         """
         validation_row = list(client.query(validation_query).result())[0]
@@ -152,6 +192,8 @@ def run_dim_video() -> None:
             raise RuntimeError("dim_video 校验失败：video_key 未做到一键一行")
         if validation_row.invalid_video_key_rows != 0:
             raise RuntimeError("dim_video 校验失败：存在空 video_key")
+        if validation_row.invalid_formal_video_rows != 0:
+            raise RuntimeError("dim_video 校验失败：正式号视频缺少 tag 创建时间")
 
         client.query(
             f"""
