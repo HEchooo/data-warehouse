@@ -30,3 +30,9 @@
 
 - `dws_device_daily` / `dws_user_daily` 的 `content_consume_count` 必须先按 `raw_event_id` 去重
 - 同时要保留内容消费为 0 的活跃主体行，否则下游频次和人均指标会被带偏
+
+## 新用户留存不能按未来日期的新用户标签回连
+
+- `新用户` / `老用户` 是 `dt` 当日 cohort 标签，新用户在 `dt+1` 自然不再是新用户
+- 计算新用户次留 / 7 留 / 30 留时，分母用 `dt` 当天 `first_active_date = dt` 的用户集合，分子只判断同一 `prop_user_id` 在观察日是否活跃
+- 如果把观察日也限制为 `user_segment = '新用户'`，新用户留存会被错误压成 0

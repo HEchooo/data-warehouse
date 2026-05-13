@@ -119,10 +119,33 @@ def get_device_activity_dates_to_process(
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
             AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
     ),
+    -- 最近 6 小时首活维表变化的用户，可能影响该用户所有后续活跃日的新老标签。
+    changed_first_active_users AS (
+        SELECT
+            prop_user_id,
+            first_active_date
+        FROM `{PROJECT_ID}.{DATASET_ID}.dim_user_first_active`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND prop_user_id IS NOT NULL
+            AND prop_user_id != ''
+            AND first_active_date IS NOT NULL
+    ),
+    -- 首活变化影响的已登录用户活跃日期。
+    first_active_impacted_dates AS (
+        SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log` e
+        JOIN changed_first_active_users u
+            ON e.prop_user_id = u.prop_user_id
+        WHERE DATE({event_ts}, '{TORONTO_TZ}') BETWEEN u.first_active_date
+            AND CURRENT_DATE('{TORONTO_TZ}')
+    ),
     -- 当天活跃与时长统计直接受源日期影响。
     direct_dates AS (
         SELECT source_dt AS dt
         FROM changed_event_dates
+        UNION DISTINCT
+        SELECT dt
+        FROM first_active_impacted_dates
     ),
     -- 留存观察日的活跃变化会回推到更早 cohort 日期。
     retention_dates AS (
@@ -163,7 +186,7 @@ def get_device_activity_dates_to_process(
 
 def run_dws_device_activity_daily(dates: list[date]) -> None:
     """
-    产出设备 / 游客 / 已登录用户分群的日活动事实层。
+    产出设备 / 游客 / 登录用户新老分群的日活动事实层。
 
     粒度：
     - dt × user_segment
@@ -172,7 +195,7 @@ def run_dws_device_activity_daily(dates: list[date]) -> None:
     - dau_uv：分群日活主体数
     - total_duration_min：app_launch 停留时长去重后汇总分钟数
     - app_launch_count：app_launch 去重后启动次数
-    - retained_1d_uv / retained_7d_uv / retained_30d_uv：对应留存分子
+    - retained_1d_uv / retained_7d_uv / retained_30d_uv：对应当日 cohort 留存分子
     - mau_uv：自然月 MAU
     """
     if not dates:
@@ -208,16 +231,20 @@ def run_dws_device_activity_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 固定产出三类用户分群，保证每个日期都有完整维度行。
+    -- 固定产出五类用户分群，保证每个日期都有完整维度行。
     segment_list AS (
         SELECT '全量设备' AS user_segment
         UNION ALL
         SELECT '游客' AS user_segment
         UNION ALL
         SELECT '已登录用户' AS user_segment
+        UNION ALL
+        SELECT '新用户' AS user_segment
+        UNION ALL
+        SELECT '老用户' AS user_segment
     ),
-    -- 事件基础层：一次性准备三类分群的统计主体和停留时长字段。
-    base AS (
+    -- 事件基础层：一次性准备设备、游客和登录用户统计主体。
+    event_base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
             event_name,
@@ -243,7 +270,22 @@ def run_dws_device_activity_daily(dates: list[date]) -> None:
                 CURRENT_DATE('{TORONTO_TZ}')
             )
     ),
-    -- 分群展开层：把同一份事件映射成三类分群自己的统计主体。
+    -- 首活补充层：复用用户级首活维表，不在当前窗口内现算首次日期。
+    base AS (
+        SELECT
+            e.dt,
+            e.event_name,
+            e.all_device_id,
+            e.guest_device_id,
+            e.logged_in_user_id,
+            f.first_active_date,
+            e.duration_event_id,
+            e.duration_ms
+        FROM event_base e
+        LEFT JOIN `{PROJECT_ID}.{DATASET_ID}.dim_user_first_active` f
+            ON e.logged_in_user_id = f.prop_user_id
+    ),
+    -- 分群展开层：把同一份事件映射成各分群自己的统计主体。
     segmented_base AS (
         SELECT
             dt,
@@ -278,8 +320,34 @@ def run_dws_device_activity_daily(dates: list[date]) -> None:
             duration_ms
         FROM base
         WHERE logged_in_user_id IS NOT NULL
+
+        UNION ALL
+
+        SELECT
+            dt,
+            '新用户' AS user_segment,
+            event_name,
+            logged_in_user_id AS subject_id,
+            duration_event_id,
+            duration_ms
+        FROM base
+        WHERE logged_in_user_id IS NOT NULL
+            AND first_active_date = dt
+
+        UNION ALL
+
+        SELECT
+            dt,
+            '老用户' AS user_segment,
+            event_name,
+            logged_in_user_id AS subject_id,
+            duration_event_id,
+            duration_ms
+        FROM base
+        WHERE logged_in_user_id IS NOT NULL
+            AND first_active_date < dt
     ),
-    -- 活跃主体集合层：统一承接 DAU、留存和 MAU 的主体集合。
+    -- 活跃主体集合层：统一承接 DAU、当日 cohort 和 MAU 的主体集合。
     active_subjects AS (
         SELECT DISTINCT
             dt,
@@ -287,6 +355,33 @@ def run_dws_device_activity_daily(dates: list[date]) -> None:
             subject_id
         FROM segmented_base
         WHERE subject_id IS NOT NULL
+    ),
+    -- 留存观察层：新老用户未来留存只要求同一 user_id 再活跃，不要求未来仍属于当日分群。
+    retention_active_subjects AS (
+        SELECT
+            dt,
+            user_segment,
+            subject_id
+        FROM active_subjects
+        WHERE user_segment IN ('全量设备', '游客', '已登录用户')
+
+        UNION ALL
+
+        SELECT
+            dt,
+            '新用户' AS user_segment,
+            subject_id
+        FROM active_subjects
+        WHERE user_segment = '已登录用户'
+
+        UNION ALL
+
+        SELECT
+            dt,
+            '老用户' AS user_segment,
+            subject_id
+        FROM active_subjects
+        WHERE user_segment = '已登录用户'
     ),
     -- 日活聚合层：产出每个日期和分群的 DAU。
     dau_metrics AS (
@@ -337,15 +432,15 @@ def run_dws_device_activity_daily(dates: list[date]) -> None:
         LEFT JOIN active_subjects a0
             ON a0.dt = d.dt
             AND a0.user_segment = s.user_segment
-        LEFT JOIN active_subjects a1
+        LEFT JOIN retention_active_subjects a1
             ON a1.user_segment = s.user_segment
             AND a1.subject_id = a0.subject_id
             AND a1.dt = DATE_ADD(d.dt, INTERVAL 1 DAY)
-        LEFT JOIN active_subjects a7
+        LEFT JOIN retention_active_subjects a7
             ON a7.user_segment = s.user_segment
             AND a7.subject_id = a0.subject_id
             AND a7.dt = DATE_ADD(d.dt, INTERVAL 7 DAY)
-        LEFT JOIN active_subjects a30
+        LEFT JOIN retention_active_subjects a30
             ON a30.user_segment = s.user_segment
             AND a30.subject_id = a0.subject_id
             AND a30.dt = DATE_ADD(d.dt, INTERVAL 30 DAY)

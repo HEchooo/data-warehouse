@@ -408,7 +408,8 @@
       "script": "jobs/dws/dws_device_activity_daily.py",
       "enabled": true,
       "depends_on": [
-        "dwd_event_log"
+        "dwd_event_log",
+        "dim_user_first_active"
       ],
       "schedule_group": "dws_device_activity_daily"
     },
