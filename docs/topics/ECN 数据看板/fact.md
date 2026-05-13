@@ -1,4 +1,4 @@
-# 【AI-Fashion】账号发布数据增量看板
+# ECN 数据看板
 
 ## 报表
 
@@ -22,7 +22,7 @@
 
 ### Dashboard
 
-- Dashboard：[【AI-Fashion】账号发布数据增量看板](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-formal-video-increment/)（id=109）
+- Dashboard：[ECN 数据看板](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-formal-video-increment/)（id=109）
 
 ## 字段
 
