@@ -20,6 +20,8 @@ logging.basicConfig(
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"  # 数据库名为decom
 client = bigquery.Client(project=PROJECT_ID)
+MIN_VALID_LOG_DATE = "2000-01-01"
+FUTURE_LOG_DATE_GRACE_DAYS = 1
 
 # 数据集自动选择机制
 V3_DECOM_TABLES = set()
@@ -195,6 +197,10 @@ WHERE dtl.oss_key IN (
                 )
         )
     )
+    -- 过滤异常事件时间，避免 1970 等脏数据污染首活/新增相关口径。
+    AND dtl.logAt_timestamp IS NOT NULL
+    AND DATE(dtl.logAt_timestamp) >= DATE '{MIN_VALID_LOG_DATE}'
+    AND DATE(dtl.logAt_timestamp) <= DATE_ADD(CURRENT_DATE('UTC'), INTERVAL {FUTURE_LOG_DATE_GRACE_DAYS} DAY)
     AND dtl.prop_version_type = "ai_fashion"
 """
 
