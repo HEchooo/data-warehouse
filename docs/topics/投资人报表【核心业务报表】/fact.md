@@ -97,6 +97,7 @@
 - `ads_daily_investor` 默认只处理 `America/Toronto` 昨日及以前的成熟 `dt`；不再把多伦多当天的跨上游半成品写进日报
 - 内容展示量 / 点击量不能复用 `content_consume_count`；它们是 `post / spu` item 级指标，当前已下沉到 `decom.dws_registered_app_device_daily`
 - 商详页曝光 UV / PV 当前已下沉到 `decom.dws_registered_app_user_daily`
+- app 活跃注册用户与留存口径排除 `send_push`、`send_email` 这类被动触达事件；它们不能单独把用户算成 app 回访
 - `dwd_event_log` 已提前展开 `args_spu` / `args_post`；同一原始事件若带多个 item，需要按 `raw_event_id + item_key` 统计，而不是只按 `raw_event_id`
 - 内容展示量的 feeds 事件只包含 item 级曝光：`v_home_feeds`, `v_shop_feeds`, `v_star_post_feeds`, `v_brand_post_feeds`, `v_kol_post_feeds`；不包含 `v_home_star`, `v_home_magazine`, `v_home_brand` 这类 module 曝光
 - 留存口径中的“注册用户”指 `prop_user_id` 非空且当日在 app 活跃的用户，不是 `is_new_user = TRUE` 的新增注册用户

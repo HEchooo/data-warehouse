@@ -3,15 +3,20 @@ import logging
 from pathlib import Path
 import sys
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
+
+from jobs.event_activity_rules import PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL
 
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "dim_user_first_active"
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dim" / TABLE_NAME
 
 client = bigquery.Client(project=PROJECT_ID)
@@ -136,6 +141,7 @@ def run_dim_user_first_active(dates: list[date]) -> None:
             FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
             WHERE prop_user_id IS NOT NULL
                 AND prop_user_id != ''
+                AND event_name NOT IN ({PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL})
         ),
         -- 汇总本批用户的候选首活日期。
         candidate_first_active AS (

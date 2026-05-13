@@ -33,6 +33,12 @@
 - 留存分母不是 `is_new_user = TRUE`
 - 如果误用新增注册用户 cohort，结果会更接近“注册次留”，不是当前投资人报表要的注册用户留存
 
+## 被动触达事件会把投资人口径留存抬高
+
+- `send_push`、`send_email` 不代表用户真的回到 app
+- 如果把它们算进 app 活跃注册用户集合，`次日留存`、`7日留存` 和 `活跃注册用户数` 都会被虚高
+- 这条链路要优先确认 `dws_user_daily` 与 `dws_registered_app_user_daily` 的 app 活跃定义是否已经排除了被动触达事件
+
 ## 内容展示量 / 点击量必须按 item 级去重
 
 - `content_consume_count` 只覆盖详情类内容消费，不含 feeds 曝光，也不是 `post / spu` item 数

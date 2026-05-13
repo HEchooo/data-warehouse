@@ -25,3 +25,9 @@
 - `dwd_event_log` 历史补数在 `hash_id` 逻辑未变化时，不要先清表
 - 优先重置 `oss_key_process_log.analyze_state` 后重跑覆盖
 - 如果 `hash_id` 生成逻辑变过，优先按 `oss_key` 整体替换，避免旧行残留影响总量和时长
+
+## 被动触达事件不能把用户算成新增留存
+
+- `ads_daily_new` 的新增用户留存依赖 `dws_user_daily`
+- 如果 `dws_user_daily` 把 `send_push`、`send_email` 也算成活跃，新增用户的首活日、次留、7留都会被抬高
+- 排查“次留异常高但 app 行为不匹配”时，先确认用户事实层是否已排除这两类事件

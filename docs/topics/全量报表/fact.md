@@ -16,6 +16,9 @@
 | avg_content_consume_count | `SUM(content_consume_count) / COUNT(DISTINCT prop_device_id)`；内容消费事件：`v_product_detail`, `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail` |
 | next_day_retention_rate | 次日仍活跃设备数 / 当日活跃设备总数 |
 
+补充说明：
+- `dws_device_daily` / `dws_user_daily` 的活跃主体会排除 `send_push`、`send_email` 这类被动触达事件；它们不能单独把设备或用户算成活跃或留存
+
 ## 依赖
 
 - 上游：`dws_device_daily`, `dws_user_daily`

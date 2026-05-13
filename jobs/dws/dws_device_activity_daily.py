@@ -3,15 +3,20 @@ import logging
 from pathlib import Path
 import sys
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
+
+from jobs.event_activity_rules import PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL
 
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "dws_device_activity_daily"
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 
@@ -269,6 +274,7 @@ def run_dws_device_activity_daily(dates: list[date]) -> None:
                 DATE_ADD(DATE '{max_date}', INTERVAL 30 DAY),
                 CURRENT_DATE('{TORONTO_TZ}')
             )
+            AND event_name NOT IN ({PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL})
     ),
     -- 首活补充层：复用用户级首活维表，不在当前窗口内现算首次日期。
     base AS (

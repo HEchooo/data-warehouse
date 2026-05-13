@@ -36,3 +36,9 @@
 - `新用户` / `老用户` 是 `dt` 当日 cohort 标签，新用户在 `dt+1` 自然不再是新用户
 - 计算新用户次留 / 7 留 / 30 留时，分母用 `dt` 当天 `first_active_date = dt` 的用户集合，分子只判断同一 `prop_user_id` 在观察日是否活跃
 - 如果把观察日也限制为 `user_segment = '新用户'`，新用户留存会被错误压成 0
+
+## 被动触达事件不能算活跃或留存
+
+- `send_push`、`send_email` 只能说明系统触达过用户，不能说明用户回访或使用了产品
+- 如果把这两类事件放进活跃主体，`dau_uv`、`新用户次留`、`老用户留存`、`mau_uv` 都会被系统性抬高
+- 排查这类异常时，先确认 `dws_device_activity_daily`、`dws_user_daily`、`dws_device_daily` 是否已经统一排除了被动触达事件

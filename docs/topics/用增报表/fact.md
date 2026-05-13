@@ -21,6 +21,9 @@
 | day_7_retention_rate | 第七日仍活跃新增注册用户数 / 当日新增注册用户数；基于 `dws_user_daily.is_new_user = TRUE` 的 `prop_user_id` cohort，同平台关联 `dt+7` 活跃；未成熟返回 `NULL` |
 | new_download_count | AppsFlyer 当日新增下载量；iOS / Android 取 `install`，按 `America/Toronto` 切天，h5=0 |
 
+补充说明：
+- `dws_user_daily` / `dws_device_daily` 的活跃与首活都会排除 `send_push`、`send_email` 这类被动触达事件；它们不能单独把用户或设备算成新增、活跃或留存
+
 ## 依赖
 
 - 上游：`dws_device_daily`, `dws_user_daily`, `dws_appsflyer_download_daily`

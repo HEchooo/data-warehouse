@@ -29,6 +29,7 @@
 - `新用户` 口径：仅保留已登录用户，且 `dim_user_first_active.first_active_date = dt`，按 `prop_user_id` 去重用户
 - `老用户` 口径：仅保留已登录用户，且 `dim_user_first_active.first_active_date < dt`，按 `prop_user_id` 去重用户
 - `新用户` / `老用户` 的留存分母按当日 cohort 分群，未来留存分子只要求同一 `prop_user_id` 在观察日活跃，不要求未来仍属于当日分群
+- `send_push`、`send_email` 属于被动触达事件，不计入任何分群的“活跃”与留存判定
 - 留存 cohort 和 MAU 都按各自分群下的同一统计主体理解
 - `全量设备`、`游客`、`已登录用户`、`新用户`、`老用户` 的统计主体不完全一致，分群结果不能直接相加校验
 - Batch 6 的代码链路已把活动事实下沉到 `decom.dws_device_activity_daily`；生产切换与历史回填需单独执行
