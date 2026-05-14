@@ -4,8 +4,14 @@ from pathlib import Path
 import sys
 from zoneinfo import ZoneInfo
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
+
+from jobs.event_activity_rules import PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL
 
 
 PROJECT_ID = "my-project-8584-jetonai"
@@ -13,7 +19,6 @@ DATASET_ID = "decom"
 V3_DATASET_ID = "v3_decom"
 NEW_YORK_TZ = "America/New_York"
 TABLE_NAME = "dws_module_interaction_monthly"
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 MONTHLY_REBUILD_MONTHS = 2
@@ -479,6 +484,7 @@ def run_dws_module_interaction_monthly(months: list[date]) -> None:
                 FROM target_months
             )
             AND NULLIF(prop_user_id, '') IS NOT NULL
+            AND event_name NOT IN ({PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL})
     ),
     -- 月活分母：按任意已登录事件去重用户统计月活。
     mau_monthly AS (

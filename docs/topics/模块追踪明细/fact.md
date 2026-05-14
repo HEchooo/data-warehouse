@@ -42,6 +42,7 @@
 - UV 相关指标统一为“已登录用户”口径：
   - 事件侧仅保留 `prop_user_id IS NOT NULL AND prop_user_id != ''`
   - 人数类统一按 `COUNT(DISTINCT prop_user_id)` 统计
+- `mau_uv` 分母会排除 `send_push`、`send_email` 这类被动触达事件
 - 商品相关事件新增口径统一要求 `product_code` 非空
 - 商品相关事件的模块归因只允许使用上报的 `args_post`
   - `args_post -> dim_post.post_code -> dim_post.column_id -> dim_column.module`

@@ -39,6 +39,11 @@
 - 平台整体内容表现如果直接把 `community_post_like` / `community_star_follow` / `common_ext_ai_task` 连到 `dws_user_daily`，同一条服务端行为会被重复分摊到多个平台
 - 正确做法是回到同日登录事件，按行为时间匹配同用户最近的登录事件平台；未命中再回落到 `unknown`
 
+## `dau_uv` 不能把被动触达事件算成活跃
+
+- `send_push`、`send_email` 只能说明系统触达用户，不能说明用户真的访问了平台内容
+- 如果把它们纳入 `dau_uv` 分母，`product_click_rate`、`follow_rate`、`tryon_penetration_rate` 会被系统性压低
+
 ## Superset chart 不能只更新 params，不更新 query_context
 
 - 这次 91 看板里“转化趋势 / 明细表”报 `Unexpected error`，先是因为 BigQuery 生产表缺少 `column_follow_rate`

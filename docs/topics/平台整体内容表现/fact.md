@@ -41,6 +41,7 @@
 
 补充说明：
 - 事件侧指标统一只纳入 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件
+- `dau_uv` 以及所有以活跃登录用户为分母的率指标，都会排除 `send_push`、`send_email` 这类被动触达事件
 - 事件侧 UV 统一按 `COUNT(DISTINCT prop_user_id)` 统计
 - 事件侧 PV 保持原字段各自去重键，但同样只统计已登录用户事件
 - `follow_rate` 保持 `follow_uv / dau_uv`，不与 `column_follow_rate` 混用
