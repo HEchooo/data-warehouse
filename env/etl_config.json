@@ -428,6 +428,19 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_user_activity_app_version_daily",
+      "stage": "DWS",
+      "name": "DWS 用户版本活动事实 ETL",
+      "script": "jobs/dws/dws_user_activity_app_version_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dws_user_activity_daily"
+      ],
+      "schedule_group": "dws_user_activity_app_version_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_user_retention_feature_daily",
       "stage": "DWS",
       "name": "DWS 留存用户特征事实 ETL",
@@ -755,6 +768,18 @@
         "dws_user_activity_daily"
       ],
       "schedule_group": "ads_daily_user_tryon_penetration"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_user_tryon_penetration_app_version",
+      "stage": "ADS",
+      "name": "ADS 新老用户版本试穿渗透日报 ETL",
+      "script": "jobs/ads/ads_daily_user_tryon_penetration_app_version.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_user_activity_app_version_daily"
+      ],
+      "schedule_group": "ads_daily_user_tryon_penetration_app_version"
     },
     {
       "layer": "ADS",
