@@ -73,13 +73,17 @@ def build_select_sql() -> str:
             week_index,
             DATE_ADD(DATE '{REPORT_START_DATE}', INTERVAL week_index * 7 DAY)
                 AS week_start_dt,
-            MAX(dt) AS week_end_dt,
+            DATE_ADD(
+                DATE_ADD(DATE '{REPORT_START_DATE}', INTERVAL week_index * 7 DAY),
+                INTERVAL 6 DAY
+            ) AS week_end_dt,
             COUNT(*) AS day_count,
             COALESCE(SUM(daily_view_increment), 0) AS weekly_view_increment,
             CAST(ROUND(AVG(CAST(daily_view_increment AS NUMERIC)), 4) AS NUMERIC)
                 AS weekly_avg_daily_view_increment
         FROM daily_formal_video_increment
         GROUP BY week_index
+        HAVING COUNT(*) = 7
     ),
     -- 计算相邻周之间的增长倍数，首周作为基准展示 1.00。
     weekly_with_growth AS (
