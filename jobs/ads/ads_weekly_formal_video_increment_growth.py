@@ -11,7 +11,7 @@ PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ads_weekly_formal_video_increment_growth"
 SOURCE_TABLE_NAME = "ads_daily_formal_video_increment"
-REPORT_START_DATE = "2026-03-30"
+REPORT_START_DATE = "2026-04-13"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
 
@@ -58,7 +58,7 @@ def target_table_exists() -> bool:
 def build_select_sql() -> str:
     return f"""
     WITH
-    -- 读取正式号视频日增量，周窗口固定从 2026-03-30 起按 7 天切分。
+    -- 读取正式号视频日增量，周窗口固定从 2026-04-13 起按 7 天切分。
     daily_formal_video_increment AS (
         SELECT
             dt,

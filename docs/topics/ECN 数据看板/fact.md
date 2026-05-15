@@ -15,7 +15,7 @@
 
 - 表：`decom.ads_weekly_formal_video_increment_growth`
 - 粒度：`week_index`
-- 周窗口：从美东日期 `2026-03-30` 起，每 7 天一个窗口
+- 周窗口：从美东日期 `2026-04-13` 起，每 7 天一个窗口
 - 作用：承接正式号视频周均新增 views 与增长倍数，服务图 6-9
 - 调度：独立表级任务 `jobs/ads/ads_weekly_formal_video_increment_growth.py`
 - Superset：物理 dataset `ads_weekly_formal_video_increment_growth`（id=241）
@@ -35,7 +35,7 @@
 | 平均 LTV | 首次采集正播放日期为 `dt-6` 的正式号视频，在 `dt` 当天的累计 `views` 均值 |
 | 内容账号总数 | 截至当天，账号下至少有一个正式号视频首次采集到 `views > 0` 的去重内容账号数；账号键为 `channel + creator_id` |
 | 全部已发布视频新增总点赞数 | 当天统计截至当日已经发布过的全部正式号视频，当日 `day_end_likes - 前一日 day_end_likes` 的总和 |
-| 每日新增总 views 的周均值 | 从 `2026-03-30` 起每 7 天聚合，仅统计完整 7 天窗口内 `daily_view_increment` 的算术平均值 |
+| 每日新增总 views 的周均值 | 从 `2026-04-13` 起每 7 天聚合，仅统计完整 7 天窗口内 `daily_view_increment` 的算术平均值 |
 | 周增长倍数 | 当前 7 天窗口的每日新增 views 周均值 / 上一个 7 天窗口的每日新增 views 周均值；首周展示为 `1` |
 | 周增长倍数卡片 | 排除首周基准后，对周增长倍数取算术平均值 |
 | 月度增长倍数 | `周增长倍数卡片 ^ (30.5 / 7)` |
@@ -68,8 +68,8 @@
 
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |---|---|---|---|
-| 周序号 | `decom.ads_weekly_formal_video_increment_growth` | `week_index` | `DIV(DATE_DIFF(dt, DATE '2026-03-30', DAY), 7)` |
-| 周窗口 | `decom.ads_weekly_formal_video_increment_growth` | `week_start_dt` / `week_end_dt` / `week_label` | 从 `2026-03-30` 起每 7 天一个完整窗口，仅保留满 7 天的周 |
+| 周序号 | `decom.ads_weekly_formal_video_increment_growth` | `week_index` | `DIV(DATE_DIFF(dt, DATE '2026-04-13', DAY), 7)` |
+| 周窗口 | `decom.ads_weekly_formal_video_increment_growth` | `week_start_dt` / `week_end_dt` / `week_label` | 从 `2026-04-13` 起每 7 天一个完整窗口，仅保留满 7 天的周 |
 | 每日新增总 views 的周均值 | `decom.ads_weekly_formal_video_increment_growth` | `weekly_avg_daily_view_increment` | 完整 7 天窗口内 `daily_view_increment` 的算术平均值 |
 | 周增长倍数 | `decom.ads_weekly_formal_video_increment_growth` | `week_growth_multiple` | 当前周均值 / 前一周均值；首周为 `1` |
 | 周增长倍数卡片 | `decom.ads_weekly_formal_video_increment_growth` | `avg_week_growth_multiple` | 排除首周后的 `week_growth_multiple` 平均值 |
