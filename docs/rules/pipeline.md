@@ -18,6 +18,7 @@
 - `ads_monthly_module_performance`
 - `ads_daily_content_performance`
 - `ads_daily_home_module_performance`
+- `ads_daily_thirdapp_channel_uv`
 - `ads_daily_tryon_confirm`
 - `ads_daily_post_tryon_confirm`
 - `ads_daily_tryon_add_cart_conversion`
@@ -45,6 +46,7 @@
 - `jobs/ads/ads_monthly_column_performance.py`
 - `jobs/ads/ads_monthly_module_performance.py`
 - `jobs/ads/ads_daily_home_module_performance.py`
+- `jobs/ads/ads_daily_thirdapp_channel_uv.py`
 - `jobs/ads/ads_daily_tryon_confirm.py`
 - `jobs/ads/ads_daily_post_tryon_confirm.py`
 - `jobs/ads/ads_daily_tryon_add_cart_conversion.py`
@@ -80,6 +82,7 @@
   - `ads_monthly_module_performance`
   - `ads_daily_content_performance`
   - `ads_daily_home_module_performance`
+  - `ads_daily_thirdapp_channel_uv`
   - `ads_daily_tryon_confirm`
   - `ads_daily_post_tryon_confirm`
   - `ads_daily_tryon_add_cart_conversion`
@@ -106,6 +109,8 @@
   - `dwd_event_log + v3 服务端行为表 -> dws_platform_content_daily -> ads_daily_content_performance`
 - 首页模块链路：
   - `dwd_event_log -> dws_home_module_daily -> ads_daily_home_module_performance`
+- 第三方渠道曝光链路：
+  - `dwd_event_log -> dws_thirdapp_channel_device_daily -> ads_daily_thirdapp_channel_uv`
 - 试穿点击汇总链路：
   - `dwd_event_log -> dws_tryon_confirm_daily -> ads_daily_tryon_confirm`
 - 帖子级试穿点击链路：

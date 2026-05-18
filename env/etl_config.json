@@ -354,6 +354,18 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_thirdapp_channel_device_daily",
+      "stage": "DWS",
+      "name": "DWS 第三方渠道曝光设备级事实 ETL",
+      "script": "jobs/dws/dws_thirdapp_channel_device_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_thirdapp_channel_device_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_tryon_confirm_daily",
       "stage": "DWS",
       "name": "DWS 试穿点击汇总事实 ETL",
@@ -694,6 +706,18 @@
         "dws_home_module_daily"
       ],
       "schedule_group": "ads_daily_home_module_performance"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_thirdapp_channel_uv",
+      "stage": "ADS",
+      "name": "ADS 第三方渠道曝光 UV 日报 ETL",
+      "script": "jobs/ads/ads_daily_thirdapp_channel_uv.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_thirdapp_channel_device_daily"
+      ],
+      "schedule_group": "ads_daily_thirdapp_channel_uv"
     },
     {
       "layer": "ADS",
