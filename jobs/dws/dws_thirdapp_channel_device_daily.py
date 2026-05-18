@@ -104,6 +104,7 @@ def get_thirdapp_channel_device_dates_to_process(
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE event_name = 'v_thirdapp_open'
             AND NULLIF(prop_device_id, '') IS NOT NULL
+            AND NULLIF(LOWER(TRIM(JSON_VALUE(args, '$.sf'))), '') IS NOT NULL
             AND DATE({event_ts}, '{EASTERN_TZ}') IS NOT NULL
         ORDER BY dt
         """
@@ -119,6 +120,7 @@ def get_thirdapp_channel_device_dates_to_process(
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
             AND event_name = 'v_thirdapp_open'
             AND NULLIF(prop_device_id, '') IS NOT NULL
+            AND NULLIF(LOWER(TRIM(JSON_VALUE(args, '$.sf'))), '') IS NOT NULL
             AND DATE({event_ts}, '{EASTERN_TZ}') IS NOT NULL
     ),
     -- 固定补最近两天，保证 ADS 能及时产出零值行。
@@ -185,6 +187,7 @@ def run_dws_thirdapp_channel_device_daily(dates: list[date]) -> None:
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE event_name = 'v_thirdapp_open'
             AND NULLIF(prop_device_id, '') IS NOT NULL
+            AND NULLIF(LOWER(TRIM(JSON_VALUE(args, '$.sf'))), '') IS NOT NULL
             AND DATE({event_ts}, '{EASTERN_TZ}') IN (
                 SELECT dt
                 FROM target_dates
