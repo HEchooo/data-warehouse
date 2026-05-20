@@ -28,6 +28,7 @@ COLUMN_EXPOSURE_EVENT_NAMES = (
     "v_magazine_post_detail",
     "v_brand_post_detail",
     "v_star_post_feeds",
+    "v_magazine_post_feeds",
     "v_brand_post_feeds",
 )
 PRODUCT_CLICK_EVENT_NAMES = (
@@ -154,7 +155,8 @@ def module_expr(event_name_field: str = "event_name") -> str:
     return f"""
     CASE
         WHEN {event_name_field} IN ('v_star_post_detail', 'v_star_post_feeds') THEN 'star'
-        WHEN {event_name_field} = 'v_magazine_post_detail' THEN 'magazine'
+        WHEN {event_name_field} IN ('v_magazine_post_detail', 'v_magazine_post_feeds')
+            THEN 'magazine'
         WHEN {event_name_field} IN ('v_brand_post_detail', 'v_brand_post_feeds') THEN 'brand'
         WHEN {star_id} IS NOT NULL THEN 'star'
         WHEN {magazine_id} IS NOT NULL THEN 'magazine'
@@ -172,7 +174,8 @@ def column_id_expr(event_name_field: str = "event_name") -> str:
     CASE
         WHEN {event_name_field} IN ('v_star_post_detail', 'v_star_post_feeds')
             THEN {star_id}
-        WHEN {event_name_field} = 'v_magazine_post_detail' THEN {magazine_id}
+        WHEN {event_name_field} IN ('v_magazine_post_detail', 'v_magazine_post_feeds')
+            THEN {magazine_id}
         WHEN {event_name_field} IN ('v_brand_post_detail', 'v_brand_post_feeds')
             THEN {brand_id}
         ELSE COALESCE({star_id}, {magazine_id}, {brand_id})

@@ -10,7 +10,7 @@
 
 | 字段 | 口径 |
 |------|------|
-| post_exposure_uv | 进入帖子详情页的去重已登录用户数；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`；仅统计 `prop_user_id` 非空事件，按 `COUNT(DISTINCT prop_user_id)` |
+| post_exposure_uv | 帖子曝光去重已登录用户数；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_star_post_feeds`, `v_magazine_post_feeds`, `v_brand_post_feeds`；仅统计 `prop_user_id` 非空事件，按 `COUNT(DISTINCT prop_user_id)` |
 | like_total_count | 点赞成功次数（PV）；服务端表：`v3_decom.community_post_like`；按 `gmt_create` 切天后计数，并通过 `community_post` 映射回 `post_code / column_id` |
 | like_rate | 点赞已登录用户数 / 帖子曝光已登录用户数 |
 | read_rate | 阅读已登录用户数 / 帖子曝光已登录用户数；阅读事件：`r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail`；仅统计 `prop_user_id` 非空事件，按 `COUNT(DISTINCT prop_user_id)` |

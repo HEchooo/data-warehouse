@@ -15,6 +15,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 
+POST_EXPOSURE_EVENT_NAMES = (
+    "v_star_post_detail",
+    "v_magazine_post_detail",
+    "v_brand_post_detail",
+    "v_star_post_feeds",
+    "v_magazine_post_feeds",
+    "v_brand_post_feeds",
+)
 POST_DETAIL_EXPOSURE_EVENT_NAMES = (
     "v_star_post_detail",
     "v_magazine_post_detail",
@@ -208,9 +216,10 @@ def module_expr(event_name_field: str = "event_name") -> str:
     brand_id = clean_id_expr("args_brand")
     return f"""
     CASE
-        WHEN {event_name_field} = 'v_star_post_detail' THEN 'star'
-        WHEN {event_name_field} = 'v_magazine_post_detail' THEN 'magazine'
-        WHEN {event_name_field} = 'v_brand_post_detail' THEN 'brand'
+        WHEN {event_name_field} IN ('v_star_post_detail', 'v_star_post_feeds') THEN 'star'
+        WHEN {event_name_field} IN ('v_magazine_post_detail', 'v_magazine_post_feeds')
+            THEN 'magazine'
+        WHEN {event_name_field} IN ('v_brand_post_detail', 'v_brand_post_feeds') THEN 'brand'
         WHEN {star_id} IS NOT NULL THEN 'star'
         WHEN {magazine_id} IS NOT NULL THEN 'magazine'
         WHEN {brand_id} IS NOT NULL THEN 'brand'
@@ -225,9 +234,10 @@ def column_id_expr(event_name_field: str = "event_name") -> str:
     brand_id = clean_id_expr("args_brand")
     return f"""
     CASE
-        WHEN {event_name_field} = 'v_star_post_detail' THEN {star_id}
-        WHEN {event_name_field} = 'v_magazine_post_detail' THEN {magazine_id}
-        WHEN {event_name_field} = 'v_brand_post_detail' THEN {brand_id}
+        WHEN {event_name_field} IN ('v_star_post_detail', 'v_star_post_feeds') THEN {star_id}
+        WHEN {event_name_field} IN ('v_magazine_post_detail', 'v_magazine_post_feeds')
+            THEN {magazine_id}
+        WHEN {event_name_field} IN ('v_brand_post_detail', 'v_brand_post_feeds') THEN {brand_id}
         ELSE COALESCE({star_id}, {magazine_id}, {brand_id})
     END
     """
@@ -242,7 +252,7 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
     - 其中 platform 同时产出具体平台和 `all` 总计口径
 
     指标：
-    - post_exposure_uv：帖子详情曝光 UV，仅统计已登录用户
+    - post_exposure_uv：帖子曝光 UV（详情 + feeds），仅统计已登录用户
     - read_uv：帖子阅读 UV，仅统计已登录用户
     - like_total_count / like_uv：服务端点赞次数 / 用户数
     - follow_total_count / follow_uv：服务端关注按帖子详情曝光 last-touch 归因后的次数 / 用户数
@@ -258,7 +268,10 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
     platform_case = platform_expr()
     module_sql = module_expr()
     column_id_sql = column_id_expr()
-    exposure_events_sql = string_values_to_sql_list(POST_DETAIL_EXPOSURE_EVENT_NAMES)
+    post_exposure_events_sql = string_values_to_sql_list(POST_EXPOSURE_EVENT_NAMES)
+    post_detail_exposure_events_sql = string_values_to_sql_list(
+        POST_DETAIL_EXPOSURE_EVENT_NAMES
+    )
     read_events_sql = string_values_to_sql_list(READ_EVENT_NAMES)
 
     query = f"""
@@ -338,11 +351,12 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             ORDER BY IF(status = 0, 0, 1), module
         ) = 1
     ),
-    -- 帖子详情曝光明细：保留帖子、专栏和平台维度，作为帖子级率指标分母与关注归因依据。
-    exposure_events AS (
+    -- 帖子曝光明细：保留帖子、专栏和平台维度，作为帖子级率指标分母。
+    post_exposure_events AS (
         SELECT
             dt,
             event_ts,
+            event_name,
             user_id,
             post_code,
             {module_sql} AS module,
@@ -350,11 +364,25 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             platform,
             hash_id
         FROM base
-        WHERE event_name IN ({exposure_events_sql})
+        WHERE event_name IN ({post_exposure_events_sql})
             AND user_id IS NOT NULL
             AND post_code IS NOT NULL
     ),
-    -- 帖子详情曝光平台聚合：按平台统计已登录曝光 UV。
+    -- 关注归因曝光明细：仍只保留帖子详情曝光，避免连带改动关注 last-touch 口径。
+    detail_exposure_events AS (
+        SELECT
+            dt,
+            event_ts,
+            user_id,
+            post_code,
+            module,
+            column_id,
+            platform,
+            hash_id
+        FROM post_exposure_events
+        WHERE event_name IN ({post_detail_exposure_events_sql})
+    ),
+    -- 帖子曝光平台聚合：按平台统计已登录曝光 UV。
     exposure_daily_platform AS (
         SELECT
             dt,
@@ -363,12 +391,12 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             column_id,
             platform,
             COUNT(DISTINCT user_id) AS post_exposure_uv
-        FROM exposure_events
+        FROM post_exposure_events
         WHERE module IS NOT NULL
             AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id, platform
     ),
-    -- 帖子详情曝光总计聚合：忽略平台重算全平台 UV，避免跨平台重复相加。
+    -- 帖子曝光总计聚合：忽略平台重算全平台 UV，避免跨平台重复相加。
     exposure_daily_all AS (
         SELECT
             dt,
@@ -377,12 +405,12 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             column_id,
             'all' AS platform,
             COUNT(DISTINCT user_id) AS post_exposure_uv
-        FROM exposure_events
+        FROM post_exposure_events
         WHERE module IS NOT NULL
             AND column_id IS NOT NULL
         GROUP BY dt, post_code, module, column_id
     ),
-    -- 帖子详情曝光统一输出：同时保留平台口径和全平台总计口径。
+    -- 帖子曝光统一输出：同时保留平台口径和全平台总计口径。
     exposure_daily AS (
         SELECT * FROM exposure_daily_platform
         UNION ALL
@@ -625,7 +653,7 @@ def run_dws_post_interaction_daily(dates: list[date]) -> None:
             e.column_id,
             e.platform
         FROM follow_service_base f
-        JOIN exposure_events e
+        JOIN detail_exposure_events e
             ON e.dt = f.dt
             AND e.user_id = f.user_id
             AND e.module = f.module

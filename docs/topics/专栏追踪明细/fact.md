@@ -20,7 +20,7 @@
 
 | 字段 | 口径 |
 |------|------|
-| column_exposure_uv | 专栏曝光 UV；事件：`v_star_post_feeds`, `v_brand_post_feeds`, `v_star_post_detail`, `v_brand_post_detail`, `v_magazine_post_detail`；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按 `COUNT(DISTINCT prop_user_id)` |
+| column_exposure_uv | 专栏曝光 UV；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_star_post_feeds`, `v_magazine_post_feeds`, `v_brand_post_feeds`；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按 `COUNT(DISTINCT prop_user_id)` |
 | follow_total_count | 新增关注次数（PV）；服务端表：`v3_decom.community_star_follow`；按 `gmt_create` 切天/切月后计数 |
 | follow_rate | `follow_uv / column_exposure_uv`；其中 `follow_uv` 为服务端新增关注去重用户数（`v3_decom.community_star_follow.user_id`） |
 | product_click_uv | 商品点击 UV；事件：`c_go_product_detail`, `c_open_sku_popup`, `c_third_party_goods`；仅统计 `product_code` 非空、且 `prop_user_id` 非空的事件；专栏归因只允许使用上报的 `args_post`，经 `community_post.poster_user_id -> kol_rel.user_id` 映射到 `column_id`；按 `COUNT(DISTINCT prop_user_id)` |
