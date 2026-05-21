@@ -199,6 +199,18 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_push_recall_daily",
+      "stage": "DWS",
+      "name": "DWS push 召回主题主体级事实 ETL",
+      "script": "jobs/dws/dws_push_recall_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_push_recall_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_content_item_device_daily",
       "stage": "DWS",
       "name": "DWS 设备级内容 item 曝光点击事实 ETL",
@@ -600,6 +612,18 @@
         "dws_push_daily"
       ],
       "schedule_group": "ads_daily_push"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_push_recall",
+      "stage": "ADS",
+      "name": "ADS push 召回日报 ETL",
+      "script": "jobs/ads/ads_daily_push_recall.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_push_recall_daily"
+      ],
+      "schedule_group": "ads_daily_push_recall"
     },
     {
       "layer": "ADS",
