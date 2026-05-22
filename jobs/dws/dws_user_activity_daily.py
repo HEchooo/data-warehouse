@@ -229,6 +229,8 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     - followed_account_count：当日关注的去重账号数
     - viewed_product_detail / used_search / used_ai_tryon /
       created_model / followed_account / closet_penetrated：行为特征布尔值
+    - exposed_home_{feeds|star|magazine|brand} /
+      clicked_home_{feeds|star|magazine|brand}：首页 4 个模块曝光与点击布尔值
     """
     if not dates:
         logging.info("没有新的 dws_user_activity_daily 日期需要处理")
@@ -262,6 +264,14 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         created_model,
         followed_account,
         closet_penetrated,
+        exposed_home_feeds,
+        clicked_home_feeds,
+        exposed_home_star,
+        clicked_home_star,
+        exposed_home_magazine,
+        clicked_home_magazine,
+        exposed_home_brand,
+        clicked_home_brand,
         update_time
     )
     WITH
@@ -326,14 +336,22 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         )
         GROUP BY dt, user_id
     ),
-    -- 事件侧行为聚合层：统计商详、搜索和衣橱曝光是否发生过。
+    -- 事件侧行为聚合层：统计商详、搜索、衣橱曝光及首页 4 个模块曝光/点击是否发生过。
     event_behavior_daily AS (
         SELECT
             dt,
             user_id,
             MAX(IF(event_name = 'v_product_detail', 1, 0)) AS viewed_product_detail,
             MAX(IF(event_name IN ('c_home_search', 'c_shop_search'), 1, 0)) AS used_search,
-            MAX(IF(event_name = 'v_closet', 1, 0)) AS viewed_closet
+            MAX(IF(event_name = 'v_closet', 1, 0)) AS viewed_closet,
+            MAX(IF(event_name = 'v_home_feeds', 1, 0)) AS exposed_home_feeds,
+            MAX(IF(event_name = 'c_home_feeds', 1, 0)) AS clicked_home_feeds,
+            MAX(IF(event_name = 'v_home_star', 1, 0)) AS exposed_home_star,
+            MAX(IF(event_name = 'c_home_star', 1, 0)) AS clicked_home_star,
+            MAX(IF(event_name = 'v_home_magazine', 1, 0)) AS exposed_home_magazine,
+            MAX(IF(event_name = 'c_home_magazine', 1, 0)) AS clicked_home_magazine,
+            MAX(IF(event_name = 'v_home_brand', 1, 0)) AS exposed_home_brand,
+            MAX(IF(event_name = 'c_home_brand', 1, 0)) AS clicked_home_brand
         FROM logged_in_event_base
         GROUP BY dt, user_id
     ),
@@ -415,6 +433,14 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
             1,
             0
         ) AS closet_penetrated,
+        COALESCE(e.exposed_home_feeds, 0) AS exposed_home_feeds,
+        COALESCE(e.clicked_home_feeds, 0) AS clicked_home_feeds,
+        COALESCE(e.exposed_home_star, 0) AS exposed_home_star,
+        COALESCE(e.clicked_home_star, 0) AS clicked_home_star,
+        COALESCE(e.exposed_home_magazine, 0) AS exposed_home_magazine,
+        COALESCE(e.clicked_home_magazine, 0) AS clicked_home_magazine,
+        COALESCE(e.exposed_home_brand, 0) AS exposed_home_brand,
+        COALESCE(e.clicked_home_brand, 0) AS clicked_home_brand,
         CURRENT_TIMESTAMP() AS update_time
     FROM cohort_users c
     LEFT JOIN future_active_users n1

@@ -23,3 +23,13 @@ ADD COLUMN followed_account_count INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
 ADD COLUMN closet_penetrated INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
+ADD COLUMN exposed_home_feeds INT64,
+ADD COLUMN clicked_home_feeds INT64,
+ADD COLUMN exposed_home_star INT64,
+ADD COLUMN clicked_home_star INT64,
+ADD COLUMN exposed_home_magazine INT64,
+ADD COLUMN clicked_home_magazine INT64,
+ADD COLUMN exposed_home_brand INT64,
+ADD COLUMN clicked_home_brand INT64;
