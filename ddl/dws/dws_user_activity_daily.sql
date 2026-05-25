@@ -33,3 +33,6 @@ ADD COLUMN exposed_home_magazine INT64,
 ADD COLUMN clicked_home_magazine INT64,
 ADD COLUMN exposed_home_brand INT64,
 ADD COLUMN clicked_home_brand INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
+ADD COLUMN ai_tryon_count INT64;

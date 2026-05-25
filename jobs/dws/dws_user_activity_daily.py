@@ -6,7 +6,6 @@ import sys
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 
-
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 V3_DATASET_ID = "v3_decom"
@@ -227,6 +226,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     - is_next_day_retained / is_day_7_retained：未来观察日回访标记
     - duration_sec：当日停留时长
     - followed_account_count：当日关注的去重账号数
+    - ai_tryon_count：当日 task_type IN ('TRY_ON','OUTFIT') 的服务端任务行数
     - viewed_product_detail / used_search / used_ai_tryon /
       created_model / followed_account / closet_penetrated：行为特征布尔值
     - exposed_home_{feeds|star|magazine|brand} /
@@ -258,6 +258,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         is_day_7_retained,
         duration_sec,
         followed_account_count,
+        ai_tryon_count,
         viewed_product_detail,
         used_search,
         used_ai_tryon,
@@ -355,7 +356,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         FROM logged_in_event_base
         GROUP BY dt, user_id
     ),
-    -- 服务端试穿行为聚合层：按天去重到用户。
+    -- 服务端试穿行为聚合层：按天去重到用户，并统计当日试穿任务次数。
     tryon_behavior_daily AS (
         SELECT
             DATE({service_ts}, '{TORONTO_TZ}') AS dt,
@@ -363,7 +364,8 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
                 NULLIF(JSON_VALUE(request_param, '$.user_id'), ''),
                 NULLIF(JSON_VALUE(request_param, '$.userId'), ''),
                 NULLIF(CAST(user_id AS STRING), '')
-            ) AS user_id
+            ) AS user_id,
+            COUNT(1) AS ai_tryon_count
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
             AND task_type IN ('TRY_ON', 'OUTFIT')
@@ -382,7 +384,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
             AND task_type = 'MODEL'
         GROUP BY dt, user_id
-    ),
+),
     -- 服务端关注行为聚合层：按天去重到用户。
     follow_behavior_daily AS (
         SELECT
@@ -422,6 +424,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         n7.user_id IS NOT NULL AS is_day_7_retained,
         COALESCE(d.duration_sec, 0) AS duration_sec,
         COALESCE(f.followed_account_count, 0) AS followed_account_count,
+        COALESCE(t.ai_tryon_count, 0) AS ai_tryon_count,
         COALESCE(e.viewed_product_detail, 0) AS viewed_product_detail,
         COALESCE(e.used_search, 0) AS used_search,
         IF(t.user_id IS NOT NULL, 1, 0) AS used_ai_tryon,

@@ -37,6 +37,19 @@
 - 正确口径是：对 `dt` 当天 cohort 用户，统计其在 `dt` 当天关注的去重账号数，再看这些用户在 `dt+1` / `dt+7` 是否留存
 - 排查桶人数异常时，先看 `dws_user_activity_daily.followed_account_count`，不要先去查历史累计关系
 
+## “AI 试穿使用次数” 是 task_type 任务行数，不是布尔行为
+
+- `dws_user_activity_daily.used_ai_tryon` 是 0/1 布尔，只要当天发生过一次试穿就置 1，用于特征对比表的人数指标
+- `dws_user_activity_daily.ai_tryon_count` 是 `task_type IN ('TRY_ON','OUTFIT')` 的当日任务行数，用于试穿次数分桶
+- 排查桶人数对不上时，不要拿 `used_ai_tryon` 的去重用户数去对桶人数加总；先确认查的是次数字段还是布尔字段
+- 试穿用户的 cohort user_id 取数和 `tryon_behavior_daily` 一致：优先 `request_param.user_id / userId`，回退到 `common_ext_ai_task.user_id`；次数字段直接在同一 CTE 内 `COUNT(1)`，不需要再拉一遍源表
+
+## 试穿次数分桶图默认排除 `0` 次用户
+
+- 本次“AI 试穿次数分布”需求明确要求 `0` 次用户不进入任何分桶
+- 因此各试穿桶的 `次日留存 / 7日留存 / 次日非留存 / 7日非留存` 加总，只覆盖 `dt` 当日发生过至少 1 次试穿的 cohort 用户
+- 如果拿桶内加总去对比第一张图里的 cohort 总人数，先确认是否已经排除了 `0` 次用户
+
 ## “衣橱渗透” 不要直接照搬衣橱概览的 `SINGLE` 口径
 
 - `【AI-Fashion】衣橱概览` 的渗透人数分子是“同日 `v_closet` + 同日 `type = 'SINGLE'`”
