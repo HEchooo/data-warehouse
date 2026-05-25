@@ -23,6 +23,13 @@
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
 - 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
 
+### 留存与非留存用户新增关注账号数分布
+
+- 表：`ads_daily_retention_user_new_follow_bucket`
+- 粒度：`dt × user_group × new_follow_account_bucket`
+- Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
+- 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
+
 ### 留存与非留存用户 AI 试穿次数分布
 
 - 表：`ads_daily_retention_user_tryon_bucket`
@@ -78,6 +85,16 @@
 | 7日留存用户数 | 对应累计关注账号数桶内，`dt` 当日活跃且 `dt+7` 仍活跃的已登录去重用户数 |
 | 次日非留存用户数 | 对应累计关注账号数桶内，`dt` 当日活跃且 `dt+1` 未活跃的已登录去重用户数 |
 | 7日非留存用户数 | 对应累计关注账号数桶内，`dt` 当日活跃且 `dt+7` 未活跃的已登录去重用户数 |
+
+### 留存与非留存用户新增关注账号数分布
+
+| 需求字段 | 定义 |
+|------|------|
+| 新增关注账号数 | cohort 用户在 `dt` 当天关注的去重账号数分桶；关注来源 `v3_decom.community_star_follow.star_user_id`，按 `dt × user_id` 统计 `COUNT(DISTINCT star_user_id)`；与“累计关注账号数”chart 共用同一 `dws_user_activity_daily.followed_account_count` 字段；**包含当日关注数为 `0` 的已登录用户**，分桶为 `0`、`(1~2]`、`(3~5]`、`5个以上` |
+| 次日留存用户数 | 对应新增关注账号数桶内，`dt` 当日活跃且 `dt+1` 仍活跃的已登录去重用户数 |
+| 7日留存用户数 | 对应新增关注账号数桶内，`dt` 当日活跃且 `dt+7` 仍活跃的已登录去重用户数 |
+| 次日非留存用户数 | 对应新增关注账号数桶内，`dt` 当日活跃且 `dt+1` 未活跃的已登录去重用户数 |
+| 7日非留存用户数 | 对应新增关注账号数桶内,`dt` 当日活跃且 `dt+7` 未活跃的已登录去重用户数 |
 
 ### 留存与非留存用户 AI 试穿次数分布
 
@@ -135,6 +152,18 @@
 | 次日非留存用户数 | `decom.ads_daily_retention_user_follow_bucket` | `next_day_not_retained_user_count` | 若 `dt+1` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内次日非留存去重用户数 |
 | 7日非留存用户数 | `decom.ads_daily_retention_user_follow_bucket` | `day_7_not_retained_user_count` | 若 `dt+7` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内 7 日非留存去重用户数 |
 
+### 留存与非留存用户新增关注账号数分布
+
+| 需求字段 | 落地表 | 落地字段 | 口径 |
+|------|------|------|------|
+| 用户群 | `decom.ads_daily_retention_user_new_follow_bucket` | `user_group` | `新用户 / 老用户 / 全量登录用户`；与特征对比报表完全复用同一 cohort 分群 |
+| 新增关注账号数桶排序 | `decom.ads_daily_retention_user_new_follow_bucket` | `new_follow_account_bucket_order` | 固定为 `1-4`，对应 `0`、`(1~2]`、`(3~5]`、`5个以上` |
+| 新增关注账号数桶名称 | `decom.ads_daily_retention_user_new_follow_bucket` | `new_follow_account_bucket` | 展示层直接使用的新增关注账号数分桶标签 |
+| 次日留存用户数 | `decom.ads_daily_retention_user_new_follow_bucket` | `next_day_retained_user_count` | 若 `dt+1` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内次日留存去重用户数（包含 `0` 关注桶用户）|
+| 7日留存用户数 | `decom.ads_daily_retention_user_new_follow_bucket` | `day_7_retained_user_count` | 若 `dt+7` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内 7 日留存去重用户数（包含 `0` 关注桶用户）|
+| 次日非留存用户数 | `decom.ads_daily_retention_user_new_follow_bucket` | `next_day_not_retained_user_count` | 若 `dt+1` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内次日非留存去重用户数（包含 `0` 关注桶用户）|
+| 7日非留存用户数 | `decom.ads_daily_retention_user_new_follow_bucket` | `day_7_not_retained_user_count` | 若 `dt+7` 的观察日尚未开始则返回 `NULL`；观察日开始后统计桶内 7 日非留存去重用户数（包含 `0` 关注桶用户）|
+
 ### 留存与非留存用户 AI 试穿次数分布
 
 | 需求字段 | 落地表 | 落地字段 | 口径 |
@@ -165,16 +194,18 @@
 - 特征对比表原有字段已完成生产表扩展与 Superset 资产更新；本次新增“衣橱渗透”后，是否执行 DDL、刷新受影响分区并让 dashboard 生效，需要单独执行
 - 时长分桶表的代码、DDL 与调度配置已补齐；是否创建生产表、刷新历史分区并创建 Superset 资产，需要单独执行
 - 累计关注账号数分桶表的代码、DDL 与调度配置已补齐；是否创建生产表、刷新历史分区并创建 Superset 资产，需要单独执行
+- 新增关注账号数分桶 chart 与累计关注账号数 chart 共用 `dws_user_activity_daily.followed_account_count` 字段，分桶定义不同；新 chart **包含 `0` 关注用户**，因此各桶 cohort 用户数加总应当等于第一张图里的 cohort 总人数
+- 新增关注账号数分桶表的代码、DDL、调度配置已补齐，生产表已创建并完成 `2026-05-01 ~ 2026-05-25` 历史分区回刷；Superset 物理 dataset `ads_daily_retention_user_new_follow_bucket`（id=248）与 chart `留存与非留存用户新增关注账号数分布`（id=626）已创建并挂到 dashboard 103 的「累计关注账号数」之后，dashboard 的「日期」「用户群」原生 filter 已扩到新 chart
 - AI 试穿次数分桶表的代码、DDL、`dws_user_activity_daily.ai_tryon_count` 扩列与调度配置已补齐；是否执行 DWS 扩列 + 历史分区重刷、创建 ADS 生产表、刷新历史分区并创建 Superset 资产，需要单独执行
 
 ## 依赖
 
 - 上游：`decom.dws_user_retention_feature_daily`, `decom.dws_user_activity_daily`
 - 中间表：`decom.dws_user_activity_daily`, `decom.dws_user_retention_feature_daily`, `decom.dws_user_daily`, `decom.dwd_event_log`, `v3_decom.common_ext_ai_task`, `v3_decom.community_star_follow`, `v3_decom.user_fashion_closet`
-- 报表表：`decom.ads_daily_retention_user_feature`, `decom.ads_daily_retention_user_duration_bucket`, `decom.ads_daily_retention_user_follow_bucket`, `decom.ads_daily_retention_user_tryon_bucket`
-- Superset：物理 dataset `ads_daily_retention_user_feature`（id=232），chart `留存用户与非留存用户特征对比`（id=581），dashboard `【AI-Fashion】留存用户的特征数据`（id=103）
-- 脚本：`jobs/ads/ads_daily_retention_user_feature.py`, `jobs/ads/ads_daily_retention_user_duration_bucket.py`, `jobs/ads/ads_daily_retention_user_follow_bucket.py`, `jobs/ads/ads_daily_retention_user_tryon_bucket.py`
+- 报表表：`decom.ads_daily_retention_user_feature`, `decom.ads_daily_retention_user_duration_bucket`, `decom.ads_daily_retention_user_follow_bucket`, `decom.ads_daily_retention_user_new_follow_bucket`, `decom.ads_daily_retention_user_tryon_bucket`
+- Superset：物理 dataset `ads_daily_retention_user_feature`（id=232），chart `留存用户与非留存用户特征对比`（id=581），dashboard `【AI-Fashion】留存用户的特征数据`（id=103）；新增关注账号数分桶 chart 物理 dataset `ads_daily_retention_user_new_follow_bucket`（id=248）+ chart `留存与非留存用户新增关注账号数分布`（id=626）已挂在 dashboard 103 上
+- 脚本：`jobs/ads/ads_daily_retention_user_feature.py`, `jobs/ads/ads_daily_retention_user_duration_bucket.py`, `jobs/ads/ads_daily_retention_user_follow_bucket.py`, `jobs/ads/ads_daily_retention_user_new_follow_bucket.py`, `jobs/ads/ads_daily_retention_user_tryon_bucket.py`
 - DWS 脚本：`jobs/dws/dws_user_activity_daily.py`, `jobs/dws/dws_user_retention_feature_daily.py`
-- DDL：`ddl/ads/ads_daily_retention_user_feature.sql`, `ddl/ads/ads_daily_retention_user_duration_bucket.sql`, `ddl/ads/ads_daily_retention_user_follow_bucket.sql`, `ddl/ads/ads_daily_retention_user_tryon_bucket.sql`
+- DDL：`ddl/ads/ads_daily_retention_user_feature.sql`, `ddl/ads/ads_daily_retention_user_duration_bucket.sql`, `ddl/ads/ads_daily_retention_user_follow_bucket.sql`, `ddl/ads/ads_daily_retention_user_new_follow_bucket.sql`, `ddl/ads/ads_daily_retention_user_tryon_bucket.sql`
 - DWS DDL：`ddl/dws/dws_user_activity_daily.sql`, `ddl/dws/dws_user_retention_feature_daily.sql`
-- 编排：独立表级入口 `jobs/ads/ads_daily_retention_user_feature.py`, `jobs/ads/ads_daily_retention_user_duration_bucket.py`, `jobs/ads/ads_daily_retention_user_follow_bucket.py`, `jobs/ads/ads_daily_retention_user_tryon_bucket.py`
+- 编排：独立表级入口 `jobs/ads/ads_daily_retention_user_feature.py`, `jobs/ads/ads_daily_retention_user_duration_bucket.py`, `jobs/ads/ads_daily_retention_user_follow_bucket.py`, `jobs/ads/ads_daily_retention_user_new_follow_bucket.py`, `jobs/ads/ads_daily_retention_user_tryon_bucket.py`

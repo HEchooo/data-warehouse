@@ -27,6 +27,7 @@
 - `ads_daily_retention_user_feature`
 - `ads_daily_retention_user_duration_bucket`
 - `ads_daily_retention_user_follow_bucket`
+- `ads_daily_retention_user_new_follow_bucket`
 - `ads_daily_retention_user_tryon_bucket`
 - `ads_daily_social_content`
 - `ads_daily_formal_video_increment`
@@ -57,6 +58,7 @@
 - `jobs/ads/ads_daily_retention_user_feature.py`
 - `jobs/ads/ads_daily_retention_user_duration_bucket.py`
 - `jobs/ads/ads_daily_retention_user_follow_bucket.py`
+- `jobs/ads/ads_daily_retention_user_new_follow_bucket.py`
 - `jobs/ads/ads_daily_retention_user_tryon_bucket.py`
 - `jobs/ads/ads_daily_social_content.py`
 - `jobs/ads/ads_daily_formal_video_increment.py`
@@ -95,6 +97,7 @@
   - `ads_daily_retention_user_feature`
   - `ads_daily_retention_user_duration_bucket`
   - `ads_daily_retention_user_follow_bucket`
+  - `ads_daily_retention_user_new_follow_bucket`
   - `ads_daily_retention_user_tryon_bucket`
   - `ads_daily_social_content`
   - `ads_daily_formal_video_increment`
@@ -139,6 +142,8 @@
   - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_duration_bucket`
 - 留存累计关注分桶链路：
   - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_follow_bucket`
+- 留存新增关注分桶链路：
+  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_new_follow_bucket`
 - 留存 AI 试穿次数分桶链路：
   - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_tryon_bucket`
 - 投资人主题链路：
