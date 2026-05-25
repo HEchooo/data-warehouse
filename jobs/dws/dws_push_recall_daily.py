@@ -105,6 +105,7 @@ def get_push_recall_dates_to_process(
 
     base_filter = f"""
         event_name IN ({push_events_sql})
+        AND (event_name != 'send_push' OR JSON_VALUE(ext, '$.push.status') = 'SUCCESS')
         AND NULLIF(TRIM(JSON_VALUE(ext, '$.push.recall_strategy')), '') IS NOT NULL
         AND NULLIF(TRIM(JSON_VALUE(ext, '$.push.run_id')), '') IS NOT NULL
         AND COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, '')) IS NOT NULL
@@ -177,6 +178,7 @@ def run_dws_push_recall_daily(dates: list[date]) -> None:
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE DATE({event_ts}, '{EASTERN_TZ}') IN ({dates_str})
             AND event_name IN ({push_events_sql})
+            AND (event_name != 'send_push' OR JSON_VALUE(ext, '$.push.status') = 'SUCCESS')
     ),
     -- 过滤无效键，并把发送/点击动作映射成唯一主体级标记。
     normalized_events AS (

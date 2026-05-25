@@ -43,7 +43,7 @@
 |---|---|
 | 日期 | 报表日期，按 `America/New_York` 切天；底层 `logAt_timestamp` 需先按 `prop_timezone` 解释，再转换为美东业务日 |
 | 召回类型 | `JSON_VALUE(ext, '$.push.recall_strategy')` 的非空值 |
-| 发送个数 | `event_name = 'send_push'` 时，按 `dt + recall_strategy` 对唯一 `push_run_id + actor_id` 去重后的数量 |
+| 发送个数 | `event_name = 'send_push'` 且 `JSON_VALUE(ext, '$.push.status') = 'SUCCESS'` 时，按 `dt + recall_strategy` 对唯一 `push_run_id + actor_id` 去重后的数量 |
 | 点击个数 | `event_name = 'c_push'` 时，按 `dt + recall_strategy` 对唯一 `push_run_id + actor_id` 去重后的数量 |
 | 点击率 | `点击个数 / 发送个数`；`发送个数 = 0` 时返回 `0` |
 | 明细表 | 展示 `dt`、`recall_strategy`、`send_count`、`click_count` |
@@ -74,7 +74,7 @@
 |---|---|---|---|
 | 日期 | `decom.ads_daily_push_recall` | `dt` | 按 `America/New_York` 切天；`logAt_timestamp` 需先按 `prop_timezone` 解释，再转换为业务日 |
 | 召回类型 | `decom.ads_daily_push_recall` | `recall_strategy` | `JSON_VALUE(ext, '$.push.recall_strategy')` 的非空原始值 |
-| 发送个数 | `decom.ads_daily_push_recall` | `send_count` | `event_name = 'send_push'` 时，按 `dt + recall_strategy + push_run_id + actor_id` 去重后的主体数 |
+| 发送个数 | `decom.ads_daily_push_recall` | `send_count` | `event_name = 'send_push'` 且 `JSON_VALUE(ext, '$.push.status') = 'SUCCESS'` 时，按 `dt + recall_strategy + push_run_id + actor_id` 去重后的主体数 |
 | 点击个数 | `decom.ads_daily_push_recall` | `click_count` | `event_name = 'c_push'` 时，按 `dt + recall_strategy + push_run_id + actor_id` 去重后的主体数 |
 | 主体级中间层 | `decom.dws_push_recall_daily` | `dt + recall_strategy + push_run_id + actor_id` | 对有效事件保留唯一主体一行，并落 `has_send` / `has_click` 标记供 ADS 聚合 |
 
@@ -83,6 +83,7 @@
 - 当前 `ADS` 不直接读取 `dwd_event_log`，而是只消费主体级 `DWS`
 - `actor_id` 统一取 `COALESCE(NULLIF(prop_user_id, ''), NULLIF(prop_device_id, ''))`
 - `send_push` 与 `c_push` 都要求 `recall_strategy`、`push_run_id`、`actor_id` 非空后才进入统计
+- `send_push` 额外要求 `JSON_VALUE(ext, '$.push.status') = 'SUCCESS'`，失败的发送事件不计入 `send_count`；`c_push` 不做 `status` 限制
 - `点击率` 当前仅在 Superset 明细表 `push 消息（日表）- 明细表` 中派生展示，表达式为 `CASE WHEN send_count = 0 THEN 0 ELSE SAFE_DIVIDE(click_count, send_count) END`，不回写 `decom.ads_daily_push_recall` 物理字段
 - 截至 `2026-05-21` 的只读校验样本中：
   - `send_push` 的有效业务日范围为美东 `2026-05-11` 到 `2026-05-20`
