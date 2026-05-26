@@ -55,6 +55,9 @@
 ## 试穿人数
 - `v3_decom.common_ext_ai_task.request_param.user_id` && `task_type IN ('TRY_ON','OUTFIT')`
 
+## style me 人数
+- `v3_decom.common_ext_ai_task.request_param.user_id` && `task_scene = 'STYLE_ME'`
+
 ## 点赞
 - `v3_decom.community_post_like.post_id`, `v3_decom.community_post_like.user_id`, `v3_decom.community_post_like.gmt_create`
 
