@@ -6,18 +6,26 @@
 -- 4) 指标 11/12 事件形状探查（c*/v* + product_code 非空）
 
 DECLARE toronto_tz STRING DEFAULT 'America/Toronto';
-DECLARE current_start DATE DEFAULT DATE '2026-05-01';
-DECLARE current_end DATE DEFAULT DATE '2026-05-25';
-DECLARE last_month_start DATE DEFAULT DATE '2026-04-01';
-DECLARE last_month_end DATE DEFAULT DATE '2026-04-30';
+DECLARE bucket_min_dt DATE DEFAULT DATE '2026-04-27';
+DECLARE bucket_max_dt DATE DEFAULT DATE '2026-05-24';
 
--- 日期骨架：固定区间天数，保证“日均 = SUM(day_value) / 固定天数”。
-CREATE TEMP TABLE period_calendar AS
-SELECT 'current' AS period_tag, dt
-FROM UNNEST(GENERATE_DATE_ARRAY(current_start, current_end)) AS dt
+-- 固定周桶配置（写死）：后续按 period_tag 聚合。
+CREATE TEMP TABLE period_bucket_config AS
+SELECT '0427-0503' AS period_tag, DATE '2026-04-27' AS start_dt, DATE '2026-05-03' AS end_dt
 UNION ALL
-SELECT 'last_month' AS period_tag, dt
-FROM UNNEST(GENERATE_DATE_ARRAY(last_month_start, last_month_end)) AS dt;
+SELECT '0504-0510', DATE '2026-05-04', DATE '2026-05-10'
+UNION ALL
+SELECT '0511-0517', DATE '2026-05-11', DATE '2026-05-17'
+UNION ALL
+SELECT '0518-0524', DATE '2026-05-18', DATE '2026-05-24';
+
+-- 日期骨架：按周桶展开天粒度，保证“日均 = SUM(day_value) / 固定天数”。
+CREATE TEMP TABLE period_calendar AS
+SELECT
+  c.period_tag,
+  dt
+FROM period_bucket_config c
+CROSS JOIN UNNEST(GENERATE_DATE_ARRAY(c.start_dt, c.end_dt)) AS dt;
 
 -- 新老用户首活维表：后续用于指标 1/2 分群。
 CREATE TEMP TABLE user_first_active AS
@@ -45,8 +53,8 @@ SELECT
   raw_event_id,
   hash_id
 FROM `my-project-8584-jetonai.decom.dwd_event_log`
-WHERE DATE(logAt_timestamp) BETWEEN DATE_SUB(last_month_start, INTERVAL 1 DAY)
-    AND DATE_ADD(current_end, INTERVAL 1 DAY)
+WHERE DATE(logAt_timestamp) BETWEEN DATE_SUB(bucket_min_dt, INTERVAL 1 DAY)
+    AND DATE_ADD(bucket_max_dt, INTERVAL 1 DAY)
   AND prop_user_id IS NOT NULL
   AND CAST(prop_user_id AS STRING) != '';
 
@@ -54,17 +62,13 @@ WHERE DATE(logAt_timestamp) BETWEEN DATE_SUB(last_month_start, INTERVAL 1 DAY)
 CREATE TEMP TABLE styleme_daily AS
 WITH styleme_raw AS (
   SELECT
-    CASE
-      WHEN DATE(TIMESTAMP(gmt_create, 'UTC'), toronto_tz) BETWEEN current_start AND current_end
-        THEN 'current'
-      WHEN DATE(TIMESTAMP(gmt_create, 'UTC'), toronto_tz) BETWEEN last_month_start AND last_month_end
-        THEN 'last_month'
-      ELSE NULL
-    END AS period_tag,
+    p.period_tag,
     DATE(TIMESTAMP(gmt_create, 'UTC'), toronto_tz) AS dt,
     CAST(user_id AS STRING) AS user_id
   FROM `my-project-8584-jetonai.v3_decom.common_ext_ai_task`
-  WHERE DATE(TIMESTAMP(gmt_create, 'UTC'), toronto_tz) BETWEEN last_month_start AND current_end
+  INNER JOIN period_bucket_config p
+    ON DATE(TIMESTAMP(gmt_create, 'UTC'), toronto_tz) BETWEEN p.start_dt AND p.end_dt
+  WHERE DATE(TIMESTAMP(gmt_create, 'UTC'), toronto_tz) BETWEEN bucket_min_dt AND bucket_max_dt
     AND task_scene = 'STYLE_ME'
     AND user_id IS NOT NULL
     AND CAST(user_id AS STRING) != ''
@@ -74,7 +78,6 @@ SELECT
   dt,
   COUNT(DISTINCT user_id) AS styleme_uv
 FROM styleme_raw
-WHERE period_tag IS NOT NULL
 GROUP BY period_tag, dt;
 
 -- 每日主事实：先按日聚合，再补全日期骨架。
@@ -317,17 +320,17 @@ LEFT JOIN styleme_daily s
 --     ELSE 9
 --   END;
 
--- 结果集 4：指标 11/12 事件形状探查（c*/v* + product_code 非空）。
-SELECT
-  p.period_tag,
-  b.event_name,
-  COUNT(1) AS row_cnt,
-  COUNT(DISTINCT b.user_id) AS uv_user,
-  COUNT(DISTINCT b.raw_event_id) AS pv_raw_event
-FROM dwd_base b
-INNER JOIN period_calendar p
-  ON p.dt = b.dt
-WHERE b.product_code IS NOT NULL
-  AND (STARTS_WITH(b.event_name, 'c') OR STARTS_WITH(b.event_name, 'v'))
-GROUP BY p.period_tag, b.event_name
-ORDER BY p.period_tag, row_cnt DESC;
+-- -- 结果集 4：指标 11/12 事件形状探查（c*/v* + product_code 非空）。
+-- SELECT
+--   p.period_tag,
+--   b.event_name,
+--   COUNT(1) AS row_cnt,
+--   COUNT(DISTINCT b.user_id) AS uv_user,
+--   COUNT(DISTINCT b.raw_event_id) AS pv_raw_event
+-- FROM dwd_base b
+-- INNER JOIN period_calendar p
+--   ON p.dt = b.dt
+-- WHERE b.product_code IS NOT NULL
+--   AND (STARTS_WITH(b.event_name, 'c') OR STARTS_WITH(b.event_name, 'v'))
+-- GROUP BY p.period_tag, b.event_name
+-- ORDER BY p.period_tag, row_cnt DESC;

@@ -3,9 +3,11 @@
 ## 报表
 
 - 类型：临时取数（后续用于看板需求评估）
-- 时间段：
-  - 当前情况：`2026-05-01 ~ 2026-05-25`（日均除数 `25`）
-  - 上月情况：`2026-04-01 ~ 2026-04-30`（日均除数 `30`）
+- 时间段（固定周桶）：
+  - `0427-0503`：`2026-04-27 ~ 2026-05-03`（日均除数 `7`）
+  - `0504-0510`：`2026-05-04 ~ 2026-05-10`（日均除数 `7`）
+  - `0511-0517`：`2026-05-11 ~ 2026-05-17`（日均除数 `7`）
+  - `0518-0524`：`2026-05-18 ~ 2026-05-24`（日均除数 `7`）
 - 产物：
   - SQL：`docs/topics/试穿与商品行为临时取数（2026-05）/query.sql`
   - 结果集：
@@ -51,7 +53,7 @@
 | 指标 1~18 | `query.sql` 的主指标结果集 | `metric_name` / `metric_value` | 主指标统一输出为 `period_tag + metric_name + metric_value` |
 | 指标 10 | `query.sql` 的分桶结果集 A | `tryon_per_tryon_uv_bucket` / `day_count` / `day_ratio` | 基于每日 `c_tryon` 去重次数（`COALESCE(raw_event_id, hash_id)`）除以每日试穿 UV |
 | 指标 19 | `query.sql` 的分桶结果集 B | `click_per_uv_bucket` / `day_count` / `day_ratio` | 基于每日商品点击 `PV(raw_event_id 去重)` / 商品点击 UV |
-| 指标 11/12 探查 | `query.sql` 的事件形状结果集 | `event_name` / `row_cnt` / `uv_user` / `pv_raw_event` | 输出两段时间内 `c* / v* + product_code 非空` 的事件名分布 |
+| 指标 11/12 探查 | `query.sql` 的事件形状结果集 | `event_name` / `row_cnt` / `uv_user` / `pv_raw_event` | 输出各周桶内 `c* / v* + product_code 非空` 的事件名分布 |
 
 补充说明：
 
