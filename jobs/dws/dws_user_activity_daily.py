@@ -225,6 +225,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     - is_new_user：是否首活日
     - is_next_day_retained / is_day_7_retained：未来观察日回访标记
     - duration_sec：当日停留时长
+    - product_detail_view_count：当日浏览商详次数（按事件去重后计数）
     - followed_account_count：当日关注的去重账号数
     - ai_tryon_count：当日 task_type IN ('TRY_ON','OUTFIT') 的服务端任务行数
     - viewed_product_detail / used_search / used_ai_tryon /
@@ -257,6 +258,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         is_next_day_retained,
         is_day_7_retained,
         duration_sec,
+        product_detail_view_count,
         followed_account_count,
         ai_tryon_count,
         viewed_product_detail,
@@ -356,6 +358,17 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         FROM logged_in_event_base
         GROUP BY dt, user_id
     ),
+    -- 商详事件次数聚合层：按去重事件计数用户当天浏览商详次数。
+    product_detail_count_daily AS (
+        SELECT
+            dt,
+            user_id,
+            COUNT(DISTINCT event_id) AS product_detail_view_count
+        FROM logged_in_event_base
+        WHERE event_name = 'v_product_detail'
+            AND event_id IS NOT NULL
+        GROUP BY dt, user_id
+    ),
     -- 服务端试穿行为聚合层：按天去重到用户，并统计当日试穿任务次数。
     tryon_behavior_daily AS (
         SELECT
@@ -423,6 +436,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         n1.user_id IS NOT NULL AS is_next_day_retained,
         n7.user_id IS NOT NULL AS is_day_7_retained,
         COALESCE(d.duration_sec, 0) AS duration_sec,
+        COALESCE(p.product_detail_view_count, 0) AS product_detail_view_count,
         COALESCE(f.followed_account_count, 0) AS followed_account_count,
         COALESCE(t.ai_tryon_count, 0) AS ai_tryon_count,
         COALESCE(e.viewed_product_detail, 0) AS viewed_product_detail,
@@ -455,6 +469,9 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     LEFT JOIN user_duration_daily d
         ON d.dt = c.dt
         AND d.user_id = c.user_id
+    LEFT JOIN product_detail_count_daily p
+        ON p.dt = c.dt
+        AND p.user_id = c.user_id
     LEFT JOIN event_behavior_daily e
         ON e.dt = c.dt
         AND e.user_id = c.user_id

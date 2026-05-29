@@ -36,3 +36,6 @@ ADD COLUMN clicked_home_brand INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
 ADD COLUMN ai_tryon_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
+ADD COLUMN product_detail_view_count INT64;
