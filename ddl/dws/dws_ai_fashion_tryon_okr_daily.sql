@@ -17,3 +17,30 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily` (
     update_time TIMESTAMP
 )
 PARTITION BY dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS product_click_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS product_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS home_product_click_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS home_product_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS tryon_result_click_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS tryon_result_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS shop_click_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS shop_exposure_uv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS product_click_pv_raw INT64;

@@ -11,6 +11,7 @@ PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ads_weekly_ai_fashion_tryon_okr"
 SOURCE_TABLE_NAME = "dws_ai_fashion_tryon_okr_daily"
+WEEK_BUCKET_START_DATE = date(2026, 4, 27)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
@@ -87,6 +88,7 @@ def get_week_starts_to_process(
         query = f"""
         SELECT DISTINCT DATE_TRUNC(dt, WEEK(MONDAY)) AS week_start_dt
         FROM `{source_table_id()}`
+        WHERE dt >= DATE '{WEEK_BUCKET_START_DATE}'
         ORDER BY week_start_dt
         """
         results = client.query(query).result()
@@ -96,6 +98,7 @@ def get_week_starts_to_process(
     SELECT DISTINCT DATE_TRUNC(dt, WEEK(MONDAY)) AS week_start_dt
     FROM `{source_table_id()}`
     WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+      AND dt >= DATE '{WEEK_BUCKET_START_DATE}'
     ORDER BY week_start_dt
     """
     results = client.query(query).result()
@@ -108,7 +111,7 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
 
     粒度：
     - week_start_dt × metric_name
-    - 人均每日试穿次数分布额外展开 bucket 维度
+    - 人均每日试穿次数分布 / 人均商品点击次数分布额外展开 bucket 维度
 
     说明：
     - 周窗口固定按周一到周日
@@ -179,8 +182,17 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
             COALESCE(f.product_detail_tryon_uv, 0) AS product_detail_tryon_uv,
             COALESCE(f.product_detail_uv, 0) AS product_detail_uv,
             COALESCE(f.styleme_uv, 0) AS styleme_uv,
+            COALESCE(f.product_click_uv, 0) AS product_click_uv,
+            COALESCE(f.product_exposure_uv, 0) AS product_exposure_uv,
+            COALESCE(f.home_product_click_uv, 0) AS home_product_click_uv,
+            COALESCE(f.home_product_exposure_uv, 0) AS home_product_exposure_uv,
+            COALESCE(f.tryon_result_click_uv, 0) AS tryon_result_click_uv,
+            COALESCE(f.tryon_result_exposure_uv, 0) AS tryon_result_exposure_uv,
+            COALESCE(f.shop_click_uv, 0) AS shop_click_uv,
+            COALESCE(f.shop_exposure_uv, 0) AS shop_exposure_uv,
             COALESCE(f.tryon_uv_total, 0) AS tryon_uv_total,
-            COALESCE(f.tryon_pv, 0) AS tryon_pv
+            COALESCE(f.tryon_pv, 0) AS tryon_pv,
+            COALESCE(f.product_click_pv_raw, 0) AS product_click_pv_raw
         FROM week_calendar c
         LEFT JOIN `{source_table_id()}` f
             ON f.dt = c.dt
@@ -202,7 +214,15 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
             SUM(post_scene_exposure_uv) AS sum_post_scene_exposure_uv,
             SUM(product_detail_tryon_uv) AS sum_product_detail_tryon_uv,
             SUM(product_detail_uv) AS sum_product_detail_uv,
-            SUM(styleme_uv) AS sum_styleme_uv
+            SUM(styleme_uv) AS sum_styleme_uv,
+            SUM(product_click_uv) AS sum_product_click_uv,
+            SUM(product_exposure_uv) AS sum_product_exposure_uv,
+            SUM(home_product_click_uv) AS sum_home_product_click_uv,
+            SUM(home_product_exposure_uv) AS sum_home_product_exposure_uv,
+            SUM(tryon_result_click_uv) AS sum_tryon_result_click_uv,
+            SUM(tryon_result_exposure_uv) AS sum_tryon_result_exposure_uv,
+            SUM(shop_click_uv) AS sum_shop_click_uv,
+            SUM(shop_exposure_uv) AS sum_shop_exposure_uv
         FROM week_daily_fact
         GROUP BY week_start_dt, week_end_dt, week_label
     ),
@@ -340,6 +360,104 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
             SAFE_DIVIDE(sum_styleme_uv, day_count)
         FROM weekly_agg
     ),
+    -- 商品核心指标：口径对齐 query.sql 11~18，UV 指标按周内日均，率指标按周分子分母汇总后相除。
+    product_core_metrics AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标' AS metric_type,
+            '商品点击 UV' AS metric_name,
+            CAST(NULL AS INT64) AS metric_bucket_order,
+            CAST(NULL AS STRING) AS metric_bucket,
+            day_count AS metric_day_count,
+            SAFE_DIVIDE(sum_product_click_uv, day_count) AS metric_value
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '商品曝光 UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_product_exposure_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '首页商品点击 UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_home_product_click_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '首页商品曝光点击率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_home_product_click_uv, NULLIF(sum_home_product_exposure_uv, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '试穿结果页点击 UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_tryon_result_click_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '试穿结果页曝光点击率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_tryon_result_click_uv, NULLIF(sum_tryon_result_exposure_uv, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '商城商品点击 UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_shop_click_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '商城商品曝光点击率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_shop_click_uv, NULLIF(sum_shop_exposure_uv, 0))
+        FROM weekly_agg
+    ),
     -- 人均每日试穿次数分桶：按 query.sql 同口径分桶并统计周内天数占比。
     distribution_daily AS (
         SELECT
@@ -394,6 +512,58 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
             week_label,
             metric_bucket_order,
             metric_bucket
+    ),
+    -- 人均每日点击次数分桶：口径对齐 query.sql 指标 19，按商品点击 PV(raw_event_id 去重)/商品点击 UV 分桶。
+    click_distribution_daily AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            CASE
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 0
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 3 THEN '(0~3]'
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 3
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 5 THEN '(3~5]'
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 5
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 10 THEN '(5~10]'
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 10
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 15 THEN '(10~15]'
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 15 THEN '15次以上'
+                ELSE '0或无点击UV'
+            END AS metric_bucket,
+            CASE
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 0
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 3 THEN 1
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 3
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 5 THEN 2
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 5
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 10 THEN 3
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 10
+                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 15 THEN 4
+                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 15 THEN 5
+                ELSE 9
+            END AS metric_bucket_order
+        FROM week_daily_fact
+    ),
+    -- 点击次数分桶周聚合：按你的要求仅输出“次数”，不输出占比。
+    click_distribution_metrics AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '人均商品点击次数分布' AS metric_type,
+            '人均商品点击次数分布' AS metric_name,
+            metric_bucket_order,
+            metric_bucket,
+            COUNT(*) AS metric_day_count,
+            CAST(COUNT(*) AS NUMERIC) AS metric_value
+        FROM click_distribution_daily
+        GROUP BY
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            metric_bucket_order,
+            metric_bucket
     )
     SELECT
         week_start_dt,
@@ -419,7 +589,33 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
         metric_day_count,
         CAST(metric_value AS NUMERIC) AS metric_value,
         CURRENT_TIMESTAMP() AS update_time
-    FROM distribution_metrics;
+    FROM product_core_metrics
+    UNION ALL
+    SELECT
+        week_start_dt,
+        week_end_dt,
+        week_label,
+        metric_type,
+        metric_name,
+        metric_bucket_order,
+        metric_bucket,
+        metric_day_count,
+        CAST(metric_value AS NUMERIC) AS metric_value,
+        CURRENT_TIMESTAMP() AS update_time
+    FROM distribution_metrics
+    UNION ALL
+    SELECT
+        week_start_dt,
+        week_end_dt,
+        week_label,
+        metric_type,
+        metric_name,
+        metric_bucket_order,
+        metric_bucket,
+        metric_day_count,
+        CAST(metric_value AS NUMERIC) AS metric_value,
+        CURRENT_TIMESTAMP() AS update_time
+    FROM click_distribution_metrics;
     """
     logging.info("开始处理: ads_weekly_ai_fashion_tryon_okr")
     job = client.query(query)

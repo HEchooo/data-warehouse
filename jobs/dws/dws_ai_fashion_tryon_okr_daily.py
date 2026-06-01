@@ -176,6 +176,8 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     - 首页/帖子/商详试穿 UV 及其分母 UV
     - styleme 试穿 UV
     - c_tryon UV 与 PV（用于人均每日试穿次数分布）
+    - 商品点击/曝光 UV 与分场景分子分母
+    - 商品点击 PV(raw_event_id 去重，用于人均每日点击次数分布)
     """
     if not dates:
         logging.info("没有新的 dws_ai_fashion_tryon_okr_daily 日期需要处理")
@@ -206,8 +208,17 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         product_detail_tryon_uv,
         product_detail_uv,
         styleme_uv,
+        product_click_uv,
+        product_exposure_uv,
+        home_product_click_uv,
+        home_product_exposure_uv,
+        tryon_result_click_uv,
+        tryon_result_exposure_uv,
+        shop_click_uv,
+        shop_exposure_uv,
         tryon_uv_total,
         tryon_pv,
+        product_click_pv_raw,
         update_time
     )
     WITH
@@ -232,6 +243,7 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
             event_name,
             CAST(prop_user_id AS STRING) AS user_id,
             CAST(args_page_key AS STRING) AS args_page_key,
+            NULLIF(product_code, '') AS product_code,
             raw_event_id,
             hash_id
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
@@ -307,12 +319,46 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
                 NULL
             )) AS product_detail_tryon_uv,
             COUNT(DISTINCT IF(event_name = 'v_product_detail', user_id, NULL)) AS product_detail_uv,
+            COUNT(DISTINCT IF(
+                STARTS_WITH(event_name, 'c') AND product_code IS NOT NULL,
+                user_id,
+                NULL
+            )) AS product_click_uv,
+            COUNT(DISTINCT IF(
+                STARTS_WITH(event_name, 'v') AND product_code IS NOT NULL,
+                user_id,
+                NULL
+            )) AS product_exposure_uv,
+            COUNT(DISTINCT IF(
+                event_name = 'c_home_feeds' AND product_code IS NOT NULL,
+                user_id,
+                NULL
+            )) AS home_product_click_uv,
+            COUNT(DISTINCT IF(
+                event_name = 'v_home_feeds' AND product_code IS NOT NULL,
+                user_id,
+                NULL
+            )) AS home_product_exposure_uv,
+            COUNT(DISTINCT IF(event_name = 'c_tryon_result_list', user_id, NULL))
+                AS tryon_result_click_uv,
+            COUNT(DISTINCT IF(
+                event_name IN ('v_tryon_result_detail', 'v_tryon_result_list'),
+                user_id,
+                NULL
+            )) AS tryon_result_exposure_uv,
+            COUNT(DISTINCT IF(event_name = 'c_shop_feeds', user_id, NULL)) AS shop_click_uv,
+            COUNT(DISTINCT IF(event_name = 'v_shop_feeds', user_id, NULL)) AS shop_exposure_uv,
             COUNT(DISTINCT IF(event_name = 'c_tryon', user_id, NULL)) AS tryon_uv_total,
             COUNT(DISTINCT IF(
                 event_name = 'c_tryon',
                 COALESCE(raw_event_id, hash_id),
                 NULL
-            )) AS tryon_pv
+            )) AS tryon_pv,
+            COUNT(DISTINCT IF(
+                STARTS_WITH(event_name, 'c') AND product_code IS NOT NULL,
+                raw_event_id,
+                NULL
+            )) AS product_click_pv_raw
         FROM dwd_base
         GROUP BY dt
     ),
@@ -342,8 +388,17 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         COALESCE(e.product_detail_tryon_uv, 0) AS product_detail_tryon_uv,
         COALESCE(e.product_detail_uv, 0) AS product_detail_uv,
         COALESCE(s.styleme_uv, 0) AS styleme_uv,
+        COALESCE(e.product_click_uv, 0) AS product_click_uv,
+        COALESCE(e.product_exposure_uv, 0) AS product_exposure_uv,
+        COALESCE(e.home_product_click_uv, 0) AS home_product_click_uv,
+        COALESCE(e.home_product_exposure_uv, 0) AS home_product_exposure_uv,
+        COALESCE(e.tryon_result_click_uv, 0) AS tryon_result_click_uv,
+        COALESCE(e.tryon_result_exposure_uv, 0) AS tryon_result_exposure_uv,
+        COALESCE(e.shop_click_uv, 0) AS shop_click_uv,
+        COALESCE(e.shop_exposure_uv, 0) AS shop_exposure_uv,
         COALESCE(e.tryon_uv_total, 0) AS tryon_uv_total,
         COALESCE(e.tryon_pv, 0) AS tryon_pv,
+        COALESCE(e.product_click_pv_raw, 0) AS product_click_pv_raw,
         CURRENT_TIMESTAMP() AS update_time
     FROM date_spine d
     LEFT JOIN active_users_daily a USING (dt)

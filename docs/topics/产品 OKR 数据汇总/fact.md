@@ -6,7 +6,8 @@
 
 - 主题：`产品 OKR 数据汇总`
 - 当前先交付：`试穿OKR` chart
-- 后续规划：`留存OKR` chart、`商品OKR` chart
+- 本次新增：`商品OKR` 逻辑（脚本口径已落地，Superset 资产待创建）
+- 后续规划：`留存OKR` chart
 - 周维度：固定按 `周一~周日` 切周
 - 周标签：`MMDD-MMDD`（例如 `0427-0503`）
 
@@ -45,11 +46,19 @@
 |---|---|
 | 留存OKR 全部字段 | 待补充（本次未实现） |
 
-#### 商品OKR（待落地）
+#### 商品OKR（本次落地逻辑）
 
-| 指标 | 口径状态 |
+| 指标 | 口径 |
 |---|---|
-| 商品OKR 全部字段 | 待补充（本次未实现） |
+| 商品点击 UV | 周内 `product_click_uv` 之和 / 周内天数 |
+| 商品曝光 UV | 周内 `product_exposure_uv` 之和 / 周内天数 |
+| 首页商品点击 UV | 周内 `home_product_click_uv` 之和 / 周内天数 |
+| 首页商品曝光点击率 | 周内 `home_product_click_uv` 之和 / 周内 `home_product_exposure_uv` 之和 |
+| 试穿结果页点击 UV | 周内 `tryon_result_click_uv` 之和 / 周内天数 |
+| 试穿结果页曝光点击率 | 周内 `tryon_result_click_uv` 之和 / 周内 `tryon_result_exposure_uv` 之和 |
+| 商城商品点击 UV | 周内 `shop_click_uv` 之和 / 周内天数 |
+| 商城商品曝光点击率 | 周内 `shop_click_uv` 之和 / 周内 `shop_exposure_uv` 之和 |
+| 人均商品点击次数分布 | 先算每日 `product_click_pv_raw / product_click_uv`，再按分桶统计周内 `day_count`；分桶：`(0~3]`、`(3~5]`、`(5~10]`、`(10~15]`、`15次以上`、`0或无点击UV` |
 
 ### 已落地字段
 
@@ -58,18 +67,19 @@
 | 周开始日期 | `decom.ads_weekly_ai_fashion_tryon_okr` | `week_start_dt` | 周一日期 |
 | 周结束日期 | `decom.ads_weekly_ai_fashion_tryon_okr` | `week_end_dt` | 周日日期 |
 | 周标签 | `decom.ads_weekly_ai_fashion_tryon_okr` | `week_label` | `MMDD-MMDD` |
-| 指标分类 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_type` | `试穿OKR核心指标` / `人均每日试穿次数分布` |
+| 指标分类 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_type` | `试穿OKR核心指标` / `人均每日试穿次数分布` / `商品OKR核心指标` / `人均商品点击次数分布` |
 | 指标名称 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_name` | 与需求字段同名（不带编号） |
 | 分桶序号 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_bucket_order` | 仅分布指标有值 |
 | 分桶名称 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_bucket` | 仅分布指标有值 |
 | 周内天数 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_day_count` | 核心指标为周天数；分布指标为对应桶的天数 |
-| 指标值 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_value` | 对应指标数值（率或日均 UV 或 day_ratio） |
+| 指标值 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_value` | 对应指标数值（率或日均 UV 或分桶值）；试穿分布为 `day_ratio`，点击分布为 `day_count` |
 
 补充说明：
 
 - 周级数值统一遵循“先按天计算，再在周内按规则聚合”
 - 率指标统一按“周内分子求和 / 周内分母求和”，不直接 `AVG(每日率)`
 - 分布指标与 `docs/topics/试穿与商品行为临时取数（2026-05）/query.sql` 保持一致
+- 周桶从 `2026-04-27` 开始，固定每 7 天（周一~周日）
 
 ## 依赖
 
