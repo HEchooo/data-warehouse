@@ -33,6 +33,7 @@
 - `ads_daily_social_content`
 - `ads_daily_formal_video_increment`
 - `ads_weekly_formal_video_increment_growth`
+- `ads_weekly_ai_fashion_tryon_okr`
 - `ads_daily_closet_overview`
 - `ads_daily_video_code_conversion`
 - `ads_daily_push`
@@ -65,6 +66,7 @@
 - `jobs/ads/ads_daily_social_content.py`
 - `jobs/ads/ads_daily_formal_video_increment.py`
 - `jobs/ads/ads_weekly_formal_video_increment_growth.py`
+- `jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
 - `jobs/ads/ads_daily_closet_overview.py`
 - `jobs/ads/ads_daily_video_code_conversion.py`
 - `jobs/ads/ads_daily_push.py`
@@ -105,6 +107,7 @@
   - `ads_daily_social_content`
   - `ads_daily_formal_video_increment`
   - `ads_weekly_formal_video_increment_growth`
+  - `ads_weekly_ai_fashion_tryon_okr`
   - `ads_daily_closet_overview`
   - `ads_daily_investor`
   - `ads_daily_video_code_conversion`
@@ -176,6 +179,8 @@
 - 正式号视频发布增量链路：
   - `videos.platform_video_tags -> dim_video`
   - `dim_video + dws_social_video_state_daily -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`
+- AI-Fashion 试穿 OKR 链路：
+  - `dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily -> ads_weekly_ai_fashion_tryon_okr`
 - 视频编码转化链路：
   - `dwd_event_log + dim_user_first_active -> dws_video_code_search_user_daily`
   - `videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dws_video_code_search_user_daily -> dws_video_code_conversion_daily`
