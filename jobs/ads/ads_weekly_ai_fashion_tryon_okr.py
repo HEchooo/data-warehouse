@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import logging
 from pathlib import Path
 import sys
@@ -10,7 +10,10 @@ from google.cloud.exceptions import NotFound
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ads_weekly_ai_fashion_tryon_okr"
-SOURCE_TABLE_NAME = "dws_ai_fashion_tryon_okr_daily"
+TRYON_SOURCE_TABLE_NAME = "dws_ai_fashion_tryon_okr_daily"
+USER_ACTIVITY_SOURCE_TABLE_NAME = "dws_user_activity_daily"
+USER_DAILY_SOURCE_TABLE_NAME = "dws_user_daily"
+RETENTION_FEATURE_SOURCE_TABLE_NAME = "dws_user_retention_feature_daily"
 WEEK_BUCKET_START_DATE = date(2026, 4, 27)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
@@ -48,8 +51,20 @@ def target_table_id() -> str:
     return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
 
 
-def source_table_id() -> str:
-    return f"{PROJECT_ID}.{DATASET_ID}.{SOURCE_TABLE_NAME}"
+def tryon_source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TRYON_SOURCE_TABLE_NAME}"
+
+
+def user_activity_source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{USER_ACTIVITY_SOURCE_TABLE_NAME}"
+
+
+def user_daily_source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{USER_DAILY_SOURCE_TABLE_NAME}"
+
+
+def retention_feature_source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{RETENTION_FEATURE_SOURCE_TABLE_NAME}"
 
 
 def target_table_exists() -> bool:
@@ -76,18 +91,26 @@ def get_week_starts_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
 ) -> list[date]:
     """
-    周级试穿 OKR ADS 只消费 dws_ai_fashion_tryon_okr_daily。
+    周级 AI-Fashion OKR ADS 同时消费多张 DWS。
 
     规则：
-    - 目标表不存在或为空时，按 DWS 已落地历史周全量初始化
-    - 目标表已存在时，只重算最近 6 小时 DWS 变更映射出的业务周
+    - 目标表不存在或为空时，按上游已落地历史周全量初始化
+    - 目标表已存在时，只重算最近 6 小时上游变更映射出的业务周
     """
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
         query = f"""
         SELECT DISTINCT DATE_TRUNC(dt, WEEK(MONDAY)) AS week_start_dt
-        FROM `{source_table_id()}`
+        FROM (
+            SELECT dt FROM `{tryon_source_table_id()}`
+            UNION DISTINCT
+            SELECT dt FROM `{user_activity_source_table_id()}`
+            UNION DISTINCT
+            SELECT dt FROM `{user_daily_source_table_id()}`
+            UNION DISTINCT
+            SELECT dt FROM `{retention_feature_source_table_id()}`
+        )
         WHERE dt >= DATE '{WEEK_BUCKET_START_DATE}'
         ORDER BY week_start_dt
         """
@@ -95,10 +118,44 @@ def get_week_starts_to_process(
         return [row.week_start_dt for row in results]
 
     query = f"""
+    WITH
+    -- 最近 6 小时试穿商品 OKR 日事实变更。
+    changed_tryon_dates AS (
+        SELECT DISTINCT dt
+        FROM `{tryon_source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ),
+    -- 最近 6 小时留存用户活动日事实变更。
+    changed_activity_dates AS (
+        SELECT DISTINCT dt
+        FROM `{user_activity_source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ),
+    -- 最近 6 小时注册用户日事实变更。
+    changed_user_daily_dates AS (
+        SELECT DISTINCT dt
+        FROM `{user_daily_source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ),
+    -- 最近 6 小时留存特征日事实变更。
+    changed_retention_feature_dates AS (
+        SELECT DISTINCT dt
+        FROM `{retention_feature_source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ),
+    -- 汇总所有会影响周报的业务日。
+    changed_dates AS (
+        SELECT dt FROM changed_tryon_dates
+        UNION DISTINCT
+        SELECT dt FROM changed_activity_dates
+        UNION DISTINCT
+        SELECT dt FROM changed_user_daily_dates
+        UNION DISTINCT
+        SELECT dt FROM changed_retention_feature_dates
+    )
     SELECT DISTINCT DATE_TRUNC(dt, WEEK(MONDAY)) AS week_start_dt
-    FROM `{source_table_id()}`
-    WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-      AND dt >= DATE '{WEEK_BUCKET_START_DATE}'
+    FROM changed_dates
+    WHERE dt >= DATE '{WEEK_BUCKET_START_DATE}'
     ORDER BY week_start_dt
     """
     results = client.query(query).result()
@@ -107,7 +164,7 @@ def get_week_starts_to_process(
 
 def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
     """
-    产出 AI-Fashion 试穿 OKR 周报表。
+    产出 AI-Fashion 试穿 / 商品 / 留存 OKR 周报表。
 
     粒度：
     - week_start_dt × metric_name
@@ -123,6 +180,8 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
         return
 
     week_starts_str = dates_to_sql_list(week_starts)
+    min_week_start = min(week_starts)
+    max_week_end = max(week_starts) + timedelta(days=6)
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -164,38 +223,188 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
         FROM week_spine w
         CROSS JOIN UNNEST(GENERATE_DATE_ARRAY(w.week_start_dt, w.week_end_dt)) AS dt
     ),
-    -- 周内日事实：从 DWS 读取每天分子分母并补 0，避免缺天漏算。
+    -- 试穿与商品 OKR 日事实。
+    tryon_daily AS (
+        SELECT
+            dt,
+            dau_new_uv,
+            dau_old_uv,
+            tryon_new_uv,
+            tryon_old_uv,
+            home_tryon_uv,
+            home_feeds_uv,
+            post_tryon_uv,
+            post_scene_exposure_uv,
+            product_detail_tryon_uv,
+            product_detail_uv,
+            styleme_uv,
+            product_click_uv,
+            product_exposure_uv,
+            home_product_click_uv,
+            home_product_exposure_uv,
+            tryon_result_click_uv,
+            tryon_result_exposure_uv,
+            shop_click_uv,
+            shop_exposure_uv,
+            tryon_uv_total,
+            tryon_pv,
+            product_click_pv_raw
+        FROM `{tryon_source_table_id()}`
+        WHERE dt BETWEEN DATE '{min_week_start}' AND DATE '{max_week_end}'
+    ),
+    -- 已登录 cohort 用户日事实（用于留存、新用户时长）。
+    user_activity_daily AS (
+        SELECT
+            dt,
+            COUNT(1) AS all_user_dau,
+            SUM(duration_sec) AS all_user_duration_sum_sec,
+            COUNTIF(is_new_user) AS new_user_dau,
+            SUM(IF(is_new_user, duration_sec, 0)) AS new_user_duration_sum_sec,
+            CASE
+                WHEN MAX(CAST(is_next_day_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(is_next_day_retained)
+            END AS all_next_day_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_next_day_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(
+                    user_id IS NOT NULL
+                    AND NOT COALESCE(is_next_day_retained, FALSE)
+                )
+            END AS all_next_day_not_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_next_day_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(is_new_user AND is_next_day_retained)
+            END AS new_next_day_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_next_day_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(
+                    is_new_user
+                    AND user_id IS NOT NULL
+                    AND NOT COALESCE(is_next_day_retained, FALSE)
+                )
+            END AS new_next_day_not_retained_user_count
+        FROM `{user_activity_source_table_id()}`
+        WHERE dt BETWEEN DATE '{min_week_start}' AND DATE '{max_week_end}'
+        GROUP BY dt
+    ),
+    -- 按 dt × user_id 去重后的内容消费中间层，避免跨平台用户重复计入分母。
+    user_daily_deduplicated AS (
+        SELECT
+            dt,
+            prop_user_id AS user_id,
+            LOGICAL_OR(is_new_user) AS is_new_user,
+            SUM(content_consume_count) AS content_consume_count
+        FROM `{user_daily_source_table_id()}`
+        WHERE dt BETWEEN DATE '{min_week_start}' AND DATE '{max_week_end}'
+            AND prop_user_id IS NOT NULL
+            AND prop_user_id != ''
+        GROUP BY dt, user_id
+    ),
+    -- 内容消费日事实：支持“平台人均内容消费”和“新用户人均消费内容”。
+    user_content_daily AS (
+        SELECT
+            dt,
+            COUNT(1) AS all_user_content_dau,
+            SUM(content_consume_count) AS all_content_consume_sum,
+            COUNTIF(is_new_user) AS new_user_content_dau,
+            SUM(IF(is_new_user, content_consume_count, 0)) AS new_content_consume_sum
+        FROM user_daily_deduplicated
+        GROUP BY dt
+    ),
+    -- 全量登录用户下的行为留存特征日事实（衣橱/商详/AI试穿/关注/创建模特）。
+    retention_feature_daily AS (
+        SELECT
+            dt,
+            MAX(IF(feature_name = '衣橱渗透', next_day_retained_value, NULL))
+                AS closet_next_day_retained_user_count,
+            MAX(IF(feature_name = '衣橱渗透', next_day_not_retained_value, NULL))
+                AS closet_next_day_not_retained_user_count,
+            MAX(IF(feature_name = '浏览商详', next_day_retained_value, NULL))
+                AS product_detail_next_day_retained_user_count,
+            MAX(IF(feature_name = '浏览商详', next_day_not_retained_value, NULL))
+                AS product_detail_next_day_not_retained_user_count,
+            MAX(IF(feature_name = 'AI试穿', next_day_retained_value, NULL))
+                AS ai_tryon_next_day_retained_user_count,
+            MAX(IF(feature_name = 'AI试穿', next_day_not_retained_value, NULL))
+                AS ai_tryon_next_day_not_retained_user_count,
+            MAX(IF(feature_name = '关注账号', next_day_retained_value, NULL))
+                AS follow_next_day_retained_user_count,
+            MAX(IF(feature_name = '关注账号', next_day_not_retained_value, NULL))
+                AS follow_next_day_not_retained_user_count,
+            MAX(IF(feature_name = '创建模特', next_day_retained_value, NULL))
+                AS model_next_day_retained_user_count,
+            MAX(IF(feature_name = '创建模特', next_day_not_retained_value, NULL))
+                AS model_next_day_not_retained_user_count
+        FROM `{retention_feature_source_table_id()}`
+        WHERE dt BETWEEN DATE '{min_week_start}' AND DATE '{max_week_end}'
+            AND user_group = '全量登录用户'
+            AND feature_name IN ('衣橱渗透', '浏览商详', 'AI试穿', '关注账号', '创建模特')
+        GROUP BY dt
+    ),
+    -- 周内日事实：从多张 DWS 读取分子分母并补 0，避免缺天漏算。
     week_daily_fact AS (
         SELECT
             c.week_start_dt,
             c.week_end_dt,
             c.week_label,
             c.dt,
-            COALESCE(f.dau_new_uv, 0) AS dau_new_uv,
-            COALESCE(f.dau_old_uv, 0) AS dau_old_uv,
-            COALESCE(f.tryon_new_uv, 0) AS tryon_new_uv,
-            COALESCE(f.tryon_old_uv, 0) AS tryon_old_uv,
-            COALESCE(f.home_tryon_uv, 0) AS home_tryon_uv,
-            COALESCE(f.home_feeds_uv, 0) AS home_feeds_uv,
-            COALESCE(f.post_tryon_uv, 0) AS post_tryon_uv,
-            COALESCE(f.post_scene_exposure_uv, 0) AS post_scene_exposure_uv,
-            COALESCE(f.product_detail_tryon_uv, 0) AS product_detail_tryon_uv,
-            COALESCE(f.product_detail_uv, 0) AS product_detail_uv,
-            COALESCE(f.styleme_uv, 0) AS styleme_uv,
-            COALESCE(f.product_click_uv, 0) AS product_click_uv,
-            COALESCE(f.product_exposure_uv, 0) AS product_exposure_uv,
-            COALESCE(f.home_product_click_uv, 0) AS home_product_click_uv,
-            COALESCE(f.home_product_exposure_uv, 0) AS home_product_exposure_uv,
-            COALESCE(f.tryon_result_click_uv, 0) AS tryon_result_click_uv,
-            COALESCE(f.tryon_result_exposure_uv, 0) AS tryon_result_exposure_uv,
-            COALESCE(f.shop_click_uv, 0) AS shop_click_uv,
-            COALESCE(f.shop_exposure_uv, 0) AS shop_exposure_uv,
-            COALESCE(f.tryon_uv_total, 0) AS tryon_uv_total,
-            COALESCE(f.tryon_pv, 0) AS tryon_pv,
-            COALESCE(f.product_click_pv_raw, 0) AS product_click_pv_raw
+            COALESCE(t.dau_new_uv, 0) AS dau_new_uv,
+            COALESCE(t.dau_old_uv, 0) AS dau_old_uv,
+            COALESCE(t.tryon_new_uv, 0) AS tryon_new_uv,
+            COALESCE(t.tryon_old_uv, 0) AS tryon_old_uv,
+            COALESCE(t.home_tryon_uv, 0) AS home_tryon_uv,
+            COALESCE(t.home_feeds_uv, 0) AS home_feeds_uv,
+            COALESCE(t.post_tryon_uv, 0) AS post_tryon_uv,
+            COALESCE(t.post_scene_exposure_uv, 0) AS post_scene_exposure_uv,
+            COALESCE(t.product_detail_tryon_uv, 0) AS product_detail_tryon_uv,
+            COALESCE(t.product_detail_uv, 0) AS product_detail_uv,
+            COALESCE(t.styleme_uv, 0) AS styleme_uv,
+            COALESCE(t.product_click_uv, 0) AS product_click_uv,
+            COALESCE(t.product_exposure_uv, 0) AS product_exposure_uv,
+            COALESCE(t.home_product_click_uv, 0) AS home_product_click_uv,
+            COALESCE(t.home_product_exposure_uv, 0) AS home_product_exposure_uv,
+            COALESCE(t.tryon_result_click_uv, 0) AS tryon_result_click_uv,
+            COALESCE(t.tryon_result_exposure_uv, 0) AS tryon_result_exposure_uv,
+            COALESCE(t.shop_click_uv, 0) AS shop_click_uv,
+            COALESCE(t.shop_exposure_uv, 0) AS shop_exposure_uv,
+            COALESCE(t.tryon_uv_total, 0) AS tryon_uv_total,
+            COALESCE(t.tryon_pv, 0) AS tryon_pv,
+            COALESCE(t.product_click_pv_raw, 0) AS product_click_pv_raw,
+            COALESCE(a.all_user_dau, 0) AS all_user_dau,
+            COALESCE(a.all_user_duration_sum_sec, 0) AS all_user_duration_sum_sec,
+            COALESCE(a.new_user_dau, 0) AS new_user_dau,
+            COALESCE(a.new_user_duration_sum_sec, 0) AS new_user_duration_sum_sec,
+            a.all_next_day_retained_user_count,
+            a.all_next_day_not_retained_user_count,
+            a.new_next_day_retained_user_count,
+            a.new_next_day_not_retained_user_count,
+            COALESCE(u.all_user_content_dau, 0) AS all_user_content_dau,
+            COALESCE(u.all_content_consume_sum, 0) AS all_content_consume_sum,
+            COALESCE(u.new_user_content_dau, 0) AS new_user_content_dau,
+            COALESCE(u.new_content_consume_sum, 0) AS new_content_consume_sum,
+            r.closet_next_day_retained_user_count,
+            r.closet_next_day_not_retained_user_count,
+            r.product_detail_next_day_retained_user_count,
+            r.product_detail_next_day_not_retained_user_count,
+            r.ai_tryon_next_day_retained_user_count,
+            r.ai_tryon_next_day_not_retained_user_count,
+            r.follow_next_day_retained_user_count,
+            r.follow_next_day_not_retained_user_count,
+            r.model_next_day_retained_user_count,
+            r.model_next_day_not_retained_user_count
         FROM week_calendar c
-        LEFT JOIN `{source_table_id()}` f
-            ON f.dt = c.dt
+        LEFT JOIN tryon_daily t
+            ON t.dt = c.dt
+        LEFT JOIN user_activity_daily a
+            ON a.dt = c.dt
+        LEFT JOIN user_content_daily u
+            ON u.dt = c.dt
+        LEFT JOIN retention_feature_daily r
+            ON r.dt = c.dt
     ),
     -- 周聚合层：先聚合分子分母和天数，供核心指标统一复用。
     weekly_agg AS (
@@ -222,11 +431,73 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
             SUM(tryon_result_click_uv) AS sum_tryon_result_click_uv,
             SUM(tryon_result_exposure_uv) AS sum_tryon_result_exposure_uv,
             SUM(shop_click_uv) AS sum_shop_click_uv,
-            SUM(shop_exposure_uv) AS sum_shop_exposure_uv
+            SUM(shop_exposure_uv) AS sum_shop_exposure_uv,
+            SUM(all_user_dau) AS sum_all_user_dau,
+            SUM(all_user_duration_sum_sec) AS sum_all_user_duration_sum_sec,
+            SUM(all_user_content_dau) AS sum_all_user_content_dau,
+            SUM(all_content_consume_sum) AS sum_all_content_consume_sum,
+            SUM(new_user_dau) AS sum_new_user_dau,
+            SUM(new_user_duration_sum_sec) AS sum_new_user_duration_sum_sec,
+            SUM(new_user_content_dau) AS sum_new_user_content_dau,
+            SUM(new_content_consume_sum) AS sum_new_content_consume_sum,
+            SUM(COALESCE(all_next_day_retained_user_count, 0)) AS sum_all_next_day_retained_user_count,
+            SUM(COALESCE(all_next_day_not_retained_user_count, 0))
+                AS sum_all_next_day_not_retained_user_count,
+            SUM(COALESCE(new_next_day_retained_user_count, 0)) AS sum_new_next_day_retained_user_count,
+            SUM(COALESCE(new_next_day_not_retained_user_count, 0))
+                AS sum_new_next_day_not_retained_user_count,
+            COUNTIF(
+                all_next_day_retained_user_count IS NOT NULL
+                AND all_next_day_not_retained_user_count IS NOT NULL
+            ) AS all_next_day_observed_day_count,
+            COUNTIF(
+                new_next_day_retained_user_count IS NOT NULL
+                AND new_next_day_not_retained_user_count IS NOT NULL
+            ) AS new_next_day_observed_day_count,
+            SUM(COALESCE(closet_next_day_retained_user_count, 0))
+                AS sum_closet_next_day_retained_user_count,
+            SUM(COALESCE(closet_next_day_not_retained_user_count, 0))
+                AS sum_closet_next_day_not_retained_user_count,
+            SUM(COALESCE(product_detail_next_day_retained_user_count, 0))
+                AS sum_product_detail_next_day_retained_user_count,
+            SUM(COALESCE(product_detail_next_day_not_retained_user_count, 0))
+                AS sum_product_detail_next_day_not_retained_user_count,
+            SUM(COALESCE(ai_tryon_next_day_retained_user_count, 0))
+                AS sum_ai_tryon_next_day_retained_user_count,
+            SUM(COALESCE(ai_tryon_next_day_not_retained_user_count, 0))
+                AS sum_ai_tryon_next_day_not_retained_user_count,
+            SUM(COALESCE(follow_next_day_retained_user_count, 0))
+                AS sum_follow_next_day_retained_user_count,
+            SUM(COALESCE(follow_next_day_not_retained_user_count, 0))
+                AS sum_follow_next_day_not_retained_user_count,
+            SUM(COALESCE(model_next_day_retained_user_count, 0))
+                AS sum_model_next_day_retained_user_count,
+            SUM(COALESCE(model_next_day_not_retained_user_count, 0))
+                AS sum_model_next_day_not_retained_user_count,
+            COUNTIF(
+                closet_next_day_retained_user_count IS NOT NULL
+                AND closet_next_day_not_retained_user_count IS NOT NULL
+            ) AS closet_next_day_observed_day_count,
+            COUNTIF(
+                product_detail_next_day_retained_user_count IS NOT NULL
+                AND product_detail_next_day_not_retained_user_count IS NOT NULL
+            ) AS product_detail_next_day_observed_day_count,
+            COUNTIF(
+                ai_tryon_next_day_retained_user_count IS NOT NULL
+                AND ai_tryon_next_day_not_retained_user_count IS NOT NULL
+            ) AS ai_tryon_next_day_observed_day_count,
+            COUNTIF(
+                follow_next_day_retained_user_count IS NOT NULL
+                AND follow_next_day_not_retained_user_count IS NOT NULL
+            ) AS follow_next_day_observed_day_count,
+            COUNTIF(
+                model_next_day_retained_user_count IS NOT NULL
+                AND model_next_day_not_retained_user_count IS NOT NULL
+            ) AS model_next_day_observed_day_count
         FROM week_daily_fact
         GROUP BY week_start_dt, week_end_dt, week_label
     ),
-    -- 核心指标展开：字段名与需求一致，不带编号。
+    -- 试穿核心指标：字段名与需求一致，不带编号。
     core_metrics AS (
         SELECT
             week_start_dt,
@@ -458,6 +729,291 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
             SAFE_DIVIDE(sum_shop_click_uv, NULLIF(sum_shop_exposure_uv, 0))
         FROM weekly_agg
     ),
+    -- 留存核心指标：按 prop_user_id 口径输出整体、新用户和行为特征次日留存表现。
+    retention_core_metrics AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标' AS metric_type,
+            '次日留存率' AS metric_name,
+            CAST(NULL AS INT64) AS metric_bucket_order,
+            CAST(NULL AS STRING) AS metric_bucket,
+            all_next_day_observed_day_count AS metric_day_count,
+            SAFE_DIVIDE(
+                sum_all_next_day_retained_user_count,
+                NULLIF(
+                    sum_all_next_day_retained_user_count
+                    + sum_all_next_day_not_retained_user_count,
+                    0
+                )
+            ) AS metric_value
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '次日留存用户数',
+            NULL,
+            NULL,
+            all_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_all_next_day_retained_user_count,
+                NULLIF(all_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '平台人均停留时长（min）',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_all_user_duration_sum_sec, NULLIF(sum_all_user_dau, 0)) / 60.0
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '平台人均内容消费',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_all_content_consume_sum, NULLIF(sum_all_user_content_dau, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '新用户 DAU',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_new_user_dau, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '新用户次日留存',
+            NULL,
+            NULL,
+            new_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_new_next_day_retained_user_count,
+                NULLIF(
+                    sum_new_next_day_retained_user_count
+                    + sum_new_next_day_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '新用户人均停留时长（min）',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_new_user_duration_sum_sec, NULLIF(sum_new_user_dau, 0)) / 60.0
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '新用户人均消费内容',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_new_content_consume_sum, NULLIF(sum_new_user_content_dau, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '使用衣橱用户次日留存率',
+            NULL,
+            NULL,
+            closet_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_closet_next_day_retained_user_count,
+                NULLIF(
+                    sum_closet_next_day_retained_user_count
+                    + sum_closet_next_day_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '使用衣橱用户次日留存用户数',
+            NULL,
+            NULL,
+            closet_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_closet_next_day_retained_user_count,
+                NULLIF(closet_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '浏览商详次日留存率',
+            NULL,
+            NULL,
+            product_detail_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_product_detail_next_day_retained_user_count,
+                NULLIF(
+                    sum_product_detail_next_day_retained_user_count
+                    + sum_product_detail_next_day_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '浏览商详次日留存用户数',
+            NULL,
+            NULL,
+            product_detail_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_product_detail_next_day_retained_user_count,
+                NULLIF(product_detail_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '使用AI试穿次日留存率',
+            NULL,
+            NULL,
+            ai_tryon_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_ai_tryon_next_day_retained_user_count,
+                NULLIF(
+                    sum_ai_tryon_next_day_retained_user_count
+                    + sum_ai_tryon_next_day_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '使用AI试穿次日留存用户数',
+            NULL,
+            NULL,
+            ai_tryon_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_ai_tryon_next_day_retained_user_count,
+                NULLIF(ai_tryon_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '关注账号次日留存率',
+            NULL,
+            NULL,
+            follow_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_follow_next_day_retained_user_count,
+                NULLIF(
+                    sum_follow_next_day_retained_user_count
+                    + sum_follow_next_day_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '关注账号次日留存用户数',
+            NULL,
+            NULL,
+            follow_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_follow_next_day_retained_user_count,
+                NULLIF(follow_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '创建模特次日留存率',
+            NULL,
+            NULL,
+            model_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_model_next_day_retained_user_count,
+                NULLIF(
+                    sum_model_next_day_retained_user_count
+                    + sum_model_next_day_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '创建模特次日留存用户数',
+            NULL,
+            NULL,
+            model_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_model_next_day_retained_user_count,
+                NULLIF(model_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
+    ),
     -- 人均每日试穿次数分桶：按 query.sql 同口径分桶并统计周内天数占比。
     distribution_daily AS (
         SELECT
@@ -590,6 +1146,19 @@ def run_ads_weekly_ai_fashion_tryon_okr(week_starts: list[date]) -> None:
         CAST(metric_value AS NUMERIC) AS metric_value,
         CURRENT_TIMESTAMP() AS update_time
     FROM product_core_metrics
+    UNION ALL
+    SELECT
+        week_start_dt,
+        week_end_dt,
+        week_label,
+        metric_type,
+        metric_name,
+        metric_bucket_order,
+        metric_bucket,
+        metric_day_count,
+        CAST(metric_value AS NUMERIC) AS metric_value,
+        CURRENT_TIMESTAMP() AS update_time
+    FROM retention_core_metrics
     UNION ALL
     SELECT
         week_start_dt,

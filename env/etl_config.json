@@ -975,7 +975,10 @@
       "script": "jobs/ads/ads_weekly_ai_fashion_tryon_okr.py",
       "enabled": true,
       "depends_on": [
-        "dws_ai_fashion_tryon_okr_daily"
+        "dws_ai_fashion_tryon_okr_daily",
+        "dws_user_activity_daily",
+        "dws_user_retention_feature_daily",
+        "dws_user_daily"
       ],
       "schedule_group": "ads_weekly_ai_fashion_tryon_okr"
     },
