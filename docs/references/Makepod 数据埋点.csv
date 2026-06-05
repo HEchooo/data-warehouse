@@ -11,6 +11,7 @@
         ""portal_code"": ""CA"",
         ""os"": ""H5"", // ""Web""
         ""timezone"": ""America/New_York"",
+        ""share_code"": ""xxx"",
         ""version_type"": ""makepod"" // 写死
     }
 }",,,,,,,,
@@ -221,12 +222,12 @@
         ""page_key"": ""shopping_cart"",
         ""module"": ""checkout_panel"",
         ""element"": ""checkout_button"",
-        ""product_code"": [
+        ""spu"": [
             ""product_code1"",
             ""product_code2"",
             ""product_code3""
         ],
-        ""sku_code"": [
+        ""sku"": [
             ""sku_code1"",
             ""sku_code2"",
             ""sku_code3""
@@ -245,12 +246,12 @@
         ""page_key"": ""checkout"",
         ""module"": ""checkout_list"",
         ""element"": ""item_card"",
-        ""product_code"": [
+        ""spu"": [
             ""product_code1"",
             ""product_code2"",
             ""product_code3""
         ],
-        ""sku_code"": [
+        ""sku"": [
             ""sku_code1"",
             ""sku_code2"",
             ""sku_code3""
@@ -268,12 +269,12 @@
         ""page_key"": ""checkout"",
         ""module"": ""pay_panel"",
         ""element"": ""pay_button"",
-        ""product_code"": [
+        ""spu"": [
             ""product_code1"",
             ""product_code2"",
             ""product_code3""
         ],
-        ""sku_code"": [
+        ""sku"": [
             ""sku_code1"",
             ""sku_code2"",
             ""sku_code3""
