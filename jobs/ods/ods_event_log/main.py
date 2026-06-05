@@ -285,6 +285,7 @@ def save_oss_key_process_log(bigquery_client, gcs_key):
         "analyze_state": 0,
         "device_info_analyze_state": 0,
         "first_pay_state": 0,
+        "makepod_analyze_state": 0,
     }
 
     try:
