@@ -65,6 +65,16 @@
     },
     {
       "layer": "DWD",
+      "table_name": "dwd_makepod_event_log",
+      "stage": "DWD",
+      "name": "DWD Makepod 事件 ETL",
+      "script": "jobs/dwd/dwd_makepod_event_log/dwd_makepod_event_log.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dwd_daily"
+    },
+    {
+      "layer": "DWD",
       "table_name": "dwd_download",
       "stage": "DWD",
       "name": "DWD 下载 ETL",

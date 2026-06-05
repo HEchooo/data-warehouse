@@ -32,3 +32,4 @@
 | 第三方渠道曝光 UV 看板 | `ads_daily_thirdapp_channel_uv` | [111](https://bi.alvinclub.ca/superset/dashboard/111/) | [fact.md](./第三方渠道曝光%20UV%20看板/fact.md) | [patterns.md](./第三方渠道曝光%20UV%20看板/patterns.md) |
 | 衣橱概览 | `ads_daily_closet_overview` | [106](https://bi.alvinclub.ca/superset/dashboard/106/) | [fact.md](./衣橱概览/fact.md) | [patterns.md](./衣橱概览/patterns.md) |
 | push 数据看板 | `ads_daily_push` | [108](https://bi.alvinclub.ca/superset/dashboard/108/) | [fact.md](./push%20数据看板/fact.md) | [patterns.md](./push%20数据看板/patterns.md) |
+| Makepod 事件明细 | `dwd_makepod_event_log` | - | [fact.md](./Makepod%20事件明细/fact.md) | [patterns.md](./Makepod%20事件明细/patterns.md) |

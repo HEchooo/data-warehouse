@@ -120,6 +120,8 @@
 
 - 事件链路：
   - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily / dws_content_item_device_daily -> ads_*`
+- Makepod 事件链路：
+  - `ods_event_log + oss_key_process_log.makepod_analyze_state -> dwd_makepod_event_log`
 - 平台内容链路：
   - `dwd_event_log + v3 服务端行为表 -> dws_platform_content_daily -> ads_daily_content_performance`
 - 首页模块链路：
