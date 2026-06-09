@@ -23,6 +23,7 @@
 | prop_timezone | 客户端时区 |
 | prop_app_version | 客户端版本 |
 | prop_share_code | 分享码 |
+| invite_user_id | 由 `prop_share_code` 按 Base64 解码后转成 64 位整数，并与固定掩码 `873645731` 做异或得到的邀请用户 ID |
 | prop_version_type | 固定筛选 `makepod` |
 | country | 顶层国家字段 |
 | args | 完整原始 args JSON |

@@ -34,3 +34,6 @@ CLUSTER BY
     event_name,
     prop_device_id,
     product_code;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dwd_makepod_event_log`
+ADD COLUMN invite_user_id STRING;

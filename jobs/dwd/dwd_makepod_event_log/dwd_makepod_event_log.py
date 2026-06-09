@@ -12,6 +12,36 @@ TARGET_TABLE = "dwd_makepod_event_log"
 PROCESS_LOG_TABLE = "oss_key_process_log"
 MIN_VALID_LOG_DATE = "2000-01-01"
 FUTURE_LOG_DATE_GRACE_DAYS = 1
+TARGET_COLUMNS = (
+    "raw_event_id",
+    "event_name",
+    "logAt_timestamp",
+    "session_id",
+    "prop_device_id",
+    "prop_user_id",
+    "prop_os",
+    "prop_url",
+    "prop_params",
+    "prop_app_type",
+    "prop_timezone",
+    "prop_app_version",
+    "prop_share_code",
+    "prop_version_type",
+    "country",
+    "args",
+    "args_page_key",
+    "args_module",
+    "args_element",
+    "args_category_id",
+    "args_spu",
+    "args_sku",
+    "product_code",
+    "sku_code",
+    "ext",
+    "oss_key",
+    "update_time",
+    "invite_user_id",
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -57,11 +87,115 @@ def build_pending_keys_query(pending_keys_table_id: str) -> str:
     """
 
 
+def build_invite_code_functions_sql() -> str:
+    return '''
+    CREATE TEMP FUNCTION invite_code_to_user_id(invite_code STRING)
+    RETURNS STRING
+    LANGUAGE js AS """
+    function base64Decode(input) {
+        var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        var index = {};
+        for (var i = 0; i < alphabet.length; i += 1) {
+            index[alphabet.charAt(i)] = i;
+        }
+
+        var normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+        var paddingLength = normalized.length % 4;
+        if (paddingLength > 0) {
+            normalized += "====".slice(paddingLength);
+        }
+
+        var output = [];
+        for (var i = 0; i < normalized.length; i += 4) {
+            var c1 = normalized.charAt(i);
+            var c2 = normalized.charAt(i + 1);
+            var c3 = normalized.charAt(i + 2);
+            var c4 = normalized.charAt(i + 3);
+
+            if (!(c1 in index) || !(c2 in index)) {
+                return null;
+            }
+
+            var v1 = index[c1];
+            var v2 = index[c2];
+            var v3 = c3 === "=" ? 0 : index[c3];
+            var v4 = c4 === "=" ? 0 : index[c4];
+
+            if ((c3 !== "=" && v3 === undefined) || (c4 !== "=" && v4 === undefined)) {
+                return null;
+            }
+
+            var combined = (v1 << 18) | (v2 << 12) | (v3 << 6) | v4;
+            output.push((combined >> 16) & 0xff);
+            if (c3 !== "=") {
+                output.push((combined >> 8) & 0xff);
+            }
+            if (c4 !== "=") {
+                output.push(combined & 0xff);
+            }
+        }
+        return output;
+    }
+
+    function readBigInt64BE(bytes) {
+        var normalized = bytes.slice(0, 8);
+        while (normalized.length < 8) {
+            normalized.unshift(0);
+        }
+
+        var value = 0n;
+        for (var i = 0; i < normalized.length; i += 1) {
+            value = (value << 8n) | BigInt(normalized[i] & 0xff);
+        }
+
+        if (value >= (1n << 63n)) {
+            value -= (1n << 64n);
+        }
+        return value;
+    }
+
+    try {
+        if (invite_code === null || invite_code === undefined) {
+            return null;
+        }
+        var normalized = String(invite_code).trim();
+        if (!normalized) {
+            return null;
+        }
+
+        var decodedBytes = base64Decode(normalized);
+        if (decodedBytes === null) {
+            return null;
+        }
+
+        var inviteCodeCodeMask = 873645731n;
+        var value = readBigInt64BE(decodedBytes);
+        return String(value ^ inviteCodeCodeMask);
+    } catch (error) {
+        return null;
+    }
+    """;
+    '''
+
+
+def build_target_select_sql(
+    alias: str,
+    update_time_expr: str | None = None,
+) -> str:
+    select_lines: list[str] = []
+    for column in TARGET_COLUMNS:
+        if column == "update_time" and update_time_expr is not None:
+            select_lines.append(f"{update_time_expr} AS update_time")
+            continue
+        select_lines.append(f"{alias}.{column}")
+    return ",\n            ".join(select_lines)
+
+
 def build_staging_query(
     staging_table_id: str,
     pending_keys_table_id: str,
 ) -> str:
-    return f"""
+    return build_invite_code_functions_sql() + f"""
     CREATE TABLE `{staging_table_id}`
     PARTITION BY DATE(logAt_timestamp)
     CLUSTER BY oss_key, event_name, prop_device_id, product_code AS
@@ -81,6 +215,7 @@ def build_staging_query(
             CAST(o.prop_timezone AS STRING) AS prop_timezone,
             CAST(o.prop_app_version AS STRING) AS prop_app_version,
             CAST(o.prop_share_code AS STRING) AS prop_share_code,
+            invite_code_to_user_id(CAST(o.prop_share_code AS STRING)) AS invite_user_id,
             CAST(o.prop_version_type AS STRING) AS prop_version_type,
             CAST(o.country AS STRING) AS country,
             o.args,
@@ -121,6 +256,7 @@ def build_staging_query(
                 prop_timezone,
                 prop_app_version,
                 prop_share_code,
+                invite_user_id,
                 prop_version_type,
                 country,
                 args,
@@ -208,35 +344,9 @@ def build_staging_query(
     -- 投影目标字段，并暂时保留数组位置用于批内去重。
     projected_events AS (
         SELECT
-            raw_event_id,
-            event_name,
-            logAt_timestamp,
-            session_id,
-            prop_device_id,
-            prop_user_id,
-            prop_os,
-            prop_url,
-            prop_params,
-            prop_app_type,
-            prop_timezone,
-            prop_app_version,
-            prop_share_code,
-            prop_version_type,
-            country,
-            args,
-            args_page_key,
-            args_module,
-            args_element,
-            args_category_id,
-            args_spu,
-            args_sku,
-            product_code,
-            sku_code,
-            item_offset,
-            ext,
-            oss_key,
-            CURRENT_TIMESTAMP() AS update_time
-        FROM expanded_events
+            {build_target_select_sql("e", update_time_expr="CURRENT_TIMESTAMP()")},
+            e.item_offset
+        FROM expanded_events e
     ),
     -- 对完全重复的 ODS 原始事件和拆行结果做幂等去重。
     deduped_events AS (
@@ -302,14 +412,16 @@ def build_changed_target(
         CREATE TABLE `{changed_table_id}`
         PARTITION BY DATE(logAt_timestamp)
         CLUSTER BY oss_key, event_name, prop_device_id, product_code AS
-        SELECT t.*
+        SELECT
+            {build_target_select_sql("t")}
         FROM `{target_table_id}` t
         WHERE t.oss_key NOT IN (
             SELECT oss_key
             FROM `{pending_keys_table_id}`
         )
         UNION ALL
-        SELECT s.*
+        SELECT
+            {build_target_select_sql("s")}
         FROM `{staging_table_id}` s
         """
     else:
@@ -317,8 +429,9 @@ def build_changed_target(
         CREATE TABLE `{changed_table_id}`
         PARTITION BY DATE(logAt_timestamp)
         CLUSTER BY oss_key, event_name, prop_device_id, product_code AS
-        SELECT *
-        FROM `{staging_table_id}`
+        SELECT
+            {build_target_select_sql("s")}
+        FROM `{staging_table_id}` s
         """
     client.query(query).result()
 
