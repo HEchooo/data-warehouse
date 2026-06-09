@@ -12,6 +12,11 @@
 - `invite_user_id` 是邀请用户 id，其中包含达人
 - 达人指的是 `v3_decom.kol_rel.user_id = decom.dwd_makepod_event_log.invite_user_id` 的记录
 
+## 注册相关
+
+- `v3_decom.user_info` 表，`tenant_code = 'T18002707'`
+- 注册时间：`v3_decom.user_info.gmt_create`
+
 ## 订单相关
 
 - `v3_decom.pay_order` 表，`tenant_code = 'T18002707'`
