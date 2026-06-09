@@ -32,3 +32,7 @@
 - 手续费数据：`v3_decom.pay_order.pay_fee`
 - 售出商品：`SUM(v3_decom.user_order_item.sku_quantity)`
   - 关联条件：`user_order_item.order_id = pay_order.order_id`
+
+## 采购相关
+- 采购价：`JSON_VALUE (sku.ext_info, '$.pricingDetails[0].purchasePrice')`
+- 采购价单位：`JSON_VALUE (sku.ext_info, '$.pricingDetails[0].currency')`
