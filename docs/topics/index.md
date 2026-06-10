@@ -33,4 +33,4 @@
 | 衣橱概览 | `ads_daily_closet_overview` | [106](https://bi.alvinclub.ca/superset/dashboard/106/) | [fact.md](./衣橱概览/fact.md) | [patterns.md](./衣橱概览/patterns.md) |
 | push 数据看板 | `ads_daily_push` | [108](https://bi.alvinclub.ca/superset/dashboard/108/) | [fact.md](./push%20数据看板/fact.md) | [patterns.md](./push%20数据看板/patterns.md) |
 | Makepod 事件明细 | `dwd_makepod_event_log` | - | [fact.md](./Makepod%20事件明细/fact.md) | [patterns.md](./Makepod%20事件明细/patterns.md) |
-| Makepod 独立站日报 | `ads_daily_makepod` | [115](https://bi.alvinclub.ca/superset/dashboard/115/) | [fact.md](./Makepod%20独立站日报/fact.md) | [patterns.md](./Makepod%20独立站日报/patterns.md) |
+| Makepod 独立站日报 | `ads_daily_makepod` | [115](https://bi.alvinclub.ca/superset/dashboard/115/)（【Makepod】平台看板） | [fact.md](./Makepod%20独立站日报/fact.md) | [patterns.md](./Makepod%20独立站日报/patterns.md) |

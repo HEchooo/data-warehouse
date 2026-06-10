@@ -3,7 +3,7 @@
 ## 报表
 
 - 表：`decom.ads_daily_makepod`
-- Dashboard：[【AI-Fashion】Makepod 独立站日报](https://bi.alvinclub.ca/superset/dashboard/115/)（id=115）
+- Dashboard：[【Makepod】平台看板](https://bi.alvinclub.ca/superset/dashboard/115/)（id=115）
 - 粒度：`dt`
 - 时区：`Asia/Shanghai`
 - 主题：Makepod 独立站流量与交易日汇总
@@ -35,7 +35,7 @@
 - DDL：`ddl/dim/dim_makepod_device_first_visit.sql`、`ddl/dws/dws_makepod_traffic_daily.sql`、`ddl/dws/dws_makepod_order_daily.sql`、`ddl/ads/ads_daily_makepod.sql`
 - 脚本：`jobs/dim/dim_makepod_device_first_visit.py`、`jobs/dws/dws_makepod_traffic_daily.py`、`jobs/dws/dws_makepod_order_daily.py`、`jobs/ads/ads_daily_makepod.py`
 - 编排：`env/etl_config.json`
-- Superset：物理 dataset `ads_daily_makepod`（id=261），chart `Makepod 独立站日报（日表）- 流量趋势`（id=633）、`Makepod 独立站日报（日表）- 交易人数趋势`（id=634）、`Makepod 独立站日报（日表）- 交易金额趋势`（id=635）、`Makepod 独立站日报（日表）- 明细表`（id=636），dashboard `【AI-Fashion】Makepod 独立站日报`（id=115）
+- Superset：物理 dataset `ads_daily_makepod`（id=261），chart `Makepod 独立站日报（日表）- 流量趋势`（id=633）、`Makepod 独立站日报（日表）- 交易人数趋势`（id=634）、`Makepod 独立站日报（日表）- 交易金额趋势`（id=635）、`Makepod 独立站日报（日表）- 明细表`（id=636），dashboard `【Makepod】平台看板`（id=115，默认日期 filter=`Last month`）
 
 ## 当前状态
 
