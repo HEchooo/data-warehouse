@@ -149,6 +149,18 @@
     },
     {
       "layer": "DIM",
+      "table_name": "dim_makepod_device_first_visit",
+      "stage": "DIM",
+      "name": "DIM Makepod 设备首次到访维表 ETL",
+      "script": "jobs/dim/dim_makepod_device_first_visit.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_makepod_event_log"
+      ],
+      "schedule_group": "dim_makepod_device_first_visit"
+    },
+    {
+      "layer": "DIM",
       "table_name": "dim_user_closet_first_use",
       "stage": "DIM",
       "name": "DIM 用户首次衣橱使用维表 ETL",
@@ -206,6 +218,29 @@
       "enabled": true,
       "depends_on": [],
       "schedule_group": "dws_push_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_makepod_traffic_daily",
+      "stage": "DWS",
+      "name": "DWS Makepod 流量主题日事实 ETL",
+      "script": "jobs/dws/dws_makepod_traffic_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_makepod_event_log",
+        "dim_makepod_device_first_visit"
+      ],
+      "schedule_group": "dws_makepod_traffic_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_makepod_order_daily",
+      "stage": "DWS",
+      "name": "DWS Makepod 订单主题日事实 ETL",
+      "script": "jobs/dws/dws_makepod_order_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dws_makepod_order_daily"
     },
     {
       "layer": "DWS",
@@ -635,6 +670,19 @@
         "dws_push_daily"
       ],
       "schedule_group": "ads_daily_push"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_makepod",
+      "stage": "ADS",
+      "name": "ADS Makepod 独立站日报 ETL",
+      "script": "jobs/ads/ads_daily_makepod.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_makepod_traffic_daily",
+        "dws_makepod_order_daily"
+      ],
+      "schedule_group": "ads_daily_makepod"
     },
     {
       "layer": "ADS",

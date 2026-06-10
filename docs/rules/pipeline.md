@@ -38,6 +38,7 @@
 - `ads_daily_video_code_conversion`
 - `ads_daily_push`
 - `ads_daily_push_recall`
+- `ads_daily_makepod`
 
 ### 执行流程
 
@@ -71,6 +72,7 @@
 - `jobs/ads/ads_daily_video_code_conversion.py`
 - `jobs/ads/ads_daily_push.py`
 - `jobs/ads/ads_daily_push_recall.py`
+- `jobs/ads/ads_daily_makepod.py`
 
 日期规则：
 1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定待处理 `dt`
@@ -113,6 +115,7 @@
   - `ads_daily_video_code_conversion`
   - `ads_daily_push`
   - `ads_daily_push_recall`
+  - `ads_daily_makepod`
 - 固定窗口重刷或全量回刷能力，优先留在 `DWS` / `DIM` 层处理；不要重新引入共享 `ADS` 总入口来兜底
 
 
@@ -122,6 +125,11 @@
   - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily / dws_content_item_device_daily -> ads_*`
 - Makepod 事件链路：
   - `ods_event_log + oss_key_process_log.makepod_analyze_state -> dwd_makepod_event_log`
+- Makepod 独立站日报链路：
+  - `dwd_makepod_event_log -> dim_makepod_device_first_visit -> dws_makepod_traffic_daily`
+  - `v3_decom.user_info + v3_decom.kol_rel -> dws_makepod_traffic_daily`
+  - `v3_decom.user_order + v3_decom.pay_order + v3_decom.user_order_item + decom.currency_conversion_dict -> dws_makepod_order_daily`
+  - `dws_makepod_traffic_daily + dws_makepod_order_daily -> ads_daily_makepod`
 - 平台内容链路：
   - `dwd_event_log + v3 服务端行为表 -> dws_platform_content_daily -> ads_daily_content_performance`
 - 首页模块链路：
