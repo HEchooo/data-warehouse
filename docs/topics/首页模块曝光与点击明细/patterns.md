@@ -25,3 +25,9 @@
 - `star / magazine / brand / feeds` 的固定模块映射应在 `dws_home_module_daily` 维护，不要让终层报表自己重复维护事件名映射
 - 四模块补零也放在中层统一完成，这样 `ads_daily_home_module_performance` 只保留 `click_rate / avg_click_count_per_user` 两个展示指标
 - 后续排查模块日报异常时，先检查 `dws_home_module_daily` 的四行骨架和基础事实，再看 ADS 率指标是否正确
+
+## 首页内容曝光 ID 不能按单值直接清洗
+
+- `v_home_star / v_home_magazine / v_home_brand` 的 `args_star / args_magazine / args_brand` 在实际数据中主要是 JSON 数组。
+- 临时取内容 ID 排名时要兼容数组和少量历史单值；必须先拆出每个内容 ID，再按 `用户 × 日期 × 模块 × 内容 ID` 统计 UV。
+- 模块归属应以事件名及对应参数字段为准，不能再用 `kol_rel.kol_type` 反向覆盖；实际存在 `v_home_magazine.args_magazine` 上报 `kol_type = 7` ID 的情况。

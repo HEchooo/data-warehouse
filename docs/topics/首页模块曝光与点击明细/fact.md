@@ -30,3 +30,20 @@
 - 终层脚本：`jobs/ads/ads_daily_home_module_performance.py`
 - DDL：`ddl/ads/ads_daily_home_module_performance.sql`
 - 编排：`env/etl_config.json`（`dws_home_module_daily`、`ads_daily_home_module_performance`）
+
+## 临时取数
+
+### 首页模块内容曝光 UV Top 30（2026-06）
+
+- 类型：一次性临时取数，不属于正式报表，不新增 ADS 表，不修改或回填生产数据
+- 时间：`2026-06-01 ~ 2026-06-07`，按 `America/Toronto` 分天
+- 模块及事件：
+  - `star`：`v_home_star`，内容 ID 来自 `args_star`
+  - `magazine`：`v_home_magazine`，内容 ID 来自 `args_magazine`
+  - `brand`：`v_home_brand`，内容 ID 来自 `args_brand`
+- 指标：每个内容 ID 的 `COUNT(DISTINCT prop_user_id)`，仅统计已登录用户
+- 排名：每天在每个模块内按曝光 UV 降序取前 30；UV 相同时按内容 ID 升序
+- 输出：`exposure_dt / module / column_id / exposure_uv / uv_rank`
+- SQL：`query_content_exposure_top30_20260601_20260607.sql`
+- CSV：`outputs/首页模块内容曝光UV Top30（2026-06）/result.csv`
+- 后续处理：若需求转为固定报表，应先评估下沉到 DWS 的内容 ID 粒度事实，不直接把本临时 SQL 作为 ADS 长期实现
