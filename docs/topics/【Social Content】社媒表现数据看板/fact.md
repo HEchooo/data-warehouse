@@ -30,6 +30,25 @@
 - Dashboard：[【Social Content】社媒表现数据看板](https://bi.alvinclub.ca/superset/dashboard/102/)（id=102）
 - 调度：独立表级任务 `jobs/ads/ads_daily_social_content.py`，不挂共享 `ADS` 旧入口，也不接入共享 `DWS` 旧入口
 
+### v2 并行链路
+
+- 目标看板：`【Social Content】社媒表现数据看板v2`
+- 最终表：`decom.ads_daily_social_content_v2`
+- 粒度：`dt + channel`
+- 展示起点：`2026-05-01`
+- Dashboard：[【Social Content】社媒表现数据看板v2](https://bi.alvinclub.ca/superset/dashboard/116/)（id=116）
+- v1 链路保持不变；v2 从快照层起使用独立表：
+  - `decom.dws_social_video_snapshot_daily_v2`
+  - `decom.dws_social_video_state_daily_v2`
+  - `decom.dws_social_channel_daily_v2`
+  - `decom.ads_daily_social_content_v2`
+- v2 复用 `decom.dim_video` 与 `decom.dim_auto_publish_video_task`
+- v2 的 YouTube 累计快照改用 `videos.yt_video_stats_log.view_count / like_count`
+- TikTok、Instagram 数据源及7项指标口径与 v1 保持一致
+- v2 内部历史从 `2026-03-13` 开始构建，以支持 `2026-05-01` 起的日增量、最新3条和7天 cohort 计算
+- 首次生产回填范围：`2026-03-13 ~ 2026-06-12`
+- 首次回填完成后，v2 独立编排任务已启用
+
 ## 字段
 
 | 需求字段 | 定义 |
@@ -100,6 +119,7 @@
 - “最新 3 条”不是先取发布时间最新 3 条再判断有没有数据，而是先限定截至 `dt` 已有采集数据的视频，再从这些视频里按发布时间倒序取最新 3 条
 - `全部渠道` 不是额外视图字段，而是直接写入主表的展示渠道值
 - 看板当前落地 7 个指标；`完播比`、`第一秒留存率` 先保留在需求范围内，不进入当前 ADS 字段
+- v2 看板沿用上述7个指标，唯一源口径差异是 YouTube 使用 `yt_video_stats_log`
 
 ## 依赖
 
@@ -110,3 +130,6 @@
 - 脚本：`jobs/dim/dim_video.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_social_video_snapshot_daily.py`, `jobs/dws/dws_social_video_state_daily.py`, `jobs/dws/dws_social_channel_daily.py`, `jobs/ads/ads_daily_social_content.py`
 - DDL：`ddl/dim/dim_video.sql`, `ddl/dim/dim_auto_publish_video_task.sql`, `ddl/dws/dws_social_video_snapshot_daily.sql`, `ddl/dws/dws_social_video_state_daily.sql`, `ddl/dws/dws_social_channel_daily.sql`, `ddl/ads/ads_daily_social_content.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`
+- v2 脚本：`jobs/dws/dws_social_video_snapshot_daily_v2.py`, `jobs/dws/dws_social_video_state_daily_v2.py`, `jobs/dws/dws_social_channel_daily_v2.py`, `jobs/ads/ads_daily_social_content_v2.py`
+- v2 DDL：`ddl/dws/dws_social_video_snapshot_daily_v2.sql`, `ddl/dws/dws_social_video_state_daily_v2.sql`, `ddl/dws/dws_social_channel_daily_v2.sql`, `ddl/ads/ads_daily_social_content_v2.sql`
+- v2 Superset：物理 dataset `ads_daily_social_content_v2`（id=262），chart id `637 / 638 / 639 / 640 / 641 / 642 / 643`，dashboard `【Social Content】社媒表现数据看板v2`（id=116）

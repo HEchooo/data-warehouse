@@ -623,6 +623,18 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_social_video_snapshot_daily_v2",
+      "stage": "DWS",
+      "name": "DWS 社媒视频日快照 v2 ETL",
+      "script": "jobs/dws/dws_social_video_snapshot_daily_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video"
+      ],
+      "schedule_group": "dws_social_video_snapshot_daily_v2"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_social_video_state_daily",
       "stage": "DWS",
       "name": "DWS 社媒视频日状态 ETL",
@@ -636,6 +648,19 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_social_video_state_daily_v2",
+      "stage": "DWS",
+      "name": "DWS 社媒视频日状态 v2 ETL",
+      "script": "jobs/dws/dws_social_video_state_daily_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video",
+        "dws_social_video_snapshot_daily_v2"
+      ],
+      "schedule_group": "dws_social_video_state_daily_v2"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_social_channel_daily",
       "stage": "DWS",
       "name": "DWS 社媒渠道级事实 ETL",
@@ -646,6 +671,19 @@
         "dws_social_video_state_daily"
       ],
       "schedule_group": "dws_social_channel_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_social_channel_daily_v2",
+      "stage": "DWS",
+      "name": "DWS 社媒渠道级事实 v2 ETL",
+      "script": "jobs/dws/dws_social_channel_daily_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_auto_publish_video_task",
+        "dws_social_video_state_daily_v2"
+      ],
+      "schedule_group": "dws_social_channel_daily_v2"
     },
     {
       "layer": "ADS",
@@ -999,6 +1037,18 @@
         "dws_social_channel_daily"
       ],
       "schedule_group": "ads_daily_social_content"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_social_content_v2",
+      "stage": "ADS",
+      "name": "ADS Social Content 主题日报 v2 ETL",
+      "script": "jobs/ads/ads_daily_social_content_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_social_channel_daily_v2"
+      ],
+      "schedule_group": "ads_daily_social_content_v2"
     },
     {
       "layer": "ADS",

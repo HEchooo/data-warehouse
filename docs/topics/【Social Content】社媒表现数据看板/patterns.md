@@ -64,3 +64,11 @@
 - 全量回刷时，处理日期范围可能覆盖上千天，但原始日志真实有采集的日期远少于目标日期列表
 - 因此 staging 校验只能要求有数据且 `dt + video_key` 唯一，不能要求 `COUNT(DISTINCT dt) = len(dates)`
 - 如果需要“每天都有一行”的语义，应在 `dws_social_video_state_daily` 校验，而不是在 snapshot 层校验
+
+## YouTube `analytics_log` 与 `stats_log` 不能视为同口径字段替换
+
+- `yt_video_analytics_log.views / likes` 与 `yt_video_stats_log.view_count / like_count` 在相同 `video_id + collected_at` 下仍存在大量差异，迁移不是简单字段改名
+- `yt_video_stats_log` 的视频覆盖更完整，但多伦多日期历史从 `2026-03-13` 开始，早于该日期不能只靠新表重建
+- 为避免重写 v1 历史，当前采用独立 v2 链路；v2 内部从 `2026-03-13` 构建，看板固定从 `2026-05-01` 展示
+- `yt_video_stats_log` 存在极少量相同 `video_id + collected_at` 的重复记录，日末去重必须增加 `id DESC` 作为稳定次序
+- 首次回填验证中，`2026-05-01` 起 TikTok / Ins 与 v1 一致；YouTube v2 Views 约高 `12.02%`、Likes 约高 `9.97%`，符合更换统计源后的预期
