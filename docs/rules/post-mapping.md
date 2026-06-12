@@ -19,7 +19,7 @@
   - `nickname`
   - `kol_type = 4`
 
-## 2.v3_decom.community_post
+## 2.v3_decom.community_post.post_type
 - STAR_OUTFIT(2, "star_outfit"),// 明星
 - STAR_THEME(4, "star_theme"),// 明星
 - MAGAZINE_ISSUE(5, "magazine_issue"), // 杂志
