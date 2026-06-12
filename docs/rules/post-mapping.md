@@ -1,6 +1,7 @@
 # magazine, star, brand 映射关系
 
-## dataset: v3_decom
+## post 类型判断
+## 1. dataset: v3_decom
 
 - 表 `v3_decom.kol_rel`：
   - `status = 0` 正常
@@ -17,6 +18,16 @@
   - `user_id`
   - `nickname`
   - `kol_type = 4`
+
+## 2.v3_decom.community_post
+- STAR_OUTFIT(2, "star_outfit"),// 明星
+- STAR_THEME(4, "star_theme"),// 明星
+- MAGAZINE_ISSUE(5, "magazine_issue"), // 杂志
+- FASHION_LOOK(6, "fashion_look"), // 品牌
+- FASHION_PRODUCT(7, "fashion_product"),// 品牌
+- FASHION_VIDEO(8, "fashion_video"),// 视频
+- FASHION_KOL(9, "fashion_kol"),// kol
+
 
 ## post_id, post_code 映射关系
 
