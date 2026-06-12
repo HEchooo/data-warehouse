@@ -6,7 +6,6 @@ from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 from zoneinfo import ZoneInfo
 
-
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -36,6 +35,7 @@ def parse_args() -> argparse.Namespace:
 
 def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
+
 
 def target_table_id() -> str:
     return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
@@ -237,17 +237,14 @@ def run_dws_social_video_snapshot_daily(dates: list[date]) -> None:
 
     try:
         if target_table_exists():
-            client.query(
-                f"""
+            client.query(f"""
                 CREATE TABLE `{staging_table}` AS
                 SELECT *
                 FROM `{target_table}`
                 WHERE 1 = 0
-                """
-            ).result()
+                """).result()
         else:
-            client.query(
-                f"""
+            client.query(f"""
                 CREATE TABLE `{staging_table}`
                 PARTITION BY dt
                 CLUSTER BY channel, creator_id, video_key AS
@@ -263,8 +260,7 @@ def run_dws_social_video_snapshot_daily(dates: list[date]) -> None:
                     CAST(NULL AS INT64) AS day_end_likes,
                     CAST(NULL AS TIMESTAMP) AS update_time
                 LIMIT 0
-                """
-            ).result()
+                """).result()
 
         client.query(insert_into_staging_sql).result()
 
