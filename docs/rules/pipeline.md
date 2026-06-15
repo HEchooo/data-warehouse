@@ -190,7 +190,9 @@
   - v2 只替换 YouTube 累计快照源为 `yt_video_stats_log.view_count / like_count`，v1 链路保持不变
 - 正式号视频发布增量链路：
   - `videos.platform_video_tags -> dim_video`
-  - `dim_video + dws_social_video_state_daily -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`
+  - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2`
+  - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`
+  - YouTube 累计播放与点赞复用 Social Content v2 的 `yt_video_stats_log.view_count / like_count` 口径
 - AI-Fashion 试穿 OKR 链路：
   - `dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily -> ads_weekly_ai_fashion_tryon_okr`
 - 视频编码转化链路：

@@ -79,18 +79,20 @@
 补充说明：
 
 - 该主题只看正式号视频，不再额外维护 AI-Fashion 账号名单
+- YouTube 累计播放与点赞复用 Social Content v2 链路，来源为 `videos.yt_video_stats_log.view_count / like_count`；TikTok、Instagram 数据源保持不变
+- ECN 日表从 `2026-03-30` 开始，而 v2 状态链路从 `2026-03-13` 开始构建，能够承接日增量首日差分和 7 天 LTV 所需历史
 - `dim_video` 保留 Social Content 原有 YouTube AI 团队排除规则，但正式号 tag 命中的视频会作为例外保留
 - 内容账号总数不按视频发布时间或正式号 tag `created_at` 累计，而是按账号下第一个正式号视频首次采集到 `views > 0` 的日期累计；账号进入正式号集合后，后续每日都计入
 - 如果正式号 tag 视频尚未出现在平台主视频表中，`dim_video` 使用 tag 创建时间作为 `published_dt` 兜底；新增视频和 LTV 仍以首次采集正播放日期为准
 - 截至 2026-05-12 本次上线校验，`env=prod` 正式号视频共 292 条、内容账号 289 个，正式号 tag 日期均为美东 `2026-05-11`；正式号累计账号/视频不使用该 tag 日期入表，而等待首次采集正播放日期
-- 截至 2026-05-12 本次上线校验，正式号视频暂无 analytics 正播放快照，因此播放、点赞、新增视频、正式号累计账号/视频与增长倍数类指标暂为 0 或空值，待采集日志到达后自然补数
+- 2026-05-12 首次上线时旧 analytics 源暂无正式号正播放快照；该结论仅是历史校验记录，切换到 stats 链路后不再作为当前数据状态判断依据
 
 ## 依赖
 
-- 上游：`videos.platform_video_tags`
-- 中间表：`decom.dim_video`, `decom.dws_social_video_state_daily`
+- 上游：`videos.platform_video_tags`, `videos.yt_video_stats_log`, `videos.video_stats_log`, `videos.ig_media_stats_log`
+- 中间表：`decom.dim_video`, `decom.dws_social_video_snapshot_daily_v2`, `decom.dws_social_video_state_daily_v2`
 - 报表表：`decom.ads_daily_formal_video_increment`, `decom.ads_weekly_formal_video_increment_growth`
 - Superset：物理 dataset `ads_daily_formal_video_increment`（id=240）、`ads_weekly_formal_video_increment_growth`（id=241）；chart `正式号发布增量（日表）-全部已发布视频新增总播放量趋势`（id=593）、`正式号发布增量（日表）-当日新增发布视频数趋势`（id=594）、`正式号发布增量（日表）-平均 LTV 趋势`（id=595）、`正式号发布增量（日表）-内容账号总数趋势`（id=596）、`正式号发布增量（日表）-全部已发布视频新增总点赞数趋势`（id=597）、`正式号发布增量（周表）-每日新增总 views 周均值与增长倍数`（id=598）、`正式号发布增量（周表）-周增长倍数`（id=599）、`正式号发布增量（周表）-月度增长倍数`（id=600）、`正式号发布增量（周表）-季度增长倍数`（id=601）；dashboard `【AI-Fashion】账号发布数据增量看板`（id=109）
-- 脚本：`jobs/dim/dim_video.py`, `jobs/ads/ads_daily_formal_video_increment.py`, `jobs/ads/ads_weekly_formal_video_increment_growth.py`
-- DDL：`ddl/dim/dim_video.sql`, `ddl/ads/ads_daily_formal_video_increment.sql`, `ddl/ads/ads_weekly_formal_video_increment_growth.sql`
+- 脚本：`jobs/dim/dim_video.py`, `jobs/dws/dws_social_video_snapshot_daily_v2.py`, `jobs/dws/dws_social_video_state_daily_v2.py`, `jobs/ads/ads_daily_formal_video_increment.py`, `jobs/ads/ads_weekly_formal_video_increment_growth.py`
+- DDL：`ddl/dim/dim_video.sql`, `ddl/dws/dws_social_video_snapshot_daily_v2.sql`, `ddl/dws/dws_social_video_state_daily_v2.sql`, `ddl/ads/ads_daily_formal_video_increment.sql`, `ddl/ads/ads_weekly_formal_video_increment_growth.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`

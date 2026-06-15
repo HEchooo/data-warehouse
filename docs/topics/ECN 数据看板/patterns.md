@@ -7,9 +7,15 @@
 
 ## tag 新增后必须先刷新 dim_video
 
-- 现象：直接查 `videos.yt_video_analytics_log` join `videos.platform_video_tags` 有播放数据，但 `ads_daily_formal_video_increment` 仍为 0。
-- 原因：ADS 不直接读 tag 表和原始 analytics，而是读取 `dim_video + dws_social_video_state_daily`；如果 tag 新增后只刷 DWS/ADS，新的正式号视频不会进入 `dim_video.is_formal_video`，下游仍按旧正式号集合计算。
-- 正确刷新顺序：`dim_video -> dws_social_video_snapshot_daily -> dws_social_video_state_daily -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`。
+- 现象：直接查 `videos.yt_video_stats_log` join `videos.platform_video_tags` 有播放数据，但 `ads_daily_formal_video_increment` 仍为 0。
+- 原因：ADS 不直接读 tag 表和原始 stats，而是读取 `dim_video + dws_social_video_state_daily_v2`；如果 tag 新增后只刷 DWS/ADS，新的正式号视频不会进入 `dim_video.is_formal_video`，下游仍按旧正式号集合计算。
+- 正确刷新顺序：`dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2 -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`。
+
+## ECN 的 YouTube 口径必须复用 Social Content v2
+
+- `yt_video_analytics_log.views / likes` 与 `yt_video_stats_log.view_count / like_count` 不是等价字段，不能只把字段名视为机械替换。
+- ECN 从 `2026-03-30` 开始展示，Social Content v2 状态链路从 `2026-03-13` 开始构建，覆盖 ECN 首日差分和 7 天 LTV 所需历史。
+- 为避免重复扫描和维护原始 stats 日末去重逻辑，ECN ADS 直接消费 `dws_social_video_state_daily_v2`，不再单独创建一套 ECN 视频快照与状态表。
 
 ## 周增长类图表不要在 chart 里写死常量 metric
 

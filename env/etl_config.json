@@ -1059,7 +1059,7 @@
       "enabled": true,
       "depends_on": [
         "dim_video",
-        "dws_social_video_state_daily"
+        "dws_social_video_state_daily_v2"
       ],
       "schedule_group": "ads_daily_formal_video_increment"
     },
