@@ -14,3 +14,8 @@
 
 - `mainAssets[*].assetCode` 与 `mainAssets[*].image.url` 是同一个素材对象的属性。
 - 不能分别去重或按值排序两个数组，否则可能破坏素材和图片的对应关系；应使用相同过滤条件并按 `WITH OFFSET` 的原始下标排序。
+
+## BigQuery CLI 不能直接把重复字段输出为 CSV
+
+- SQL 返回 `ARRAY` 字段时，`bq query --format=csv` 会因 repeated field 无法序列化而失败，即使查询作业本身已经成功。
+- 应先用 JSON 格式读取已完成作业结果，再把数组序列化成 JSON 数组字符串后写入 CSV，避免为了调整导出格式重复扫描源表。
