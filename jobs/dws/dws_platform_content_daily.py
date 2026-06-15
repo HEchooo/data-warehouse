@@ -52,6 +52,11 @@ COLUMN_EXPOSURE_EVENT_NAMES = (
     "v_star_post_feeds",
     "v_brand_post_feeds",
 )
+TRYON_TASK_TYPES = (
+    "QUICK_TRY_ON",
+    "TRY_ON",
+    "OUTFIT",
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -150,6 +155,7 @@ def get_platform_content_dates_to_process(
     """
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
+    tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
@@ -174,7 +180,7 @@ def get_platform_content_dates_to_process(
         tryon_dates AS (
             SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS dt
             FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
-            WHERE task_type IN ('TRY_ON', 'OUTFIT')
+            WHERE task_type IN ({tryon_task_types_sql})
         )
         SELECT DISTINCT dt
         FROM (
@@ -217,7 +223,7 @@ def get_platform_content_dates_to_process(
         SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS dt
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE {service_ts} >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-            AND task_type IN ('TRY_ON', 'OUTFIT')
+            AND task_type IN ({tryon_task_types_sql})
     )
     SELECT DISTINCT dt
     FROM (
@@ -262,6 +268,7 @@ def run_dws_platform_content_daily(dates: list[date]) -> None:
     read_events_sql = string_values_to_sql_list(READ_EVENT_NAMES)
     product_click_events_sql = string_values_to_sql_list(PRODUCT_CLICK_EVENT_NAMES)
     column_exposure_events_sql = string_values_to_sql_list(COLUMN_EXPOSURE_EVENT_NAMES)
+    tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -511,7 +518,7 @@ def run_dws_platform_content_daily(dates: list[date]) -> None:
         FROM follow_service_with_platform
         GROUP BY dt, platform
     ),
-    -- 服务端试穿原始记录：统计平台级 TRY_ON / OUTFIT 任务。
+    -- 服务端试穿原始记录：统计平台级 QUICK_TRY_ON / TRY_ON / OUTFIT 任务。
     tryon_task_base AS (
         SELECT
             GENERATE_UUID() AS action_id,
@@ -524,7 +531,7 @@ def run_dws_platform_content_daily(dates: list[date]) -> None:
             ) AS user_id
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND task_type IN ('TRY_ON', 'OUTFIT')
+            AND task_type IN ({tryon_task_types_sql})
     ),
     -- 服务端试穿记录按同日最近登录事件归因平台；未命中则记为 unknown。
     tryon_task_with_platform AS (

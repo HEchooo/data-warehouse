@@ -30,12 +30,12 @@
 | dau_uv | 当天日活 UV；仅统计 `prop_user_id` 非空事件，按 `COUNT(DISTINCT prop_user_id)` |
 | product_click_rate | 商品曝光点击率；`product_click_uv / dau_uv` |
 | follow_rate | `follow_uv / dau_uv` |
-| tryon_uv | 试穿 UV；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('TRY_ON', 'OUTFIT')`；按试穿用户去重 |
+| tryon_uv | 试穿 UV；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`；按试穿用户去重 |
 | tryon_penetration_rate | 试穿渗透率；`tryon_uv / dau_uv` |
 | follow_conversion_rate | 关注转化率；`follow_uv / like_uv` |
 | column_follow_rate（报表中已删除） | 历史口径为 `follow_uv / column_follow_exposure_uv` |
 | read_follow_rate（报表中已取消） | 关注次数 / 专栏曝光次数；历史字段名保留；当前分母仅统计 `prop_user_id` 非空事件的专栏曝光 PV |
-| tryon_total_count | 试穿总次数（PV）；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('TRY_ON', 'OUTFIT')`；按任务行计数 |
+| tryon_total_count | 试穿总次数（PV）；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`；按任务行计数 |
 | column_exposure_pv | 专栏曝光 PV；用于重算曝光试穿率；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_kol_post_detail`, `v_star_post_feeds`, `v_brand_post_feeds`；仅统计 `prop_user_id` 非空事件；按 `hash_id` 去重 |
 | read_tryon_rate（报表中已删除） | 历史口径为 `tryon_total_count / column_exposure_pv` |
 
@@ -47,7 +47,7 @@
 - `follow_rate` 保持 `follow_uv / dau_uv`，不与 `column_follow_rate` 混用
 - `点赞 / 关注 / 试穿` 改取服务端事实：`community_post_like`、`community_star_follow`、`common_ext_ai_task`
 - 服务端行为的平台维度，按同日同用户最近的登录事件平台归因；未命中记为 `unknown`
-- “试穿”统计平台级任务：`task_type IN ('TRY_ON', 'OUTFIT')`，不限定 `request_param.postId`
+- “试穿”统计平台级任务：`task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`，不限定 `request_param.postId`
 - 该表升级为 `dt + platform` 后，跨平台汇总时 UV / 去重类指标与旧版 `dt` 总览不完全一致；率类指标应以分子分母重新聚合，不直接 `AVG`
 
 ## 依赖

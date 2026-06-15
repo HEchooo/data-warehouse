@@ -31,7 +31,7 @@
 ## 试穿口径不要只看 c_tryon
 
 - 平台整体内容表现里的“试穿”当前以服务端 `common_ext_ai_task` 为准
-- 91 报表当前统计 `task_type IN ('TRY_ON', 'OUTFIT')` 的平台级试穿任务，不再限定 `request_param.postId`
+- 91 报表当前统计 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` 的平台级试穿任务，不再限定 `request_param.postId`
 
 ## 服务端行为映射平台不能直接连 `dws_user_daily`
 
