@@ -92,3 +92,40 @@
 - 同一个 `v_home_feeds` 原始事件可上报多个帖子；帖子粒度按 `raw_event_id` 去重，避免 DWD 拆行造成重复计数。
 - CSV 中 `asset_codes` 和 `post_image_urls` 使用 JSON 数组字符串保存，数组顺序和下标对应关系不变。
 - 临时查询直接读取 DWD 与服务端源表；若转为固定报表，应将帖子素材和封面等稳定属性下沉到 `DIM`，再由 DWS/ADS 消费。
+
+## Home Feeds 样本用户的帖子详情浏览
+
+### 报表
+
+- 类型：临时补充取数，不新增 ADS 表，不修改生产数据
+- 时间：`2026-06-01 ~ 2026-06-07`，首尾包含，按 `America/Toronto` 切天
+- 样本来源：`0601-0607_homefeeds_analytics.csv`
+- 样本键：CSV 去重后的 `browse_dt × user_group × browse_user_id`，共 140 个日期用户键
+- 匹配方式：用户只查询其在样本 CSV 对应 `browse_dt` 当天的帖子详情浏览，不扩展到整个日期区间
+- 粒度：`浏览日期 × 用户分群 × 浏览用户 ID × 帖子 ID`
+- 产物：
+  - SQL：`query_home_feeds_sample_post_detail.sql`
+  - CSV：`0601-0607_homefeeds_sample_post_detail.csv`
+
+### 字段
+
+字段及口径与“帖子详情浏览抽样”一致，包括：
+
+- 帖子 ID、素材 ID、内容类型、发布运营
+- 内容创建时间、内容发布时间、帖子图片
+- 首次浏览时间和按原始事件去重的浏览次数
+
+### 依赖
+
+- 固定样本：`0601-0607_homefeeds_analytics.csv`
+- 事件：`decom.dwd_event_log`
+- 帖子主数据：`v3_decom.community_post`
+- 浏览事件：`v_star_post_detail`、`v_magazine_post_detail`、`v_brand_post_detail`
+- 规则：`docs/rules/data.md`、`docs/rules/code.md`、`docs/rules/post-mapping.md`
+
+补充说明：
+
+- SQL 中固化的样本名单由来源 CSV 提取，避免 BigQuery 查询依赖本地文件路径。
+- 同一个原始事件包含多个帖子时，在 `日期 × 用户 × 帖子` 内按 `raw_event_id` 去重，缺失时回退 `hash_id`。
+- 没有发生目标帖子详情浏览的样本用户不会在明细结果中产生记录。
+- CSV 中 `asset_codes` 和 `post_image_urls` 使用 JSON 数组字符串保存。
