@@ -65,7 +65,7 @@
 | 需求字段 | 定义 |
 |------|------|
 | 日均停留时长 | 对应 cohort 用户在 `dt` 当日的平均停留时长；仅统计 `app_launch.args_session_duration`，按 `COALESCE(raw_event_id, hash_id)` 去重后汇总，单位秒 |
-| AI试穿 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type IN ('TRY_ON', 'OUTFIT')` 的去重用户数 |
+| AI试穿 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` 的去重用户数 |
 | 关注账号 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.community_star_follow` 的去重用户数 |
 | 浏览商详 | 对应 cohort 用户中，在 `dt` 当日发生过 `event_name = 'v_product_detail'` 的去重用户数 |
 | 创建模特 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type = 'MODEL'` 的去重用户数 |
@@ -107,7 +107,7 @@
 
 | 需求字段 | 定义 |
 |------|------|
-| AI试穿使用次数 | 对应 cohort 用户在 `dt` 当天的 AI 试穿任务次数分桶；试穿来源 `v3_decom.common_ext_ai_task`，按 `task_type IN ('TRY_ON','OUTFIT')` 与 cohort `user_id` 关联后取 `COUNT(1)`；只统计当日试穿次数大于 `0` 的已登录用户；分桶为 `(0~3]`、`(3~7]`、`(7~10]`、`(10~15]`、`15次以上` |
+| AI试穿使用次数 | 对应 cohort 用户在 `dt` 当天的 AI 试穿任务次数分桶；试穿来源 `v3_decom.common_ext_ai_task`，按 `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` 与 cohort `user_id` 关联后取 `COUNT(1)`；只统计当日试穿次数大于 `0` 的已登录用户；分桶为 `(0~3]`、`(3~7]`、`(7~10]`、`(10~15]`、`15次以上` |
 | 次日留存用户数 | 对应 AI 试穿次数桶内，`dt` 当日活跃且 `dt+1` 仍活跃的已登录去重用户数 |
 | 7日留存用户数 | 对应 AI 试穿次数桶内，`dt` 当日活跃且 `dt+7` 仍活跃的已登录去重用户数 |
 | 次日非留存用户数 | 对应 AI 试穿次数桶内，`dt` 当日活跃且 `dt+1` 未活跃的已登录去重用户数 |
@@ -220,7 +220,7 @@
 - 关注账号数分桶图明确排除 `0` 个当日关注账号的用户，因此各关注桶用户数加总默认不会回对到第一张图里的 cohort 总人数
 - `dws_user_activity_daily.product_detail_view_count` 表示 cohort 用户在 `dt` 当天浏览商详的去重事件次数（`event_name = 'v_product_detail'`）；用于“浏览商详次数分桶”chart
 - 浏览商详次数分桶图包含 `0` 次用户，因此各桶 cohort 用户数加总应当等于第一张图里的 cohort 总人数
-- `dws_user_activity_daily.ai_tryon_count` 表示 cohort 用户在 `dt` 当天 `task_type IN ('TRY_ON','OUTFIT')` 的服务端任务行数；和特征对比的 `used_ai_tryon` 布尔指标不是同一个字段，不要混用
+- `dws_user_activity_daily.ai_tryon_count` 表示 cohort 用户在 `dt` 当天 `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` 的服务端任务行数；和特征对比的 `used_ai_tryon` 布尔指标不是同一个字段，不要混用
 - AI 试穿次数分桶图明确排除 `0` 次试穿用户，因此各试穿桶用户数加总默认不会回对到第一张图里的 cohort 总人数
 - 特征对比表原有字段已完成生产表扩展与 Superset 资产更新；本次新增“衣橱渗透”后，是否执行 DDL、刷新受影响分区并让 dashboard 生效，需要单独执行
 - 时长分桶表的代码、DDL 与调度配置已补齐；是否创建生产表、刷新历史分区并创建 Superset 资产，需要单独执行

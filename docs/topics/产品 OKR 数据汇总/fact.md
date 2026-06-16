@@ -40,18 +40,18 @@
 
 | 指标 | 口径 |
 |---|---|
-| 新用户试穿率 | 周内 `tryon_new_uv` 之和 / 周内 `dau_new_uv` 之和 |
-| 新用户试穿uv | 周内 `tryon_new_uv` 之和 / 周内天数 |
-| 老用户试穿率 | 周内 `tryon_old_uv` 之和 / 周内 `dau_old_uv` 之和 |
-| 老用户试穿uv | 周内 `tryon_old_uv` 之和 / 周内天数 |
-| 首页信息流试穿 UV | 周内 `home_tryon_uv` 之和 / 周内天数 |
+| 新用户试穿率 | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内 `dau_new_uv` 之和；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
+| 新用户试穿uv | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内天数 |
+| 老用户试穿率 | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内 `dau_old_uv` 之和；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
+| 老用户试穿uv | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内天数 |
+| 首页信息流试穿 UV | 周内 `home_tryon_uv` 之和 / 周内天数；保留前端 `c_tryon AND args_page_key = 'home_feeds'` |
 | 首页试穿渗透率 | 周内 `home_tryon_uv` 之和 / 周内 `home_feeds_uv` 之和 |
-| 帖子试穿UV | 周内 `post_tryon_uv` 之和 / 周内天数 |
-| 帖子试穿渗透率 | 周内 `post_tryon_uv` 之和 / 周内 `post_scene_exposure_uv` 之和 |
-| 商品详情页试穿 UV | 周内 `product_detail_tryon_uv` 之和 / 周内天数 |
+| 帖子试穿UV | 周内服务端带 `request_param.postId` 且可映射 `dim_post` 的试穿用户 `post_tryon_uv` 之和 / 周内天数；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
+| 帖子试穿渗透率 | 周内服务端帖子试穿 `post_tryon_uv` 之和 / 周内前端帖子场景曝光 `post_scene_exposure_uv` 之和 |
+| 商品详情页试穿 UV | 周内 `product_detail_tryon_uv` 之和 / 周内天数；保留前端 `c_tryon AND args_page_key = 'product_detail'` |
 | 商品详情页试穿渗透率 | 周内 `product_detail_tryon_uv` 之和 / 周内 `product_detail_uv` 之和 |
 | styleme 试穿 UV | 周内 `styleme_uv` 之和 / 周内天数 |
-| 人均每日试穿次数分布 | 先算每日 `tryon_pv / tryon_uv_total`，再按分桶统计周内 `day_count` 与 `day_ratio`；分桶：`(0~3]`、`(3~6]`、`(6~10]`、`(10~15]`、`15次以上`、`0或无试穿UV` |
+| 人均每日试穿次数分布 | 先算每日服务端试穿 `tryon_pv / tryon_uv_total`，再按分桶统计周内 `day_count` 与 `day_ratio`；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`；分桶：`(0~3]`、`(3~6]`、`(6~10]`、`(10~15]`、`15次以上`、`0或无试穿UV` |
 
 #### 商品OKR
 
@@ -108,6 +108,8 @@
 
 - 周级数值统一遵循“先按天计算，再在周内按规则聚合”
 - 率指标统一按“周内分子求和 / 周内分母求和”，不直接 `AVG(每日率)`
+- 方案 B 后，整体试穿用户、整体试穿次数、帖子试穿和使用 AI 试穿留存统一使用服务端 `common_ext_ai_task` 三种试穿任务；首页和商详试穿因依赖页面来源，继续使用前端 `c_tryon`
+- 帖子试穿渗透率是跨源转化口径：分子为服务端 `postId` 归因后的帖子试穿 UV，分母为前端帖子场景曝光 UV
 - 留存口径统一使用 `prop_user_id`
 - 周桶从 `2026-04-27` 开始，固定每 7 天（周一~周日）
 
@@ -143,4 +145,3 @@
   - Chart：`id=629`（`【AI-Fashion】人均每日试穿次数分布（周）`）
   - Chart：`id=630`（`【AI-Fashion】商品OKR（核心指标）`）
   - Chart：`id=631`（`【AI-Fashion】人均商品点击次数分布（周）`）
-

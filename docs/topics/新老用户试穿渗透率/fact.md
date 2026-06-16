@@ -36,7 +36,7 @@
 补充说明：
 
 - 新老用户分群复用 `decom.dim_user_first_active` 下沉后的 `first_active_date`，不在 ADS 直接现算“首日访问”
-- `tryon_uv` 与平台整体内容表现看板一致，统一基于服务端 `v3_decom.common_ext_ai_task` 的 `task_type IN ('TRY_ON', 'OUTFIT')`
+- `tryon_uv` 与平台整体内容表现看板一致，统一基于服务端 `v3_decom.common_ext_ai_task` 的 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`
 - 该报表当前只落地基础事实 `DAU / 试穿 UV`，不物化 `试穿渗透率`
 - 该看板是独立 dashboard，不与 `【AI-Fashion】平台整体内容表现` 共用主题文档
 - 版本口径按“用户当天命中过的所有完整版本号”展开；同一用户同一天若上报多个版本，会在多个版本下分别计入，因此按版本汇总后的 `dau_uv / tryon_uv` 之和默认不会回对到主题总 UV

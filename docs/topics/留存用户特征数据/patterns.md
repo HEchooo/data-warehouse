@@ -40,7 +40,7 @@
 ## “AI 试穿使用次数” 是 task_type 任务行数，不是布尔行为
 
 - `dws_user_activity_daily.used_ai_tryon` 是 0/1 布尔，只要当天发生过一次试穿就置 1，用于特征对比表的人数指标
-- `dws_user_activity_daily.ai_tryon_count` 是 `task_type IN ('TRY_ON','OUTFIT')` 的当日任务行数，用于试穿次数分桶
+- `dws_user_activity_daily.ai_tryon_count` 是 `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` 的当日任务行数，用于试穿次数分桶
 - 排查桶人数对不上时，不要拿 `used_ai_tryon` 的去重用户数去对桶人数加总；先确认查的是次数字段还是布尔字段
 - 试穿用户的 cohort user_id 取数和 `tryon_behavior_daily` 一致：优先 `request_param.user_id / userId`，回退到 `common_ext_ai_task.user_id`；次数字段直接在同一 CTE 内 `COUNT(1)`，不需要再拉一遍源表
 

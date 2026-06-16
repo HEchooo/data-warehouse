@@ -14,6 +14,11 @@ TABLE_NAME = "dws_user_activity_daily"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
+TRYON_TASK_TYPES = (
+    "QUICK_TRY_ON",
+    "TRY_ON",
+    "OUTFIT",
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -41,6 +46,10 @@ def configure_logging() -> Path:
 
 def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join([f"'{d}'" for d in dates])
+
+
+def string_values_to_sql_list(values: tuple[str, ...]) -> str:
+    return ", ".join([f"'{value}'" for value in values])
 
 
 def target_table_id() -> str:
@@ -113,6 +122,7 @@ def get_user_activity_dates_to_process(
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
     service_change_ts = service_change_ts_expr()
+    tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
@@ -148,7 +158,7 @@ def get_user_activity_dates_to_process(
         SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS source_dt
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE {service_ts} >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-            AND task_type IN ('TRY_ON', 'OUTFIT')
+            AND task_type IN ({tryon_task_types_sql})
     ),
     -- 最近 6 小时创建模特服务端行为业务日。
     changed_model_dates AS (
@@ -227,7 +237,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     - duration_sec：当日停留时长
     - product_detail_view_count：当日浏览商详次数（按事件去重后计数）
     - followed_account_count：当日关注的去重账号数
-    - ai_tryon_count：当日 task_type IN ('TRY_ON','OUTFIT') 的服务端任务行数
+    - ai_tryon_count：当日 task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT') 的服务端任务行数
     - viewed_product_detail / used_search / used_ai_tryon /
       created_model / followed_account / closet_penetrated：行为特征布尔值
     - exposed_home_{feeds|star|magazine|brand} /
@@ -242,6 +252,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     max_date = max(dates)
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
+    tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -381,7 +392,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
             COUNT(1) AS ai_tryon_count
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
         WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
-            AND task_type IN ('TRY_ON', 'OUTFIT')
+            AND task_type IN ({tryon_task_types_sql})
         GROUP BY dt, user_id
     ),
     -- 服务端创建模特行为聚合层：按天去重到用户。

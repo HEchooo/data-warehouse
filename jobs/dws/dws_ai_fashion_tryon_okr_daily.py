@@ -26,6 +26,11 @@ POST_SCENE_EXPOSURE_EVENTS = (
     "v_kol_post_feeds",
     "v_kol_post_detail",
 )
+TRYON_TASK_TYPES = (
+    "QUICK_TRY_ON",
+    "TRY_ON",
+    "OUTFIT",
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -109,23 +114,53 @@ def get_ai_fashion_tryon_okr_dates_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
 ) -> list[date]:
     """
-    AI-Fashion 试穿 OKR DWS 依赖事件行为和 styleme 服务端行为。
+    AI-Fashion 试穿 OKR DWS 依赖事件行为、试穿服务端行为和 styleme 服务端行为。
 
     规则：
-    - 目标表不存在或为空时，按 dwd_event_log 历史业务日全量初始化
-    - 目标表已存在时，只取最近 6 小时事件或 styleme 行为变更映射出的业务日
+    - 目标表不存在或为空时，按事件与服务端行为历史业务日全量初始化
+    - 目标表已存在时，只取最近 6 小时事件、试穿或 styleme 行为变更映射出的业务日
     """
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
+    tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
         query = f"""
-        SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
-        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE prop_user_id IS NOT NULL
-            AND CAST(prop_user_id AS STRING) != ''
-            AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
+        WITH
+        -- 事件历史业务日。
+        event_dates AS (
+            SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
+            FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
+            WHERE prop_user_id IS NOT NULL
+                AND CAST(prop_user_id AS STRING) != ''
+                AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
+        ),
+        -- 服务端试穿历史业务日。
+        tryon_dates AS (
+            SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS dt
+            FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+            WHERE task_type IN ({tryon_task_types_sql})
+                AND DATE({service_ts}, '{TORONTO_TZ}') IS NOT NULL
+        ),
+        -- styleme 历史业务日。
+        styleme_dates AS (
+            SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS dt
+            FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+            WHERE task_scene = 'STYLE_ME'
+                AND user_id IS NOT NULL
+                AND CAST(user_id AS STRING) != ''
+                AND DATE({service_ts}, '{TORONTO_TZ}') IS NOT NULL
+        )
+        SELECT DISTINCT dt
+        FROM (
+            SELECT dt FROM event_dates
+            UNION DISTINCT
+            SELECT dt FROM tryon_dates
+            UNION DISTINCT
+            SELECT dt FROM styleme_dates
+        )
+        WHERE dt IS NOT NULL
         ORDER BY dt
         """
         results = client.query(query).result()
@@ -142,6 +177,14 @@ def get_ai_fashion_tryon_okr_dates_to_process(
             AND CAST(prop_user_id AS STRING) != ''
             AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
     ),
+    -- 最近 6 小时试穿服务端行为更新映射出的业务日。
+    changed_tryon_dates AS (
+        SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS dt
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+        WHERE {service_ts} >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND task_type IN ({tryon_task_types_sql})
+            AND DATE({service_ts}, '{TORONTO_TZ}') IS NOT NULL
+    ),
     -- 最近 6 小时 styleme 行为更新映射出的业务日。
     changed_styleme_dates AS (
         SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS dt
@@ -155,6 +198,8 @@ def get_ai_fashion_tryon_okr_dates_to_process(
     SELECT DISTINCT dt
     FROM (
         SELECT dt FROM changed_event_dates
+        UNION DISTINCT
+        SELECT dt FROM changed_tryon_dates
         UNION DISTINCT
         SELECT dt FROM changed_styleme_dates
     )
@@ -172,10 +217,11 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     - dt
 
     指标：
-    - 新老用户 DAU 与试穿 UV
-    - 首页/帖子/商详试穿 UV 及其分母 UV
+    - 新老用户 DAU 与服务端试穿 UV
+    - 首页/商详试穿 UV 及其分母 UV
+    - 帖子服务端试穿 UV 及帖子曝光分母 UV
     - styleme 试穿 UV
-    - c_tryon UV 与 PV（用于人均每日试穿次数分布）
+    - 服务端试穿 UV 与 PV（用于人均每日试穿次数分布）
     - 商品点击/曝光 UV 与分场景分子分母
     - 商品点击 PV(raw_event_id 去重，用于人均每日点击次数分布)
     """
@@ -186,6 +232,7 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
     post_events_sql = string_values_to_sql_list(POST_SCENE_EXPOSURE_EVENTS)
+    tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
 
@@ -259,14 +306,51 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         FROM dwd_base
         GROUP BY dt
     ),
-    -- 每日试穿用户集合：给新老用户试穿 UV 复用。
-    tryon_users_daily AS (
+    -- 服务端试穿任务基础层：三种试穿任务统一作为整体试穿用户与次数口径。
+    service_tryon_task_base AS (
+        SELECT
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            NULLIF(JSON_VALUE(request_param, '$.postId'), '') AS post_id,
+            COALESCE(
+                NULLIF(JSON_VALUE(request_param, '$.user_id'), ''),
+                NULLIF(JSON_VALUE(request_param, '$.userId'), ''),
+                NULLIF(CAST(user_id AS STRING), '')
+            ) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND task_type IN ({tryon_task_types_sql})
+    ),
+    -- 服务端试穿日聚合：产出整体试穿 PV 与 UV，供人均试穿次数分布使用。
+    service_tryon_daily AS (
         SELECT
             dt,
-            user_id
-        FROM dwd_base
-        WHERE event_name = 'c_tryon'
-        GROUP BY dt, user_id
+            COUNT(1) AS tryon_pv,
+            COUNT(DISTINCT IF(user_id IS NOT NULL, user_id, NULL)) AS tryon_uv_total
+        FROM service_tryon_task_base
+        GROUP BY dt
+    ),
+    -- 帖子维表：用于把服务端 postId 试穿任务归因到内容帖子。
+    post_dim AS (
+        SELECT
+            CAST(post_id AS STRING) AS post_id
+        FROM `{PROJECT_ID}.{DATASET_ID}.dim_post`
+        WHERE post_id IS NOT NULL
+            AND post_code IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY CAST(post_id AS STRING)
+            ORDER BY post_code
+        ) = 1
+    ),
+    -- 服务端帖子试穿日聚合：只统计带 postId 且能映射到帖子维表的试穿用户。
+    service_post_tryon_daily AS (
+        SELECT
+            t.dt,
+            COUNT(DISTINCT IF(t.user_id IS NOT NULL, t.user_id, NULL)) AS post_tryon_uv
+        FROM service_tryon_task_base t
+        JOIN post_dim p
+            ON t.post_id = p.post_id
+        WHERE t.post_id IS NOT NULL
+        GROUP BY t.dt
     ),
     -- 新老用户日聚合：同时输出新老用户 DAU 与试穿 UV。
     user_group_daily AS (
@@ -290,12 +374,12 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         ) a
         LEFT JOIN user_first_active f
             ON f.user_id = a.user_id
-        LEFT JOIN tryon_users_daily t
+        LEFT JOIN service_tryon_task_base t
             ON t.dt = a.dt
             AND t.user_id = a.user_id
         GROUP BY a.dt
     ),
-    -- 每日事件指标：统一输出试穿 UV 分子分母和人均分布基础字段。
+    -- 每日事件指标：保留依赖页面场景的首页/商详试穿和曝光、商品点击等前端行为字段。
     event_metric_daily AS (
         SELECT
             dt,
@@ -305,12 +389,6 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
                 NULL
             )) AS home_tryon_uv,
             COUNT(DISTINCT IF(event_name = 'v_home_feeds', user_id, NULL)) AS home_feeds_uv,
-            COUNT(DISTINCT IF(
-                event_name = 'c_tryon'
-                AND args_page_key NOT IN ('star', 'magazine', 'brand', 'kol'),
-                user_id,
-                NULL
-            )) AS post_tryon_uv,
             COUNT(DISTINCT IF(event_name IN ({post_events_sql}), user_id, NULL))
                 AS post_scene_exposure_uv,
             COUNT(DISTINCT IF(
@@ -348,12 +426,6 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
             )) AS tryon_result_exposure_uv,
             COUNT(DISTINCT IF(event_name = 'c_shop_feeds', user_id, NULL)) AS shop_click_uv,
             COUNT(DISTINCT IF(event_name = 'v_shop_feeds', user_id, NULL)) AS shop_exposure_uv,
-            COUNT(DISTINCT IF(event_name = 'c_tryon', user_id, NULL)) AS tryon_uv_total,
-            COUNT(DISTINCT IF(
-                event_name = 'c_tryon',
-                COALESCE(raw_event_id, hash_id),
-                NULL
-            )) AS tryon_pv,
             COUNT(DISTINCT IF(
                 STARTS_WITH(event_name, 'c') AND product_code IS NOT NULL,
                 raw_event_id,
@@ -383,7 +455,7 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         COALESCE(g.tryon_old_uv, 0) AS tryon_old_uv,
         COALESCE(e.home_tryon_uv, 0) AS home_tryon_uv,
         COALESCE(e.home_feeds_uv, 0) AS home_feeds_uv,
-        COALESCE(e.post_tryon_uv, 0) AS post_tryon_uv,
+        COALESCE(pt.post_tryon_uv, 0) AS post_tryon_uv,
         COALESCE(e.post_scene_exposure_uv, 0) AS post_scene_exposure_uv,
         COALESCE(e.product_detail_tryon_uv, 0) AS product_detail_tryon_uv,
         COALESCE(e.product_detail_uv, 0) AS product_detail_uv,
@@ -396,14 +468,16 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         COALESCE(e.tryon_result_exposure_uv, 0) AS tryon_result_exposure_uv,
         COALESCE(e.shop_click_uv, 0) AS shop_click_uv,
         COALESCE(e.shop_exposure_uv, 0) AS shop_exposure_uv,
-        COALESCE(e.tryon_uv_total, 0) AS tryon_uv_total,
-        COALESCE(e.tryon_pv, 0) AS tryon_pv,
+        COALESCE(st.tryon_uv_total, 0) AS tryon_uv_total,
+        COALESCE(st.tryon_pv, 0) AS tryon_pv,
         COALESCE(e.product_click_pv_raw, 0) AS product_click_pv_raw,
         CURRENT_TIMESTAMP() AS update_time
     FROM date_spine d
     LEFT JOIN active_users_daily a USING (dt)
     LEFT JOIN user_group_daily g USING (dt)
     LEFT JOIN event_metric_daily e USING (dt)
+    LEFT JOIN service_tryon_daily st USING (dt)
+    LEFT JOIN service_post_tryon_daily pt USING (dt)
     LEFT JOIN styleme_daily s USING (dt)
     ORDER BY d.dt;
     """
