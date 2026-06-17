@@ -32,6 +32,20 @@
 - Dashboard：[产品 OKR 数据汇总](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
 - 当前状态：指标逻辑已写入周表，留存 OKR 图表待创建
 
+### v2 周级宽表
+
+- 表：`ads_weekly_ai_fashion_tryon_okr_v2`
+- 粒度：`week_start_dt`
+- 当前状态：已建表，已回刷 `0427-0503` 至 `0615-0621` 周桶，已接入 `env/etl_config.json` 调度
+- 设计目标：复用 v1 已验证指标逻辑，将 `metric_name / metric_value` 的 long form 转为每个指标一个字段，便于 Superset 直接可视化
+- Dashboard：[产品 OKR 数据汇总 v2](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-v2/)（id=117）
+- 物理 Dataset：`id=263`（`decom.ads_weekly_ai_fashion_tryon_okr_v2`）
+- Chart（试穿核心指标）：`id=644`
+- Chart（商品核心指标）：`id=645`
+- Chart（留存核心指标）：`id=646`
+- Chart（试穿分布）：`id=647`
+- Chart（商品点击分布）：`id=648`
+
 ## 字段
 
 ### 需求字段（完整清单）
@@ -41,9 +55,9 @@
 | 指标 | 口径 |
 |---|---|
 | 新用户试穿率 | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内 `dau_new_uv` 之和；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
-| 新用户试穿uv | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内天数 |
+| 新用户试穿UV | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内天数 |
 | 老用户试穿率 | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内 `dau_old_uv` 之和；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
-| 老用户试穿uv | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内天数 |
+| 老用户试穿UV | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内天数 |
 | 首页信息流试穿 UV | 周内 `home_tryon_uv` 之和 / 周内天数；保留前端 `c_tryon AND args_page_key = 'home_feeds'` |
 | 首页试穿渗透率 | 周内 `home_tryon_uv` 之和 / 周内 `home_feeds_uv` 之和 |
 | 帖子试穿UV | 周内服务端带 `request_param.postId` 且可映射 `dim_post` 的试穿用户 `post_tryon_uv` 之和 / 周内天数；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
@@ -92,6 +106,8 @@
 
 ### 已落地字段
 
+#### v1 指标长表
+
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |---|---|---|---|
 | 周开始日期 | `decom.ads_weekly_ai_fashion_tryon_okr` | `week_start_dt` | 周一日期 |
@@ -103,6 +119,21 @@
 | 分桶名称 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_bucket` | 仅分布指标有值 |
 | 周内天数 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_day_count` | 核心指标默认为周天数；次留相关人数/比率类使用“观察日已开始”的天数；分布指标为对应桶天数 |
 | 指标值 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_value` | 对应指标数值（率 / 日均 UV / 日均人数 / 人均值 / 分桶值）；试穿分布为 `day_ratio`，点击分布为 `day_count` |
+
+#### v2 指标宽表
+
+| 字段类型 | 落地表 | 落地字段 | 口径 |
+|---|---|---|---|
+| 周开始日期 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_start_dt` | 周一日期 |
+| 周结束日期 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_end_dt` | 周日日期 |
+| 周标签 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_label` | `MMDD-MMDD` |
+| 周内天数 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_day_count` | 周日历天数，默认 7 |
+| 次留观察天数 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `all_next_day_observed_day_count` / `new_next_day_observed_day_count` / `closet_next_day_observed_day_count` / `product_detail_next_day_observed_day_count` / `ai_tryon_next_day_observed_day_count` / `follow_next_day_observed_day_count` / `model_next_day_observed_day_count` | 对应留存指标周内“观察日已开始”的天数 |
+| 试穿 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `new_user_tryon_rate` / `new_user_tryon_uv` / `old_user_tryon_rate` / `old_user_tryon_uv` / `home_tryon_uv` / `home_tryon_penetration_rate` / `post_tryon_uv` / `post_tryon_penetration_rate` / `product_detail_tryon_uv` / `product_detail_tryon_penetration_rate` / `styleme_tryon_uv` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
+| 商品 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `product_click_uv` / `product_exposure_uv` / `home_product_click_uv` / `home_product_exposure_click_rate` / `tryon_result_click_uv` / `tryon_result_exposure_click_rate` / `shop_click_uv` / `shop_exposure_click_rate` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
+| 留存 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `next_day_retention_rate` / `next_day_retained_user_count` / `platform_avg_duration_min` / `platform_avg_content_consume` / `new_user_dau` / `new_user_next_day_retention_rate` / `new_user_avg_duration_min` / `new_user_avg_content_consume` / `closet_user_next_day_retention_rate` / `closet_user_next_day_retained_user_count` / `product_detail_user_next_day_retention_rate` / `product_detail_user_next_day_retained_user_count` / `ai_tryon_user_next_day_retention_rate` / `ai_tryon_user_next_day_retained_user_count` / `follow_user_next_day_retention_rate` / `follow_user_next_day_retained_user_count` / `model_user_next_day_retention_rate` / `model_user_next_day_retained_user_count` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
+| 人均每日试穿次数分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `tryon_avg_daily_count_bucket_0_3_day_count` / `tryon_avg_daily_count_bucket_0_3_day_ratio` / `tryon_avg_daily_count_bucket_3_6_day_count` / `tryon_avg_daily_count_bucket_3_6_day_ratio` / `tryon_avg_daily_count_bucket_6_10_day_count` / `tryon_avg_daily_count_bucket_6_10_day_ratio` / `tryon_avg_daily_count_bucket_10_15_day_count` / `tryon_avg_daily_count_bucket_10_15_day_ratio` / `tryon_avg_daily_count_bucket_gt_15_day_count` / `tryon_avg_daily_count_bucket_gt_15_day_ratio` / `tryon_avg_daily_count_bucket_zero_or_null_uv_day_count` / `tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio` | 对齐 v1 分布指标；同时保留桶天数与周内天数占比 |
+| 人均商品点击次数分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `product_click_avg_daily_count_bucket_0_3_day_count` / `product_click_avg_daily_count_bucket_3_5_day_count` / `product_click_avg_daily_count_bucket_5_10_day_count` / `product_click_avg_daily_count_bucket_10_15_day_count` / `product_click_avg_daily_count_bucket_gt_15_day_count` / `product_click_avg_daily_count_bucket_zero_or_null_uv_day_count` | 对齐 v1 分布指标；v1 该指标 `metric_value` 为桶天数 |
 
 补充说明：
 
@@ -131,9 +162,13 @@
   - `ddl/dws/dws_user_activity_daily.sql`
   - `ddl/dws/dws_user_daily.sql`
   - `ddl/dws/dws_user_retention_feature_daily.sql`
-- 终层脚本：`jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
-- 终层 DDL：`ddl/ads/ads_weekly_ai_fashion_tryon_okr.sql`
-- 编排：`env/etl_config.json`（`ads_weekly_ai_fashion_tryon_okr` 依赖已覆盖上述 4 张 DWS）
+- 终层脚本：
+  - v1：`jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
+  - v2：`jobs/ads/ads_weekly_ai_fashion_tryon_okr_v2.py`
+- 终层 DDL：
+  - v1：`ddl/ads/ads_weekly_ai_fashion_tryon_okr.sql`
+  - v2：`ddl/ads/ads_weekly_ai_fashion_tryon_okr_v2.sql`
+- 编排：`env/etl_config.json`（v1 / v2 均依赖上述 4 张 DWS；v2 schedule_group 为 `ads_weekly_ai_fashion_tryon_okr_v2`）
 - Superset 资产（当前）：
   - Dashboard：`id=114`，slug=`ai-fashion-product-okr-summary`
   - 物理 Dataset：`id=250`（`decom.ads_weekly_ai_fashion_tryon_okr`）
