@@ -68,3 +68,16 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_weekly_ai_fashion_tryon_okr_v2` 
     update_time TIMESTAMP
 )
 CLUSTER BY week_start_dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_weekly_ai_fashion_tryon_okr_v2`
+ADD COLUMN IF NOT EXISTS all_day_7_observed_day_count INT64,
+ADD COLUMN IF NOT EXISTS all_day_30_observed_day_count INT64,
+ADD COLUMN IF NOT EXISTS styleme_next_day_observed_day_count INT64,
+ADD COLUMN IF NOT EXISTS platform_dau NUMERIC,
+ADD COLUMN IF NOT EXISTS day_7_retention_rate NUMERIC,
+ADD COLUMN IF NOT EXISTS day_7_retained_user_count NUMERIC,
+ADD COLUMN IF NOT EXISTS day_30_retention_rate NUMERIC,
+ADD COLUMN IF NOT EXISTS day_30_retained_user_count NUMERIC,
+ADD COLUMN IF NOT EXISTS home_feeds_exposure_click_rate NUMERIC,
+ADD COLUMN IF NOT EXISTS styleme_user_next_day_retention_rate NUMERIC,
+ADD COLUMN IF NOT EXISTS styleme_user_next_day_retained_user_count NUMERIC;

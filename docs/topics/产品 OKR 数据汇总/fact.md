@@ -85,10 +85,16 @@
 
 | 指标 | 口径 |
 |---|---|
+| 平台整体DAU | 已登录活跃用户；周内 `all_user_dau` 之和 / 周内天数 |
 | 次日留存率 | 以 `prop_user_id` 为 cohort 主体；周内 `次日留存用户数` 求和 / 周内 `(次日留存用户数 + 次日非留存用户数)` 求和 |
 | 次日留存用户数 | 基于上式分子，按周内“观察日已开始”的天做日均 |
+| 7日留存率 | 以 `prop_user_id` 为 cohort 主体；周内 `7日留存用户数` 求和 / 周内 `(7日留存用户数 + 7日非留存用户数)` 求和 |
+| 7日留存用户数 | 基于上式分子，按周内“观察日已开始”的天做日均 |
+| 30日留存率 | 以 `prop_user_id` 为 cohort 主体；周内 `30日留存用户数` 求和 / 周内 `(30日留存用户数 + 30日非留存用户数)` 求和 |
+| 30日留存用户数 | 基于上式分子，按周内“观察日已开始”的天做日均 |
 | 平台人均停留时长（min） | 周内 `SUM(duration_sec)` / 周内 `SUM(登录用户数)` / `60` |
 | 平台人均内容消费 | 周内 `SUM(content_consume_count)` / 周内 `SUM(登录用户数)` |
+| 平台首页曝光点击率 | 周内首页信息流点击登录用户数之和 / 周内首页信息流曝光登录用户数之和；日层为 `c_home_feeds count(distinct prop_user_id)` / `v_home_feeds count(distinct prop_user_id)` |
 | 新用户 DAU | 新用户定义为“首日访问的已登录用户”；周内 `new_user_dau` 之和 / 周内天数 |
 | 新用户次日留存 | 新用户 cohort 的周内 `次日留存用户数` 求和 / 周内 `(次日留存用户数 + 次日非留存用户数)` 求和 |
 | 新用户人均停留时长（min） | 周内新用户 `SUM(duration_sec)` / 周内新用户 `SUM(dau)` / `60` |
@@ -103,6 +109,8 @@
 | 关注账号次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
 | 创建模特次日留存率 | `user_group='全量登录用户'` 且 `feature_name='创建模特'`；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
 | 创建模特次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
+| 使用style me用户次日留存率 | 当日服务端 `v3_decom.common_ext_ai_task.task_scene = 'STYLE_ME'` 用户；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
+| 使用style me用户次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
 
 ### 已落地字段
 
@@ -131,7 +139,7 @@
 | 次留观察天数 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `all_next_day_observed_day_count` / `new_next_day_observed_day_count` / `closet_next_day_observed_day_count` / `product_detail_next_day_observed_day_count` / `ai_tryon_next_day_observed_day_count` / `follow_next_day_observed_day_count` / `model_next_day_observed_day_count` | 对应留存指标周内“观察日已开始”的天数 |
 | 试穿 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `new_user_tryon_rate` / `new_user_tryon_uv` / `old_user_tryon_rate` / `old_user_tryon_uv` / `home_tryon_uv` / `home_tryon_penetration_rate` / `post_tryon_uv` / `post_tryon_penetration_rate` / `product_detail_tryon_uv` / `product_detail_tryon_penetration_rate` / `styleme_tryon_uv` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
 | 商品 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `product_click_uv` / `product_exposure_uv` / `home_product_click_uv` / `home_product_exposure_click_rate` / `tryon_result_click_uv` / `tryon_result_exposure_click_rate` / `shop_click_uv` / `shop_exposure_click_rate` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
-| 留存 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `next_day_retention_rate` / `next_day_retained_user_count` / `platform_avg_duration_min` / `platform_avg_content_consume` / `new_user_dau` / `new_user_next_day_retention_rate` / `new_user_avg_duration_min` / `new_user_avg_content_consume` / `closet_user_next_day_retention_rate` / `closet_user_next_day_retained_user_count` / `product_detail_user_next_day_retention_rate` / `product_detail_user_next_day_retained_user_count` / `ai_tryon_user_next_day_retention_rate` / `ai_tryon_user_next_day_retained_user_count` / `follow_user_next_day_retention_rate` / `follow_user_next_day_retained_user_count` / `model_user_next_day_retention_rate` / `model_user_next_day_retained_user_count` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
+| 留存 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `platform_dau` / `next_day_retention_rate` / `next_day_retained_user_count` / `day_7_retention_rate` / `day_7_retained_user_count` / `day_30_retention_rate` / `day_30_retained_user_count` / `home_feeds_exposure_click_rate` / `platform_avg_duration_min` / `platform_avg_content_consume` / `new_user_dau` / `new_user_next_day_retention_rate` / `new_user_avg_duration_min` / `new_user_avg_content_consume` / `closet_user_next_day_retention_rate` / `closet_user_next_day_retained_user_count` / `product_detail_user_next_day_retention_rate` / `product_detail_user_next_day_retained_user_count` / `ai_tryon_user_next_day_retention_rate` / `ai_tryon_user_next_day_retained_user_count` / `follow_user_next_day_retention_rate` / `follow_user_next_day_retained_user_count` / `model_user_next_day_retention_rate` / `model_user_next_day_retained_user_count` / `styleme_user_next_day_retention_rate` / `styleme_user_next_day_retained_user_count` | v1 已有指标对齐同名 `metric_name`；v2 新增指标直接从 DWS 分子分母周聚合 |
 | 人均每日试穿次数分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `tryon_avg_daily_count_bucket_0_3_day_count` / `tryon_avg_daily_count_bucket_0_3_day_ratio` / `tryon_avg_daily_count_bucket_3_6_day_count` / `tryon_avg_daily_count_bucket_3_6_day_ratio` / `tryon_avg_daily_count_bucket_6_10_day_count` / `tryon_avg_daily_count_bucket_6_10_day_ratio` / `tryon_avg_daily_count_bucket_10_15_day_count` / `tryon_avg_daily_count_bucket_10_15_day_ratio` / `tryon_avg_daily_count_bucket_gt_15_day_count` / `tryon_avg_daily_count_bucket_gt_15_day_ratio` / `tryon_avg_daily_count_bucket_zero_or_null_uv_day_count` / `tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio` | 对齐 v1 分布指标；同时保留桶天数与周内天数占比 |
 | 人均商品点击次数分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `product_click_avg_daily_count_bucket_0_3_day_count` / `product_click_avg_daily_count_bucket_3_5_day_count` / `product_click_avg_daily_count_bucket_5_10_day_count` / `product_click_avg_daily_count_bucket_10_15_day_count` / `product_click_avg_daily_count_bucket_gt_15_day_count` / `product_click_avg_daily_count_bucket_zero_or_null_uv_day_count` | 对齐 v1 分布指标；v1 该指标 `metric_value` 为桶天数 |
 

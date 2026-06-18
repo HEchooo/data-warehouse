@@ -39,3 +39,8 @@ ADD COLUMN ai_tryon_count INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
 ADD COLUMN product_detail_view_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_user_activity_daily`
+ADD COLUMN is_day_30_observation_started BOOL,
+ADD COLUMN is_day_30_retained BOOL,
+ADD COLUMN used_styleme INT64;

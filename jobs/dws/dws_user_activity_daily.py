@@ -117,7 +117,7 @@ def get_user_activity_dates_to_process(
     - 目标表不存在或为空时，按 dws_user_daily 历史业务日全量初始化
     - 目标表已存在时：
       - 当天用户活跃或行为变化重刷当天分区
-      - dws_user_daily 的未来活跃变化回刷 `dt-1 / dt-7`
+      - dws_user_daily 的未来活跃变化回刷 `dt-1 / dt-7 / dt-30`
     """
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
@@ -160,6 +160,15 @@ def get_user_activity_dates_to_process(
         WHERE {service_ts} >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
             AND task_type IN ({tryon_task_types_sql})
     ),
+    -- 最近 6 小时 style me 服务端行为业务日。
+    changed_styleme_dates AS (
+        SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS source_dt
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+        WHERE {service_ts} >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND task_scene = 'STYLE_ME'
+            AND user_id IS NOT NULL
+            AND CAST(user_id AS STRING) != ''
+    ),
     -- 最近 6 小时创建模特服务端行为业务日。
     changed_model_dates AS (
         SELECT DISTINCT DATE({service_ts}, '{TORONTO_TZ}') AS source_dt
@@ -194,6 +203,9 @@ def get_user_activity_dates_to_process(
         FROM changed_tryon_dates
         UNION DISTINCT
         SELECT source_dt AS dt
+        FROM changed_styleme_dates
+        UNION DISTINCT
+        SELECT source_dt AS dt
         FROM changed_model_dates
         UNION DISTINCT
         SELECT source_dt AS dt
@@ -202,12 +214,15 @@ def get_user_activity_dates_to_process(
         SELECT source_dt AS dt
         FROM changed_closet_service_dates
     ),
-    -- 次留 / 7 留依赖未来活跃变化，需要把未来活跃回推到更早 cohort 日期。
+    -- 次留 / 7 留 / 30 留依赖未来活跃变化，需要把未来活跃回推到更早 cohort 日期。
     retention_dates AS (
         SELECT DATE_SUB(source_dt, INTERVAL 1 DAY) AS dt
         FROM changed_user_dates
         UNION DISTINCT
         SELECT DATE_SUB(source_dt, INTERVAL 7 DAY) AS dt
+        FROM changed_user_dates
+        UNION DISTINCT
+        SELECT DATE_SUB(source_dt, INTERVAL 30 DAY) AS dt
         FROM changed_user_dates
     )
     SELECT DISTINCT dt
@@ -233,13 +248,13 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
 
     指标：
     - is_new_user：是否首活日
-    - is_next_day_retained / is_day_7_retained：未来观察日回访标记
+    - is_next_day_retained / is_day_7_retained / is_day_30_retained：未来观察日回访标记
     - duration_sec：当日停留时长
     - product_detail_view_count：当日浏览商详次数（按事件去重后计数）
     - followed_account_count：当日关注的去重账号数
     - ai_tryon_count：当日 task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT') 的服务端任务行数
     - viewed_product_detail / used_search / used_ai_tryon /
-      created_model / followed_account / closet_penetrated：行为特征布尔值
+      used_styleme / created_model / followed_account / closet_penetrated：行为特征布尔值
     - exposed_home_{feeds|star|magazine|brand} /
       clicked_home_{feeds|star|magazine|brand}：首页 4 个模块曝光与点击布尔值
     """
@@ -266,8 +281,10 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         is_new_user,
         is_next_day_observation_started,
         is_day_7_observation_started,
+        is_day_30_observation_started,
         is_next_day_retained,
         is_day_7_retained,
+        is_day_30_retained,
         duration_sec,
         product_detail_view_count,
         followed_account_count,
@@ -275,6 +292,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         viewed_product_detail,
         used_search,
         used_ai_tryon,
+        used_styleme,
         created_model,
         followed_account,
         closet_penetrated,
@@ -301,7 +319,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
             AND prop_user_id != ''
         GROUP BY dt, user_id
     ),
-    -- 目标日期向后 7 天内的活跃登录用户集合，用于留存判定。
+    -- 目标日期向后 30 天内的活跃登录用户集合，用于留存判定。
     future_active_users AS (
         SELECT DISTINCT
             dt,
@@ -309,7 +327,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_user_daily`
         WHERE dt BETWEEN DATE_ADD(DATE '{min_date}', INTERVAL 1 DAY)
             AND LEAST(
-                DATE_ADD(DATE '{max_date}', INTERVAL 7 DAY),
+                DATE_ADD(DATE '{max_date}', INTERVAL 30 DAY),
                 CURRENT_DATE('{TORONTO_TZ}')
             )
             AND prop_user_id IS NOT NULL
@@ -395,6 +413,18 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
             AND task_type IN ({tryon_task_types_sql})
         GROUP BY dt, user_id
     ),
+    -- 服务端 style me 行为聚合层：口径对齐 dws_ai_fashion_tryon_okr_daily 的 styleme_uv。
+    styleme_behavior_daily AS (
+        SELECT
+            DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            CAST(user_id AS STRING) AS user_id
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.common_ext_ai_task`
+        WHERE DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND task_scene = 'STYLE_ME'
+            AND user_id IS NOT NULL
+            AND CAST(user_id AS STRING) != ''
+        GROUP BY dt, user_id
+    ),
     -- 服务端创建模特行为聚合层：按天去重到用户。
     model_behavior_daily AS (
         SELECT
@@ -444,8 +474,11 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
             AS is_next_day_observation_started,
         DATE_ADD(c.dt, INTERVAL 7 DAY) <= CURRENT_DATE('{TORONTO_TZ}')
             AS is_day_7_observation_started,
+        DATE_ADD(c.dt, INTERVAL 30 DAY) <= CURRENT_DATE('{TORONTO_TZ}')
+            AS is_day_30_observation_started,
         n1.user_id IS NOT NULL AS is_next_day_retained,
         n7.user_id IS NOT NULL AS is_day_7_retained,
+        n30.user_id IS NOT NULL AS is_day_30_retained,
         COALESCE(d.duration_sec, 0) AS duration_sec,
         COALESCE(p.product_detail_view_count, 0) AS product_detail_view_count,
         COALESCE(f.followed_account_count, 0) AS followed_account_count,
@@ -453,6 +486,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
         COALESCE(e.viewed_product_detail, 0) AS viewed_product_detail,
         COALESCE(e.used_search, 0) AS used_search,
         IF(t.user_id IS NOT NULL, 1, 0) AS used_ai_tryon,
+        IF(s.user_id IS NOT NULL, 1, 0) AS used_styleme,
         IF(m.user_id IS NOT NULL, 1, 0) AS created_model,
         IF(COALESCE(f.followed_account_count, 0) > 0, 1, 0) AS followed_account,
         IF(
@@ -477,6 +511,9 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     LEFT JOIN future_active_users n7
         ON n7.user_id = c.user_id
         AND n7.dt = DATE_ADD(c.dt, INTERVAL 7 DAY)
+    LEFT JOIN future_active_users n30
+        ON n30.user_id = c.user_id
+        AND n30.dt = DATE_ADD(c.dt, INTERVAL 30 DAY)
     LEFT JOIN user_duration_daily d
         ON d.dt = c.dt
         AND d.user_id = c.user_id
@@ -489,6 +526,9 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
     LEFT JOIN tryon_behavior_daily t
         ON t.dt = c.dt
         AND t.user_id = c.user_id
+    LEFT JOIN styleme_behavior_daily s
+        ON s.dt = c.dt
+        AND s.user_id = c.user_id
     LEFT JOIN model_behavior_daily m
         ON m.dt = c.dt
         AND m.user_id = c.user_id

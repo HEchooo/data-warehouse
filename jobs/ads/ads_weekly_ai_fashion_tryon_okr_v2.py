@@ -200,6 +200,9 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         ai_tryon_next_day_observed_day_count,
         follow_next_day_observed_day_count,
         model_next_day_observed_day_count,
+        all_day_7_observed_day_count,
+        all_day_30_observed_day_count,
+        styleme_next_day_observed_day_count,
         new_user_tryon_rate,
         new_user_tryon_uv,
         old_user_tryon_rate,
@@ -221,6 +224,12 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         shop_exposure_click_rate,
         next_day_retention_rate,
         next_day_retained_user_count,
+        platform_dau,
+        day_7_retention_rate,
+        day_7_retained_user_count,
+        day_30_retention_rate,
+        day_30_retained_user_count,
+        home_feeds_exposure_click_rate,
         platform_avg_duration_min,
         platform_avg_content_consume,
         new_user_dau,
@@ -237,6 +246,8 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         follow_user_next_day_retained_user_count,
         model_user_next_day_retention_rate,
         model_user_next_day_retained_user_count,
+        styleme_user_next_day_retention_rate,
+        styleme_user_next_day_retained_user_count,
         tryon_avg_daily_count_bucket_0_3_day_count,
         tryon_avg_daily_count_bucket_0_3_day_ratio,
         tryon_avg_daily_count_bucket_3_6_day_count,
@@ -343,7 +354,49 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                     AND user_id IS NOT NULL
                     AND NOT COALESCE(is_next_day_retained, FALSE)
                 )
-            END AS new_next_day_not_retained_user_count
+            END AS new_next_day_not_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_day_7_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(is_day_7_retained)
+            END AS all_day_7_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_day_7_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(
+                    user_id IS NOT NULL
+                    AND NOT COALESCE(is_day_7_retained, FALSE)
+                )
+            END AS all_day_7_not_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_day_30_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(is_day_30_retained)
+            END AS all_day_30_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_day_30_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(
+                    user_id IS NOT NULL
+                    AND NOT COALESCE(is_day_30_retained, FALSE)
+                )
+            END AS all_day_30_not_retained_user_count,
+            COUNTIF(exposed_home_feeds = 1) AS home_feeds_exposure_user_count,
+            COUNTIF(clicked_home_feeds = 1) AS home_feeds_click_user_count,
+            CASE
+                WHEN MAX(CAST(is_next_day_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(is_next_day_retained AND used_styleme = 1)
+            END AS styleme_next_day_retained_user_count,
+            CASE
+                WHEN MAX(CAST(is_next_day_observation_started AS INT64)) = 0
+                    THEN NULL
+                ELSE COUNTIF(
+                    user_id IS NOT NULL
+                    AND used_styleme = 1
+                    AND NOT COALESCE(is_next_day_retained, FALSE)
+                )
+            END AS styleme_next_day_not_retained_user_count
         FROM `{user_activity_source_table_id()}`
         WHERE dt BETWEEN DATE '{min_week_start}' AND DATE '{max_week_end}'
         GROUP BY dt
@@ -439,6 +492,14 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             a.all_next_day_not_retained_user_count,
             a.new_next_day_retained_user_count,
             a.new_next_day_not_retained_user_count,
+            a.all_day_7_retained_user_count,
+            a.all_day_7_not_retained_user_count,
+            a.all_day_30_retained_user_count,
+            a.all_day_30_not_retained_user_count,
+            COALESCE(a.home_feeds_exposure_user_count, 0) AS home_feeds_exposure_user_count,
+            COALESCE(a.home_feeds_click_user_count, 0) AS home_feeds_click_user_count,
+            a.styleme_next_day_retained_user_count,
+            a.styleme_next_day_not_retained_user_count,
             COALESCE(u.all_user_content_dau, 0) AS all_user_content_dau,
             COALESCE(u.all_content_consume_sum, 0) AS all_content_consume_sum,
             COALESCE(u.new_user_content_dau, 0) AS new_user_content_dau,
@@ -503,6 +564,18 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             SUM(COALESCE(new_next_day_retained_user_count, 0)) AS sum_new_next_day_retained_user_count,
             SUM(COALESCE(new_next_day_not_retained_user_count, 0))
                 AS sum_new_next_day_not_retained_user_count,
+            SUM(COALESCE(all_day_7_retained_user_count, 0)) AS sum_all_day_7_retained_user_count,
+            SUM(COALESCE(all_day_7_not_retained_user_count, 0))
+                AS sum_all_day_7_not_retained_user_count,
+            SUM(COALESCE(all_day_30_retained_user_count, 0)) AS sum_all_day_30_retained_user_count,
+            SUM(COALESCE(all_day_30_not_retained_user_count, 0))
+                AS sum_all_day_30_not_retained_user_count,
+            SUM(home_feeds_exposure_user_count) AS sum_home_feeds_exposure_user_count,
+            SUM(home_feeds_click_user_count) AS sum_home_feeds_click_user_count,
+            SUM(COALESCE(styleme_next_day_retained_user_count, 0))
+                AS sum_styleme_next_day_retained_user_count,
+            SUM(COALESCE(styleme_next_day_not_retained_user_count, 0))
+                AS sum_styleme_next_day_not_retained_user_count,
             COUNTIF(
                 all_next_day_retained_user_count IS NOT NULL
                 AND all_next_day_not_retained_user_count IS NOT NULL
@@ -511,6 +584,18 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                 new_next_day_retained_user_count IS NOT NULL
                 AND new_next_day_not_retained_user_count IS NOT NULL
             ) AS new_next_day_observed_day_count,
+            COUNTIF(
+                all_day_7_retained_user_count IS NOT NULL
+                AND all_day_7_not_retained_user_count IS NOT NULL
+            ) AS all_day_7_observed_day_count,
+            COUNTIF(
+                all_day_30_retained_user_count IS NOT NULL
+                AND all_day_30_not_retained_user_count IS NOT NULL
+            ) AS all_day_30_observed_day_count,
+            COUNTIF(
+                styleme_next_day_retained_user_count IS NOT NULL
+                AND styleme_next_day_not_retained_user_count IS NOT NULL
+            ) AS styleme_next_day_observed_day_count,
             SUM(COALESCE(closet_next_day_retained_user_count, 0))
                 AS sum_closet_next_day_retained_user_count,
             SUM(COALESCE(closet_next_day_not_retained_user_count, 0))
@@ -827,6 +912,101 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             week_end_dt,
             week_label,
             '留存OKR核心指标',
+            '平台整体DAU',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_all_user_dau, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '7日留存率',
+            NULL,
+            NULL,
+            all_day_7_observed_day_count,
+            SAFE_DIVIDE(
+                sum_all_day_7_retained_user_count,
+                NULLIF(
+                    sum_all_day_7_retained_user_count
+                    + sum_all_day_7_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '7日留存用户数',
+            NULL,
+            NULL,
+            all_day_7_observed_day_count,
+            SAFE_DIVIDE(
+                sum_all_day_7_retained_user_count,
+                NULLIF(all_day_7_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '30日留存率',
+            NULL,
+            NULL,
+            all_day_30_observed_day_count,
+            SAFE_DIVIDE(
+                sum_all_day_30_retained_user_count,
+                NULLIF(
+                    sum_all_day_30_retained_user_count
+                    + sum_all_day_30_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '30日留存用户数',
+            NULL,
+            NULL,
+            all_day_30_observed_day_count,
+            SAFE_DIVIDE(
+                sum_all_day_30_retained_user_count,
+                NULLIF(all_day_30_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '平台首页曝光点击率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(
+                sum_home_feeds_click_user_count,
+                NULLIF(sum_home_feeds_exposure_user_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
             '平台人均停留时长（min）',
             NULL,
             NULL,
@@ -1070,6 +1250,40 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                 NULLIF(model_next_day_observed_day_count, 0)
             )
         FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '使用style me用户次日留存率',
+            NULL,
+            NULL,
+            styleme_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_styleme_next_day_retained_user_count,
+                NULLIF(
+                    sum_styleme_next_day_retained_user_count
+                    + sum_styleme_next_day_not_retained_user_count,
+                    0
+                )
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
+            '使用style me用户次日留存用户数',
+            NULL,
+            NULL,
+            styleme_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_styleme_next_day_retained_user_count,
+                NULLIF(styleme_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
     ),
     -- 人均每日试穿次数分桶：按 query.sql 同口径分桶并统计周内天数占比。
     distribution_daily AS (
@@ -1234,6 +1448,18 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                 AS next_day_retention_rate,
             MAX(IF(metric_name = '次日留存用户数', CAST(metric_value AS NUMERIC), NULL))
                 AS next_day_retained_user_count,
+            MAX(IF(metric_name = '平台整体DAU', CAST(metric_value AS NUMERIC), NULL))
+                AS platform_dau,
+            MAX(IF(metric_name = '7日留存率', CAST(metric_value AS NUMERIC), NULL))
+                AS day_7_retention_rate,
+            MAX(IF(metric_name = '7日留存用户数', CAST(metric_value AS NUMERIC), NULL))
+                AS day_7_retained_user_count,
+            MAX(IF(metric_name = '30日留存率', CAST(metric_value AS NUMERIC), NULL))
+                AS day_30_retention_rate,
+            MAX(IF(metric_name = '30日留存用户数', CAST(metric_value AS NUMERIC), NULL))
+                AS day_30_retained_user_count,
+            MAX(IF(metric_name = '平台首页曝光点击率', CAST(metric_value AS NUMERIC), NULL))
+                AS home_feeds_exposure_click_rate,
             MAX(IF(metric_name = '平台人均停留时长（min）', CAST(metric_value AS NUMERIC), NULL))
                 AS platform_avg_duration_min,
             MAX(IF(metric_name = '平台人均内容消费', CAST(metric_value AS NUMERIC), NULL))
@@ -1265,7 +1491,11 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             MAX(IF(metric_name = '创建模特次日留存率', CAST(metric_value AS NUMERIC), NULL))
                 AS model_user_next_day_retention_rate,
             MAX(IF(metric_name = '创建模特次日留存用户数', CAST(metric_value AS NUMERIC), NULL))
-                AS model_user_next_day_retained_user_count
+                AS model_user_next_day_retained_user_count,
+            MAX(IF(metric_name = '使用style me用户次日留存率', CAST(metric_value AS NUMERIC), NULL))
+                AS styleme_user_next_day_retention_rate,
+            MAX(IF(metric_name = '使用style me用户次日留存用户数', CAST(metric_value AS NUMERIC), NULL))
+                AS styleme_user_next_day_retained_user_count
         FROM all_core_metrics
         GROUP BY week_start_dt, week_end_dt, week_label
     ),
@@ -1335,6 +1565,9 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         w.ai_tryon_next_day_observed_day_count,
         w.follow_next_day_observed_day_count,
         w.model_next_day_observed_day_count,
+        w.all_day_7_observed_day_count,
+        w.all_day_30_observed_day_count,
+        w.styleme_next_day_observed_day_count,
         p.new_user_tryon_rate,
         p.new_user_tryon_uv,
         p.old_user_tryon_rate,
@@ -1356,6 +1589,12 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         p.shop_exposure_click_rate,
         p.next_day_retention_rate,
         p.next_day_retained_user_count,
+        p.platform_dau,
+        p.day_7_retention_rate,
+        p.day_7_retained_user_count,
+        p.day_30_retention_rate,
+        p.day_30_retained_user_count,
+        p.home_feeds_exposure_click_rate,
         p.platform_avg_duration_min,
         p.platform_avg_content_consume,
         p.new_user_dau,
@@ -1372,6 +1611,8 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         p.follow_user_next_day_retained_user_count,
         p.model_user_next_day_retention_rate,
         p.model_user_next_day_retained_user_count,
+        p.styleme_user_next_day_retention_rate,
+        p.styleme_user_next_day_retained_user_count,
         COALESCE(td.tryon_avg_daily_count_bucket_0_3_day_count, 0)
             AS tryon_avg_daily_count_bucket_0_3_day_count,
         COALESCE(td.tryon_avg_daily_count_bucket_0_3_day_ratio, 0)
