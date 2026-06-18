@@ -106,7 +106,7 @@
 - 留存口径中的“注册用户”指 `prop_user_id` 非空且当日在 app 活跃的用户，不是 `is_new_user = TRUE` 的新增注册用户
 - Lark 推送不挂在高频共享 ETL 成功回调上；当前远程服务器高频运行主链路，若直接复用会重复发送
 - Lark 推送脚本默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的一行明细数据
-- Lark 发布运营推送脚本只展示 `videos.video_publish_daily_stats` 按 `stat_date` 汇总的活跃运营账号数、API / RPA 发布数、API / RPA 发布成功数，以及 `ads_daily_investor.new_video_count` 的当日 / 昨日对比
+- Lark 发布运营推送脚本只展示 `videos.video_publish_daily_stats` 按 `stat_date` 汇总的活跃运营账号数、API / RPA 发布数、API / RPA 发布成功数，以及 `ads_daily_investor.new_video_count` 的当日 / 昨日对比；同时展示总量比例：账号发视频率 = 发布总视频数 / 活跃运营账号数，视频发布成功率 = 发布成功总视频数 / 发布总视频数，社媒平台发布视频数读数成功率 = 新增视频数 / 发布总视频数
 - Lark 卡片展示核心明细指标，当前包含 `人均商详页点击量`，且不再展示 `视频平均下载转化数`；仍不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
 - Lark 卡片中的“新增视频平均播放数”“新增视频 7 日播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
 - Lark 卡片中的“每千次播放成本（美元）”“人均内容展示量”“人均内容点击量”“人均商详页点击量”按展示层统一保留两位小数，不修改 `ads_daily_investor` 表内原始小数值
