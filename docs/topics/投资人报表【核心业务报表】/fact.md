@@ -6,6 +6,7 @@
 - 粒度：`dt`
 - Dashboard：[投资人报表【核心业务报表】](https://bi.alvinclub.ca/superset/dashboard/101/)（id=101）
 - Lark 推送：独立脚本 `jobs/ads/ads_daily_investor_lark_push.py`，每日推送 `America/Toronto` 昨日一行明细数据；卡片附 dashboard 链接和数据口径 wiki 链接
+- Lark ECN 数据发布推送：独立脚本 `jobs/ads/ads_daily_ecn_lark_push.py`，只推送发布运营当日 / 昨日对比字段；发布统计来自 `videos.video_publish_daily_stats`，按 `stat_date` 聚合三端 platform 后展示；线上 `remote` 模式读取 `env/lark_webhook.json` 的 `remote_ecn`
 
 ### `dws_appsflyer_download_daily`
 
@@ -105,6 +106,7 @@
 - 留存口径中的“注册用户”指 `prop_user_id` 非空且当日在 app 活跃的用户，不是 `is_new_user = TRUE` 的新增注册用户
 - Lark 推送不挂在高频共享 ETL 成功回调上；当前远程服务器高频运行主链路，若直接复用会重复发送
 - Lark 推送脚本默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的一行明细数据
+- Lark 发布运营推送脚本只展示 `videos.video_publish_daily_stats` 按 `stat_date` 汇总的活跃运营账号数、API / RPA 发布数、API / RPA 发布成功数，以及 `ads_daily_investor.new_video_count` 的当日 / 昨日对比
 - Lark 卡片展示核心明细指标，当前包含 `人均商详页点击量`，且不再展示 `视频平均下载转化数`；仍不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
 - Lark 卡片中的“新增视频平均播放数”“新增视频 7 日播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
 - Lark 卡片中的“每千次播放成本（美元）”“人均内容展示量”“人均内容点击量”“人均商详页点击量”按展示层统一保留两位小数，不修改 `ads_daily_investor` 表内原始小数值
@@ -120,6 +122,6 @@
 - 中间表：`decom.dim_auto_publish_video_task`, `decom.dws_video_daily`, `decom.dws_appsflyer_download_daily`, `decom.dws_registered_app_device_daily`, `decom.dws_registered_app_user_daily`
 - 报表表：`decom.ads_daily_investor`
 - Superset：物理 dataset `ads_daily_investor`（id=228），chart `投资人报表（日表）-明细表`（id=574）
-- 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_registered_app_device_daily.py`, `jobs/dws/dws_registered_app_user_daily.py`, `jobs/ads/ads_daily_investor.py`, `jobs/ads/ads_daily_investor_lark_push.py`
+- 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_registered_app_device_daily.py`, `jobs/dws/dws_registered_app_user_daily.py`, `jobs/ads/ads_daily_investor.py`, `jobs/ads/ads_daily_investor_lark_push.py`, `jobs/ads/ads_daily_ecn_lark_push.py`
 - DDL：`ddl/ods/ods_appsflyer_download.sql`, `ddl/dim/dim_auto_publish_video_task.sql`, `ddl/dws/dws_video_daily.sql`, `ddl/dws/dws_appsflyer_download_daily.sql`, `ddl/dws/dws_registered_app_device_daily.sql`, `ddl/dws/dws_registered_app_user_daily.sql`, `ddl/dwd/dwd_event_log.sql`, `ddl/ads/ads_daily_investor.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`, `jobs/ads/ads_daily_investor.py`
