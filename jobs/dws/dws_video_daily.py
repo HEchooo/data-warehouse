@@ -43,7 +43,7 @@ def run_dws_video_daily(dates):
     纯 SQL 计算 dws_video_daily，DELETE + INSERT 保证幂等。
     口径：
     - 发布时间、采集时间统一按 America/Toronto 切天
-    - 各渠道 views / view_count 为累计值，日增量按日末累计值与前一日做差
+    - 各渠道 view_count 为累计值，日增量按日末累计值与前一日做差
     - 次日无采集记录时，沿用前一日日末累计值，次日增量记为 0
     """
     if not dates:
@@ -127,6 +127,7 @@ def run_dws_video_daily(dates):
             video_id,
             video_key,
             collected_ts_utc,
+            source_id,
             DATE(collected_ts_utc, '{TORONTO_TZ}') AS dt,
             cum_views
         FROM (
@@ -135,9 +136,9 @@ def run_dws_video_daily(dates):
                 CAST(video_id AS STRING) AS video_id,
                 CONCAT('youtube:', CAST(video_id AS STRING)) AS video_key,
                 TIMESTAMP(collected_at, 'UTC') AS collected_ts_utc,
-                SAFE_CAST(views AS INT64) AS cum_views
-            FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_video_analytics_log`
-            WHERE channel_id NOT IN ({youtube_test_channel_ids_sql})
+                SAFE_CAST(id AS INT64) AS source_id,
+                SAFE_CAST(view_count AS INT64) AS cum_views
+            FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_video_stats_log`
 
             UNION ALL
 
@@ -146,6 +147,7 @@ def run_dws_video_daily(dates):
                 CAST(video_id AS STRING) AS video_id,
                 CONCAT('tiktok:', CAST(video_id AS STRING)) AS video_key,
                 TIMESTAMP(collected_at, 'UTC') AS collected_ts_utc,
+                0 AS source_id,
                 SAFE_CAST(view_count AS INT64) AS cum_views
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.video_stats_log`
 
@@ -156,6 +158,7 @@ def run_dws_video_daily(dates):
                 CAST(media_id AS STRING) AS video_id,
                 CONCAT('ins:', CAST(media_id AS STRING)) AS video_key,
                 TIMESTAMP(collected_at, 'UTC') AS collected_ts_utc,
+                0 AS source_id,
                 SAFE_CAST(view_count AS INT64) AS cum_views
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media_stats_log`
         )
@@ -176,7 +179,7 @@ def run_dws_video_daily(dates):
                 cum_views,
                 ROW_NUMBER() OVER (
                     PARTITION BY video_key, dt
-                    ORDER BY collected_ts_utc DESC
+                    ORDER BY collected_ts_utc DESC, source_id DESC
                 ) AS rn
             FROM video_snapshot
         )

@@ -76,10 +76,12 @@
 | 播放下载转化率 | `decom.ads_daily_investor` | `play_download_conversion_rate` | `new_download_count / new_video_view_count`，其中 `new_video_view_count` 为当日全量视频播放增量 |
 
 补充说明：
-- 投资人报表里的视频播放类指标仍复用 `decom.dws_video_daily`；根据 `docs/rules/video-mapping.md`，当前 jhonson 团队口径按 YouTube 排除 bob 团队测试渠道和内部渠道实现；TikTok / Ins 在该文档中未定义团队边界，因此暂维持原有全量口径
+- 投资人报表里的视频播放类指标仍复用 `decom.dws_video_daily`；YouTube 累计播放快照已切到 v2 源 `videos.yt_video_stats_log.view_count`，TikTok / Ins 仍分别使用 `videos.video_stats_log.view_count` / `videos.ig_media_stats_log.view_count`
+- 根据 `docs/rules/video-mapping.md`，当前 jhonson 团队口径按 YouTube 排除 bob 团队测试渠道和内部渠道实现；TikTok / Ins 在该文档中未定义团队边界，因此暂维持原有全量口径
+- 投资人报表与 Social Content v2 使用同一组 10 个 YouTube 排除频道；这两个报表的视频范围不按 `decom.dim_video.is_formal_video` 做例外保留
 - `新增视频`、`活跃视频数` 现在统一通过 `decom.dim_auto_publish_video_task` 做自动发布 `task_id` 跨平台去重；只有能稳定映射到唯一 `task_id` 的自动发布视频会去重，同一 `task_id` 只要存在至少一个成功平台就作为一个统一视频参与计数；手动发布视频不去重
 - 自动发布跨平台去重只作用于视频数量类指标，不改 `new_video_view_count`、`new_video_contributed_view_count` 这类播放量分子
-- 各渠道 `views / view_count` 为累计值，不是日增值
+- 各渠道 `view_count` 为累计值，不是日增值
 - 每个视频每天取 `max(collected_at)` 对应的累计播放值，作为该视频该日的日末累计播放数
 - 某视频某日播放增量 = `当日日末累计播放数 - 前一日日末累计播放数`
 - 若源头累计播放值较前一日回落，则播放增量出现负数属于正常情况，当前口径保留该负值，不做截断为 `0`
@@ -106,7 +108,7 @@
 - Lark 卡片展示核心明细指标，当前包含 `人均商详页点击量`，且不再展示 `视频平均下载转化数`；仍不展示 `次日留存`、`7日留存`；同时提供 dashboard 与数据口径 wiki 跳转按钮
 - Lark 卡片中的“新增视频平均播放数”“新增视频 7 日播放数”按展示层单独做四舍五入后以整数推送，不修改 `ads_daily_investor` 表内原始小数值
 - Lark 卡片中的“每千次播放成本（美元）”“人均内容展示量”“人均内容点击量”“人均商详页点击量”按展示层统一保留两位小数，不修改 `ads_daily_investor` 表内原始小数值
-- 本次仅修改逻辑与展示层，不包含历史分区回填；若要让历史日期统一新口径，需要单独确认回填方案
+- 本次仅修改逻辑，不包含生产历史分区回填；若要让历史日期统一 v2 YouTube 口径，需要单独确认回填方案
 - 推送时间若按上海固定时刻配置，需要考虑 `America/Toronto` 夏令时；要稳定拿到多伦多昨日完整数据，建议独立 cron 配到上海 `13:00` 之后
 
 ## 依赖
@@ -114,7 +116,7 @@
 - 外部来源：AppsFlyer Aggregate Pull API `daily_report/v5`
 - 配置：`env/appsflyer.json`
 - 配置：`env/lark_webhook.json`
-- 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `decom.dwd_event_log`, `decom.ods_appsflyer_download`, `decom.currency_conversion_dict`
+- 上游：`videos.yt_videos`, `videos.yt_video_stats_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `decom.dwd_event_log`, `decom.ods_appsflyer_download`, `decom.currency_conversion_dict`
 - 中间表：`decom.dim_auto_publish_video_task`, `decom.dws_video_daily`, `decom.dws_appsflyer_download_daily`, `decom.dws_registered_app_device_daily`, `decom.dws_registered_app_user_daily`
 - 报表表：`decom.ads_daily_investor`
 - Superset：物理 dataset `ads_daily_investor`（id=228），chart `投资人报表（日表）-明细表`（id=574）
