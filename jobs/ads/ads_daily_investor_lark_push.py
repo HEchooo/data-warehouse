@@ -45,6 +45,10 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="只打印将要发送的消息，不实际调用 webhook",
     )
+    parser.add_argument(
+        "--webhook-url",
+        help="覆盖配置中的 Lark webhook，仅用于临时测试；不要写入仓库配置",
+    )
     return parser.parse_args()
 
 
@@ -101,31 +105,100 @@ def get_target_date(date_text: str | None) -> date:
 
 def fetch_investor_row(target_date: date) -> dict:
     query = f"""
+    WITH
+    -- 汇总目标日期和前一日的发布任务统计；源表按 platform 拆行，推送层只展示总量。
+    publish_stats AS (
+        SELECT
+            stat_date,
+            SUM(COALESCE(active_account_count, 0)) AS active_account_count,
+            SUM(COALESCE(api_task_total, 0)) AS api_task_total,
+            SUM(COALESCE(rpa_task_total, 0)) AS rpa_task_total,
+            SUM(COALESCE(api_task_success_count, 0)) AS api_task_success_count,
+            SUM(COALESCE(rpa_task_success_count, 0)) AS rpa_task_success_count
+        FROM `{PROJECT_ID}.videos.video_publish_daily_stats`
+        WHERE stat_date IN (
+            @target_date,
+            DATE_SUB(@target_date, INTERVAL 1 DAY)
+        )
+        GROUP BY stat_date
+    ),
+    -- 读取目标日期的投资人日报。
+    target_investor AS (
+        SELECT
+            *
+        FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_investor`
+        WHERE dt = @target_date
+        LIMIT 1
+    ),
+    -- 读取前一日新增视频数，供 Lark 卡片做当日 / 昨日对比。
+    previous_investor AS (
+        SELECT
+            dt,
+            new_video_count
+        FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_investor`
+        WHERE dt = DATE_SUB(@target_date, INTERVAL 1 DAY)
+        LIMIT 1
+    )
     SELECT
-        dt,
-        new_video_count,
-        active_video_count,
-        new_video_view_count,
-        avg_new_video_view_count,
-        new_video_7d_avg_view_count,
-        video_production_cost_usd,
-        cost_per_thousand_views_usd,
-        new_download_count,
-        play_download_conversion_rate,
-        new_device_count,
-        active_device_count,
-        active_registered_user_count,
-        avg_duration_sec,
-        avg_content_exposure_count,
-        avg_content_click_count,
-        content_ctr,
-        avg_product_detail_exposure_count,
-        next_day_retention_rate,
-        day_7_retention_rate,
-        update_time
-    FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_investor`
-    WHERE dt = @target_date
-    LIMIT 1
+        t.dt,
+        t.new_video_count,
+        prev.new_video_count AS previous_new_video_count,
+        t.active_video_count,
+        t.new_video_view_count,
+        t.avg_new_video_view_count,
+        t.new_video_7d_avg_view_count,
+        t.video_production_cost_usd,
+        t.cost_per_thousand_views_usd,
+        t.new_download_count,
+        t.play_download_conversion_rate,
+        t.new_device_count,
+        t.active_device_count,
+        t.active_registered_user_count,
+        t.avg_duration_sec,
+        t.avg_content_exposure_count,
+        t.avg_content_click_count,
+        t.content_ctr,
+        t.avg_product_detail_exposure_count,
+        t.next_day_retention_rate,
+        t.day_7_retention_rate,
+        t.update_time,
+        today_stats.active_account_count AS active_account_count,
+        yesterday_stats.active_account_count AS previous_active_account_count,
+        today_stats.api_task_total AS api_task_total,
+        yesterday_stats.api_task_total AS previous_api_task_total,
+        today_stats.rpa_task_total AS rpa_task_total,
+        yesterday_stats.rpa_task_total AS previous_rpa_task_total,
+        CASE
+            WHEN today_stats.stat_date IS NULL THEN NULL
+            ELSE COALESCE(today_stats.api_task_total, 0)
+                + COALESCE(today_stats.rpa_task_total, 0)
+        END AS publish_task_total,
+        CASE
+            WHEN yesterday_stats.stat_date IS NULL THEN NULL
+            ELSE COALESCE(yesterday_stats.api_task_total, 0)
+                + COALESCE(yesterday_stats.rpa_task_total, 0)
+        END AS previous_publish_task_total,
+        today_stats.api_task_success_count AS api_task_success_count,
+        yesterday_stats.api_task_success_count AS previous_api_task_success_count,
+        today_stats.rpa_task_success_count AS rpa_task_success_count,
+        yesterday_stats.rpa_task_success_count AS previous_rpa_task_success_count,
+        CASE
+            WHEN today_stats.stat_date IS NULL THEN NULL
+            ELSE COALESCE(today_stats.api_task_success_count, 0)
+                + COALESCE(today_stats.rpa_task_success_count, 0)
+        END AS publish_task_success_count,
+        CASE
+            WHEN yesterday_stats.stat_date IS NULL THEN NULL
+            ELSE COALESCE(yesterday_stats.api_task_success_count, 0)
+                + COALESCE(yesterday_stats.rpa_task_success_count, 0)
+        END AS previous_publish_task_success_count
+    FROM target_investor t
+    LEFT JOIN previous_investor prev
+        ON prev.dt = DATE_SUB(t.dt, INTERVAL 1 DAY)
+    LEFT JOIN publish_stats today_stats
+        ON today_stats.stat_date = t.dt
+    LEFT JOIN publish_stats yesterday_stats
+        ON yesterday_stats.stat_date = DATE_SUB(t.dt, INTERVAL 1 DAY)
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
@@ -177,6 +250,13 @@ def format_duration_seconds(value) -> str:
     return f"{float(value):,.2f} 秒"
 
 
+def format_today_yesterday(today_value, yesterday_value) -> str:
+    return (
+        f"当日 {format_int(today_value)} / "
+        f"昨日 {format_int(yesterday_value)}"
+    )
+
+
 def build_card_payload(row: dict) -> dict:
     dt_text = row["dt"].isoformat()
 
@@ -200,6 +280,42 @@ def build_card_payload(row: dict) -> dict:
             (
                 "**每千次播放成本（美元）**："
                 f"{format_decimal(row['cost_per_thousand_views_usd'], 2)}"
+            ),
+        ]
+    )
+    metrics_publish = "\n".join(
+        [
+            (
+                "**活跃运营账号数**："
+                f"{format_today_yesterday(row['active_account_count'], row['previous_active_account_count'])}"
+            ),
+            (
+                "**API 发布视频数**："
+                f"{format_today_yesterday(row['api_task_total'], row['previous_api_task_total'])}"
+            ),
+            (
+                "**RPA 发布视频数**："
+                f"{format_today_yesterday(row['rpa_task_total'], row['previous_rpa_task_total'])}"
+            ),
+            (
+                "**发布总视频数**："
+                f"{format_today_yesterday(row['publish_task_total'], row['previous_publish_task_total'])}"
+            ),
+            (
+                "**API 发布成功视频数**："
+                f"{format_today_yesterday(row['api_task_success_count'], row['previous_api_task_success_count'])}"
+            ),
+            (
+                "**RPA 发布成功视频数**："
+                f"{format_today_yesterday(row['rpa_task_success_count'], row['previous_rpa_task_success_count'])}"
+            ),
+            (
+                "**发布成功总视频数**："
+                f"{format_today_yesterday(row['publish_task_success_count'], row['previous_publish_task_success_count'])}"
+            ),
+            (
+                "**新增视频数**："
+                f"{format_today_yesterday(row['new_video_count'], row['previous_new_video_count'])}"
             ),
         ]
     )
@@ -273,6 +389,8 @@ def build_card_payload(row: dict) -> dict:
                 {"tag": "hr"},
                 {"tag": "div", "text": {"tag": "lark_md", "content": metrics_overview}},
                 {"tag": "hr"},
+                {"tag": "div", "text": {"tag": "lark_md", "content": metrics_publish}},
+                {"tag": "hr"},
                 {
                     "tag": "div",
                     "text": {"tag": "lark_md", "content": metrics_conversion},
@@ -336,7 +454,7 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
-    webhook_url = load_lark_webhook()
+    webhook_url = args.webhook_url or load_lark_webhook()
     send_lark_message(webhook_url, payload)
     logger.info(f"Lark 推送完成，dt={target_date}")
     return 0
