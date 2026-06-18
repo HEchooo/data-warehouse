@@ -18,6 +18,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 SOCIAL_CHANNEL_REBUILD_DAYS = 30
 DISPLAY_CHANNELS = ["全部渠道", "youtube", "tiktok", "ins"]
+YOUTUBE_EXCLUDED_CHANNEL_IDS = [
+    "UCynAg7WHdiy8SuQpESO__yw",
+    "UCgBJozWjiE0cqwv7UNalyog",
+    "UC4rj_IlO3V-d5ebVhgagh1w",
+    "UC70Y2-yeuFOoTx6yNkqioKA",
+    "UCiX5DzRDNIb9fH_MQvoIN7w",
+    "UCLs3oc5eyptqVTEnXaIwHvQ",
+    "UCPAQ09Nusb_OZzwfWGAE_Aw",
+    "UCV5FBW_l8cayS8L_zAIvlkQ",
+    "UCVsLt_8hbY5nG5da8sslD_w",
+    "UCzIQMkLCHa63JekjxaA133w",
+]
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -111,6 +123,9 @@ def build_select_sql(dates: list[date]) -> str:
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
     channels_array_sql = strings_to_array_sql(DISPLAY_CHANNELS)
+    youtube_excluded_channel_ids_sql = strings_to_array_sql(
+        YOUTUBE_EXCLUDED_CHANNEL_IDS
+    )
     min_date = min(dates)
     max_date = max(dates)
 
@@ -147,6 +162,10 @@ def build_select_sql(dates: list[date]) -> str:
             day_end_likes
         FROM `{source_table_id()}`
         WHERE dt BETWEEN (SELECT seed_dt FROM params) AND (SELECT max_dt FROM params)
+            AND NOT (
+                channel = 'youtube'
+                AND creator_id IN ({youtube_excluded_channel_ids_sql})
+            )
     ),
     -- 基于视频日状态直接派生 daily increment 与新增视频标记。
     social_video_daily AS (

@@ -44,6 +44,7 @@
   - `decom.ads_daily_social_content_v2`
 - v2 复用 `decom.dim_video` 与 `decom.dim_auto_publish_video_task`
 - v2 的 YouTube 累计快照改用 `videos.yt_video_stats_log.view_count / like_count`
+- v2 渠道聚合层排除与投资人报表一致的 10 个 YouTube 测试 / 内部频道；该报表不按 `decom.dim_video.is_formal_video` 做例外保留
 - TikTok、Instagram 数据源及7项指标口径与 v1 保持一致
 - v2 内部历史从 `2026-03-13` 开始构建，以支持 `2026-05-01` 起的日增量、最新3条和7天 cohort 计算
 - 首次生产回填范围：`2026-03-13 ~ 2026-06-12`
@@ -119,7 +120,7 @@
 - “最新 3 条”不是先取发布时间最新 3 条再判断有没有数据，而是先限定截至 `dt` 已有采集数据的视频，再从这些视频里按发布时间倒序取最新 3 条
 - `全部渠道` 不是额外视图字段，而是直接写入主表的展示渠道值
 - 看板当前落地 7 个指标；`完播比`、`第一秒留存率` 先保留在需求范围内，不进入当前 ADS 字段
-- v2 看板沿用上述7个指标，唯一源口径差异是 YouTube 使用 `yt_video_stats_log`
+- v2 看板沿用上述7个指标；相对 v1，YouTube 累计快照使用 `yt_video_stats_log`，且渠道聚合层按投资人报表同款 10 个 YouTube 排除频道收敛视频范围
 
 ## 依赖
 
