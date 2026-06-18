@@ -242,6 +242,26 @@ def format_percent(value, scale: int = 2) -> str:
     return f"{float(value) * 100:,.{scale}f}%"
 
 
+def calc_rate(numerator, denominator):
+    if numerator is None or denominator is None:
+        return None
+    if denominator == 0:
+        return None
+    return float(numerator) / float(denominator)
+
+
+def format_rate_today_yesterday(
+    today_numerator,
+    today_denominator,
+    yesterday_numerator,
+    yesterday_denominator,
+) -> str:
+    return (
+        f"当日 {format_percent(calc_rate(today_numerator, today_denominator))} / "
+        f"昨日 {format_percent(calc_rate(yesterday_numerator, yesterday_denominator))}"
+    )
+
+
 def format_duration_seconds(value) -> str:
     if value is None:
         return "--"
@@ -302,6 +322,10 @@ def build_card_payload(row: dict) -> dict:
                 f"{format_today_yesterday(row['publish_task_total'], row['previous_publish_task_total'])}"
             ),
             (
+                "**账号发视频率**："
+                f"{format_rate_today_yesterday(row['publish_task_total'], row['active_account_count'], row['previous_publish_task_total'], row['previous_active_account_count'])}"
+            ),
+            (
                 "**API 发布成功视频数**："
                 f"{format_today_yesterday(row['api_task_success_count'], row['previous_api_task_success_count'])}"
             ),
@@ -314,8 +338,16 @@ def build_card_payload(row: dict) -> dict:
                 f"{format_today_yesterday(row['publish_task_success_count'], row['previous_publish_task_success_count'])}"
             ),
             (
+                "**视频发布成功率**："
+                f"{format_rate_today_yesterday(row['publish_task_success_count'], row['publish_task_total'], row['previous_publish_task_success_count'], row['previous_publish_task_total'])}"
+            ),
+            (
                 "**新增视频数**："
                 f"{format_today_yesterday(row['new_video_count'], row['previous_new_video_count'])}"
+            ),
+            (
+                "**社媒平台发布视频数读数成功率**："
+                f"{format_rate_today_yesterday(row['new_video_count'], row['publish_task_total'], row['previous_new_video_count'], row['previous_publish_task_total'])}"
             ),
         ]
     )
