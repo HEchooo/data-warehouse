@@ -224,6 +224,7 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     - 服务端试穿 UV 与 PV（用于人均每日试穿次数分布）
     - 前端 tryon 点击 UV、商城/衣橱试穿 UV、styleme 曝光 UV
     - quick / plus 试穿任务数、成功任务数、成功任务总时长
+    - 全试穿成功任务有效时长分子分母（用于周级 AI 试穿时长分布）
     - 商品点击/曝光 UV 与分场景分子分母
     - 商品点击 PV(raw_event_id 去重，用于人均每日点击次数分布)
     """
@@ -262,6 +263,8 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         closet_tryon_uv,
         closet_feeds_uv,
         styleme_exposure_uv,
+        all_tryon_success_duration_task_count,
+        all_tryon_success_total_duration_ms,
         quick_tryon_task_total_count,
         quick_tryon_task_success_count,
         quick_tryon_success_duration_task_count,
@@ -352,6 +355,17 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     service_tryon_quality_daily AS (
         SELECT
             dt,
+            COUNT(DISTINCT IF(
+                status = 'SUCCESS'
+                AND total_duration_ms IS NOT NULL,
+                task_id,
+                NULL
+            )) AS all_tryon_success_duration_task_count,
+            SUM(IF(
+                status = 'SUCCESS',
+                COALESCE(total_duration_ms, 0),
+                0
+            )) AS all_tryon_success_total_duration_ms,
             COUNT(DISTINCT IF(task_type = 'QUICK_TRY_ON', task_id, NULL))
                 AS quick_tryon_task_total_count,
             COUNT(DISTINCT IF(
@@ -546,6 +560,10 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         COALESCE(e.closet_tryon_uv, 0) AS closet_tryon_uv,
         COALESCE(e.closet_feeds_uv, 0) AS closet_feeds_uv,
         COALESCE(e.styleme_exposure_uv, 0) AS styleme_exposure_uv,
+        COALESCE(q.all_tryon_success_duration_task_count, 0)
+            AS all_tryon_success_duration_task_count,
+        COALESCE(q.all_tryon_success_total_duration_ms, 0)
+            AS all_tryon_success_total_duration_ms,
         COALESCE(q.quick_tryon_task_total_count, 0) AS quick_tryon_task_total_count,
         COALESCE(q.quick_tryon_task_success_count, 0) AS quick_tryon_task_success_count,
         COALESCE(q.quick_tryon_success_duration_task_count, 0)

@@ -227,6 +227,18 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         plus_tryon_success_rate,
         quick_tryon_avg_duration_min,
         plus_tryon_avg_duration_min,
+        tryon_avg_duration_bucket_0_30s_day_count,
+        tryon_avg_duration_bucket_0_30s_day_ratio,
+        tryon_avg_duration_bucket_30_60s_day_count,
+        tryon_avg_duration_bucket_30_60s_day_ratio,
+        tryon_avg_duration_bucket_1_2min_day_count,
+        tryon_avg_duration_bucket_1_2min_day_ratio,
+        tryon_avg_duration_bucket_2_5min_day_count,
+        tryon_avg_duration_bucket_2_5min_day_ratio,
+        tryon_avg_duration_bucket_ge_5min_day_count,
+        tryon_avg_duration_bucket_ge_5min_day_ratio,
+        tryon_avg_duration_bucket_invalid_day_count,
+        tryon_avg_duration_bucket_invalid_day_ratio,
         product_click_uv,
         product_exposure_uv,
         home_product_click_uv,
@@ -324,6 +336,8 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             closet_tryon_uv,
             closet_feeds_uv,
             styleme_exposure_uv,
+            all_tryon_success_duration_task_count,
+            all_tryon_success_total_duration_ms,
             quick_tryon_task_total_count,
             quick_tryon_task_success_count,
             quick_tryon_success_duration_task_count,
@@ -504,6 +518,10 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             COALESCE(t.closet_tryon_uv, 0) AS closet_tryon_uv,
             COALESCE(t.closet_feeds_uv, 0) AS closet_feeds_uv,
             COALESCE(t.styleme_exposure_uv, 0) AS styleme_exposure_uv,
+            COALESCE(t.all_tryon_success_duration_task_count, 0)
+                AS all_tryon_success_duration_task_count,
+            COALESCE(t.all_tryon_success_total_duration_ms, 0)
+                AS all_tryon_success_total_duration_ms,
             COALESCE(t.quick_tryon_task_total_count, 0) AS quick_tryon_task_total_count,
             COALESCE(t.quick_tryon_task_success_count, 0) AS quick_tryon_task_success_count,
             COALESCE(t.quick_tryon_success_duration_task_count, 0)
@@ -1570,6 +1588,71 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             metric_bucket_order,
             metric_bucket
     ),
+    -- AI 试穿时长分桶基础层：先算每日“全试穿成功任务平均完成时长”。
+    duration_distribution_daily_base AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            SAFE_DIVIDE(
+                all_tryon_success_total_duration_ms,
+                NULLIF(all_tryon_success_duration_task_count, 0)
+            ) AS avg_tryon_duration_ms
+        FROM week_daily_fact
+    ),
+    -- AI 试穿时长分桶：按“全试穿成功任务平均完成时长”做日级分桶，不限制试穿类型。
+    duration_distribution_daily AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            CASE
+                WHEN avg_tryon_duration_ms > 0
+                    AND avg_tryon_duration_ms <= 30000 THEN '（0s,30s]'
+                WHEN avg_tryon_duration_ms > 30000
+                    AND avg_tryon_duration_ms <= 60000 THEN '（30s,60s]'
+                WHEN avg_tryon_duration_ms > 60000
+                    AND avg_tryon_duration_ms <= 120000 THEN '（60s,120s]'
+                WHEN avg_tryon_duration_ms > 120000
+                    AND avg_tryon_duration_ms <= 300000 THEN '（120s,300s]'
+                WHEN avg_tryon_duration_ms > 300000 THEN '（300s,+∞)'
+                ELSE '无有效时长'
+            END AS metric_bucket,
+            CASE
+                WHEN avg_tryon_duration_ms > 0
+                    AND avg_tryon_duration_ms <= 30000 THEN 1
+                WHEN avg_tryon_duration_ms > 30000
+                    AND avg_tryon_duration_ms <= 60000 THEN 2
+                WHEN avg_tryon_duration_ms > 60000
+                    AND avg_tryon_duration_ms <= 120000 THEN 3
+                WHEN avg_tryon_duration_ms > 120000
+                    AND avg_tryon_duration_ms <= 300000 THEN 4
+                WHEN avg_tryon_duration_ms > 300000 THEN 5
+                ELSE 9
+            END AS metric_bucket_order
+        FROM duration_distribution_daily_base
+    ),
+    -- AI 试穿时长分桶周聚合：输出每周各分桶天数与周内天数占比。
+    duration_distribution_metrics AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            metric_bucket_order,
+            metric_bucket,
+            COUNT(*) AS metric_day_count,
+            SAFE_DIVIDE(
+                COUNT(*),
+                SUM(COUNT(*)) OVER (PARTITION BY week_start_dt)
+            ) AS metric_value
+        FROM duration_distribution_daily
+        GROUP BY
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            metric_bucket_order,
+            metric_bucket
+    ),
     -- 人均每日点击次数分桶：口径对齐 query.sql 指标 19，按商品点击 PV(raw_event_id 去重)/商品点击 UV 分桶。
     click_distribution_daily AS (
         SELECT
@@ -1788,6 +1871,39 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         FROM distribution_metrics
         GROUP BY week_start_dt, week_end_dt, week_label
     ),
+    -- AI 试穿时长分布宽表：每个桶同时保留天数和周内天数占比。
+    pivoted_tryon_duration_distribution AS (
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            MAX(IF(metric_bucket = '（0s,30s]', metric_day_count, NULL))
+                AS tryon_avg_duration_bucket_0_30s_day_count,
+            MAX(IF(metric_bucket = '（0s,30s]', CAST(metric_value AS NUMERIC), NULL))
+                AS tryon_avg_duration_bucket_0_30s_day_ratio,
+            MAX(IF(metric_bucket = '（30s,60s]', metric_day_count, NULL))
+                AS tryon_avg_duration_bucket_30_60s_day_count,
+            MAX(IF(metric_bucket = '（30s,60s]', CAST(metric_value AS NUMERIC), NULL))
+                AS tryon_avg_duration_bucket_30_60s_day_ratio,
+            MAX(IF(metric_bucket = '（60s,120s]', metric_day_count, NULL))
+                AS tryon_avg_duration_bucket_1_2min_day_count,
+            MAX(IF(metric_bucket = '（60s,120s]', CAST(metric_value AS NUMERIC), NULL))
+                AS tryon_avg_duration_bucket_1_2min_day_ratio,
+            MAX(IF(metric_bucket = '（120s,300s]', metric_day_count, NULL))
+                AS tryon_avg_duration_bucket_2_5min_day_count,
+            MAX(IF(metric_bucket = '（120s,300s]', CAST(metric_value AS NUMERIC), NULL))
+                AS tryon_avg_duration_bucket_2_5min_day_ratio,
+            MAX(IF(metric_bucket = '（300s,+∞)', metric_day_count, NULL))
+                AS tryon_avg_duration_bucket_ge_5min_day_count,
+            MAX(IF(metric_bucket = '（300s,+∞)', CAST(metric_value AS NUMERIC), NULL))
+                AS tryon_avg_duration_bucket_ge_5min_day_ratio,
+            MAX(IF(metric_bucket = '无有效时长', metric_day_count, NULL))
+                AS tryon_avg_duration_bucket_invalid_day_count,
+            MAX(IF(metric_bucket = '无有效时长', CAST(metric_value AS NUMERIC), NULL))
+                AS tryon_avg_duration_bucket_invalid_day_ratio
+        FROM duration_distribution_metrics
+        GROUP BY week_start_dt, week_end_dt, week_label
+    ),
     -- 商品点击次数分布宽表：v1 该分布的 metric_value 即周内桶天数。
     pivoted_product_click_distribution AS (
         SELECT
@@ -1848,6 +1964,30 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         p.plus_tryon_success_rate,
         p.quick_tryon_avg_duration_min,
         p.plus_tryon_avg_duration_min,
+        COALESCE(tdd.tryon_avg_duration_bucket_0_30s_day_count, 0)
+            AS tryon_avg_duration_bucket_0_30s_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_0_30s_day_ratio, 0)
+            AS tryon_avg_duration_bucket_0_30s_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_30_60s_day_count, 0)
+            AS tryon_avg_duration_bucket_30_60s_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_30_60s_day_ratio, 0)
+            AS tryon_avg_duration_bucket_30_60s_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_1_2min_day_count, 0)
+            AS tryon_avg_duration_bucket_1_2min_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_1_2min_day_ratio, 0)
+            AS tryon_avg_duration_bucket_1_2min_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_2_5min_day_count, 0)
+            AS tryon_avg_duration_bucket_2_5min_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_2_5min_day_ratio, 0)
+            AS tryon_avg_duration_bucket_2_5min_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_ge_5min_day_count, 0)
+            AS tryon_avg_duration_bucket_ge_5min_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_ge_5min_day_ratio, 0)
+            AS tryon_avg_duration_bucket_ge_5min_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_invalid_day_count, 0)
+            AS tryon_avg_duration_bucket_invalid_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_invalid_day_ratio, 0)
+            AS tryon_avg_duration_bucket_invalid_day_ratio,
         p.product_click_uv,
         p.product_exposure_uv,
         p.home_product_click_uv,
@@ -1923,6 +2063,8 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
     JOIN weekly_agg w
         USING (week_start_dt, week_end_dt, week_label)
     LEFT JOIN pivoted_tryon_distribution td
+        USING (week_start_dt, week_end_dt, week_label)
+    LEFT JOIN pivoted_tryon_duration_distribution tdd
         USING (week_start_dt, week_end_dt, week_label)
     LEFT JOIN pivoted_product_click_distribution cd
         USING (week_start_dt, week_end_dt, week_label);
