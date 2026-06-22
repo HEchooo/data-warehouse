@@ -66,6 +66,9 @@
 ## 试穿人数
 - `v3_decom.common_ext_ai_task.user_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`
 
+## 试穿成功
+- `v3_decom.common_ext_ai_task.user_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` && `status = 'SUCCESS'`
+
 ## style me 人数
 - `v3_decom.common_ext_ai_task.user_id` && `task_scene = 'STYLE_ME'`
 
