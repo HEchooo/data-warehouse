@@ -63,6 +63,9 @@
 ## 创建模特
 - `v3_decom.common_ext_ai_task.task_type = 'MODEL'`
 
+## 试穿任务数
+- `v3_decom.common_ext_ai_task.task_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`
+
 ## 试穿人数
 - `v3_decom.common_ext_ai_task.user_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`
 
