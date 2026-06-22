@@ -72,6 +72,10 @@
 ## 试穿成功
 - `v3_decom.common_ext_ai_task.user_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` && `status = 'SUCCESS'`
 
+## 试穿任务完成时长
+- `json_value(v3_decom.common_ext_ai_task.output,"$.totalDuration")` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` && `status = 'SUCCESS'`
+- `totalDuration 单位是毫秒`
+
 ## style me 人数
 - `v3_decom.common_ext_ai_task.user_id` && `task_scene = 'STYLE_ME'`
 
