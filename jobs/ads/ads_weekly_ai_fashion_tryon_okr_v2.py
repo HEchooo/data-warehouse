@@ -214,6 +214,19 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         product_detail_tryon_uv,
         product_detail_tryon_penetration_rate,
         styleme_tryon_uv,
+        platform_tryon_rate,
+        tryon_avg_count_per_tryon_user,
+        avg_daily_tryon_uv,
+        front_tryon_click_uv,
+        shop_feeds_tryon_penetration_rate,
+        shop_feeds_tryon_uv,
+        closet_feeds_tryon_penetration_rate,
+        closet_feeds_tryon_uv,
+        styleme_tryon_penetration_rate,
+        quick_tryon_success_rate,
+        plus_tryon_success_rate,
+        quick_tryon_avg_duration_min,
+        plus_tryon_avg_duration_min,
         product_click_uv,
         product_exposure_uv,
         home_product_click_uv,
@@ -306,6 +319,19 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             product_detail_tryon_uv,
             product_detail_uv,
             styleme_uv,
+            front_tryon_click_uv,
+            shop_tryon_uv,
+            closet_tryon_uv,
+            closet_feeds_uv,
+            styleme_exposure_uv,
+            quick_tryon_task_total_count,
+            quick_tryon_task_success_count,
+            quick_tryon_success_duration_task_count,
+            quick_tryon_success_total_duration_ms,
+            plus_tryon_task_total_count,
+            plus_tryon_task_success_count,
+            plus_tryon_success_duration_task_count,
+            plus_tryon_success_total_duration_ms,
             product_click_uv,
             product_exposure_uv,
             home_product_click_uv,
@@ -473,6 +499,23 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             COALESCE(t.product_detail_tryon_uv, 0) AS product_detail_tryon_uv,
             COALESCE(t.product_detail_uv, 0) AS product_detail_uv,
             COALESCE(t.styleme_uv, 0) AS styleme_uv,
+            COALESCE(t.front_tryon_click_uv, 0) AS front_tryon_click_uv,
+            COALESCE(t.shop_tryon_uv, 0) AS shop_tryon_uv,
+            COALESCE(t.closet_tryon_uv, 0) AS closet_tryon_uv,
+            COALESCE(t.closet_feeds_uv, 0) AS closet_feeds_uv,
+            COALESCE(t.styleme_exposure_uv, 0) AS styleme_exposure_uv,
+            COALESCE(t.quick_tryon_task_total_count, 0) AS quick_tryon_task_total_count,
+            COALESCE(t.quick_tryon_task_success_count, 0) AS quick_tryon_task_success_count,
+            COALESCE(t.quick_tryon_success_duration_task_count, 0)
+                AS quick_tryon_success_duration_task_count,
+            COALESCE(t.quick_tryon_success_total_duration_ms, 0)
+                AS quick_tryon_success_total_duration_ms,
+            COALESCE(t.plus_tryon_task_total_count, 0) AS plus_tryon_task_total_count,
+            COALESCE(t.plus_tryon_task_success_count, 0) AS plus_tryon_task_success_count,
+            COALESCE(t.plus_tryon_success_duration_task_count, 0)
+                AS plus_tryon_success_duration_task_count,
+            COALESCE(t.plus_tryon_success_total_duration_ms, 0)
+                AS plus_tryon_success_total_duration_ms,
             COALESCE(t.product_click_uv, 0) AS product_click_uv,
             COALESCE(t.product_exposure_uv, 0) AS product_exposure_uv,
             COALESCE(t.home_product_click_uv, 0) AS home_product_click_uv,
@@ -542,6 +585,25 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             SUM(product_detail_tryon_uv) AS sum_product_detail_tryon_uv,
             SUM(product_detail_uv) AS sum_product_detail_uv,
             SUM(styleme_uv) AS sum_styleme_uv,
+            SUM(front_tryon_click_uv) AS sum_front_tryon_click_uv,
+            SUM(shop_tryon_uv) AS sum_shop_tryon_uv,
+            SUM(closet_tryon_uv) AS sum_closet_tryon_uv,
+            SUM(closet_feeds_uv) AS sum_closet_feeds_uv,
+            SUM(styleme_exposure_uv) AS sum_styleme_exposure_uv,
+            SUM(tryon_uv_total) AS sum_tryon_uv_total,
+            SUM(tryon_pv) AS sum_tryon_pv,
+            SUM(quick_tryon_task_total_count) AS sum_quick_tryon_task_total_count,
+            SUM(quick_tryon_task_success_count) AS sum_quick_tryon_task_success_count,
+            SUM(quick_tryon_success_duration_task_count)
+                AS sum_quick_tryon_success_duration_task_count,
+            SUM(quick_tryon_success_total_duration_ms)
+                AS sum_quick_tryon_success_total_duration_ms,
+            SUM(plus_tryon_task_total_count) AS sum_plus_tryon_task_total_count,
+            SUM(plus_tryon_task_success_count) AS sum_plus_tryon_task_success_count,
+            SUM(plus_tryon_success_duration_task_count)
+                AS sum_plus_tryon_success_duration_task_count,
+            SUM(plus_tryon_success_total_duration_ms)
+                AS sum_plus_tryon_success_total_duration_ms,
             SUM(product_click_uv) AS sum_product_click_uv,
             SUM(product_exposure_uv) AS sum_product_exposure_uv,
             SUM(home_product_click_uv) AS sum_home_product_click_uv,
@@ -771,6 +833,174 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             NULL,
             day_count,
             SAFE_DIVIDE(sum_styleme_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '平台试穿率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_tryon_uv_total, NULLIF(sum_all_user_dau, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '人均试穿次数',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_tryon_pv, NULLIF(sum_tryon_uv_total, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '日均试穿UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_tryon_uv_total, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '前端tryon点击UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_front_tryon_click_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '商城信息流试穿渗透率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_shop_tryon_uv, NULLIF(sum_shop_exposure_uv, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '商城信息流试穿UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_shop_tryon_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '衣橱试穿渗透率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_closet_tryon_uv, NULLIF(sum_closet_feeds_uv, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            '衣橱试穿UV',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_closet_tryon_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            'styleme试穿渗透率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_styleme_uv, NULLIF(sum_styleme_exposure_uv, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            'AI试穿成功率（quick）',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(
+                sum_quick_tryon_task_success_count,
+                NULLIF(sum_quick_tryon_task_total_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            'AI试穿成功率（plus）',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(
+                sum_plus_tryon_task_success_count,
+                NULLIF(sum_plus_tryon_task_total_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            'AI试穿任务平均完成时长（quick）',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(
+                sum_quick_tryon_success_total_duration_ms,
+                NULLIF(sum_quick_tryon_success_duration_task_count, 0)
+            ) / 60000.0
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '试穿OKR核心指标',
+            'AI试穿任务平均完成时长（plus）',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(
+                sum_plus_tryon_success_total_duration_ms,
+                NULLIF(sum_plus_tryon_success_duration_task_count, 0)
+            ) / 60000.0
         FROM weekly_agg
     ),
     -- 商品核心指标：口径对齐 query.sql 11~18，UV 指标按周内日均，率指标按周分子分母汇总后相除。
@@ -1428,6 +1658,32 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                 AS product_detail_tryon_penetration_rate,
             MAX(IF(metric_name = 'styleme 试穿 UV', CAST(metric_value AS NUMERIC), NULL))
                 AS styleme_tryon_uv,
+            MAX(IF(metric_name = '平台试穿率', CAST(metric_value AS NUMERIC), NULL))
+                AS platform_tryon_rate,
+            MAX(IF(metric_name = '人均试穿次数', CAST(metric_value AS NUMERIC), NULL))
+                AS tryon_avg_count_per_tryon_user,
+            MAX(IF(metric_name = '日均试穿UV', CAST(metric_value AS NUMERIC), NULL))
+                AS avg_daily_tryon_uv,
+            MAX(IF(metric_name = '前端tryon点击UV', CAST(metric_value AS NUMERIC), NULL))
+                AS front_tryon_click_uv,
+            MAX(IF(metric_name = '商城信息流试穿渗透率', CAST(metric_value AS NUMERIC), NULL))
+                AS shop_feeds_tryon_penetration_rate,
+            MAX(IF(metric_name = '商城信息流试穿UV', CAST(metric_value AS NUMERIC), NULL))
+                AS shop_feeds_tryon_uv,
+            MAX(IF(metric_name = '衣橱试穿渗透率', CAST(metric_value AS NUMERIC), NULL))
+                AS closet_feeds_tryon_penetration_rate,
+            MAX(IF(metric_name = '衣橱试穿UV', CAST(metric_value AS NUMERIC), NULL))
+                AS closet_feeds_tryon_uv,
+            MAX(IF(metric_name = 'styleme试穿渗透率', CAST(metric_value AS NUMERIC), NULL))
+                AS styleme_tryon_penetration_rate,
+            MAX(IF(metric_name = 'AI试穿成功率（quick）', CAST(metric_value AS NUMERIC), NULL))
+                AS quick_tryon_success_rate,
+            MAX(IF(metric_name = 'AI试穿成功率（plus）', CAST(metric_value AS NUMERIC), NULL))
+                AS plus_tryon_success_rate,
+            MAX(IF(metric_name = 'AI试穿任务平均完成时长（quick）', CAST(metric_value AS NUMERIC), NULL))
+                AS quick_tryon_avg_duration_min,
+            MAX(IF(metric_name = 'AI试穿任务平均完成时长（plus）', CAST(metric_value AS NUMERIC), NULL))
+                AS plus_tryon_avg_duration_min,
             MAX(IF(metric_name = '商品点击 UV', CAST(metric_value AS NUMERIC), NULL))
                 AS product_click_uv,
             MAX(IF(metric_name = '商品曝光 UV', CAST(metric_value AS NUMERIC), NULL))
@@ -1579,6 +1835,19 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         p.product_detail_tryon_uv,
         p.product_detail_tryon_penetration_rate,
         p.styleme_tryon_uv,
+        p.platform_tryon_rate,
+        p.tryon_avg_count_per_tryon_user,
+        p.avg_daily_tryon_uv,
+        p.front_tryon_click_uv,
+        p.shop_feeds_tryon_penetration_rate,
+        p.shop_feeds_tryon_uv,
+        p.closet_feeds_tryon_penetration_rate,
+        p.closet_feeds_tryon_uv,
+        p.styleme_tryon_penetration_rate,
+        p.quick_tryon_success_rate,
+        p.plus_tryon_success_rate,
+        p.quick_tryon_avg_duration_min,
+        p.plus_tryon_avg_duration_min,
         p.product_click_uv,
         p.product_exposure_uv,
         p.home_product_click_uv,

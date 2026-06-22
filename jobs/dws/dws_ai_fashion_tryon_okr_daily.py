@@ -222,6 +222,8 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     - 帖子服务端试穿 UV 及帖子曝光分母 UV
     - styleme 试穿 UV
     - 服务端试穿 UV 与 PV（用于人均每日试穿次数分布）
+    - 前端 tryon 点击 UV、商城/衣橱试穿 UV、styleme 曝光 UV
+    - quick / plus 试穿任务数、成功任务数、成功任务总时长
     - 商品点击/曝光 UV 与分场景分子分母
     - 商品点击 PV(raw_event_id 去重，用于人均每日点击次数分布)
     """
@@ -255,6 +257,19 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         product_detail_tryon_uv,
         product_detail_uv,
         styleme_uv,
+        front_tryon_click_uv,
+        shop_tryon_uv,
+        closet_tryon_uv,
+        closet_feeds_uv,
+        styleme_exposure_uv,
+        quick_tryon_task_total_count,
+        quick_tryon_task_success_count,
+        quick_tryon_success_duration_task_count,
+        quick_tryon_success_total_duration_ms,
+        plus_tryon_task_total_count,
+        plus_tryon_task_success_count,
+        plus_tryon_success_duration_task_count,
+        plus_tryon_success_total_duration_ms,
         product_click_uv,
         product_exposure_uv,
         home_product_click_uv,
@@ -310,7 +325,11 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     service_tryon_task_base AS (
         SELECT
             DATE({service_ts}, '{TORONTO_TZ}') AS dt,
+            CAST(task_id AS STRING) AS task_id,
+            task_type,
+            status,
             NULLIF(JSON_VALUE(request_param, '$.postId'), '') AS post_id,
+            SAFE_CAST(JSON_VALUE(output, '$.totalDuration') AS INT64) AS total_duration_ms,
             COALESCE(
                 NULLIF(JSON_VALUE(request_param, '$.user_id'), ''),
                 NULLIF(JSON_VALUE(request_param, '$.userId'), ''),
@@ -326,6 +345,51 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
             dt,
             COUNT(1) AS tryon_pv,
             COUNT(DISTINCT IF(user_id IS NOT NULL, user_id, NULL)) AS tryon_uv_total
+        FROM service_tryon_task_base
+        GROUP BY dt
+    ),
+    -- quick / plus 试穿任务日聚合：沉淀成功率与平均完成时长所需分子分母。
+    service_tryon_quality_daily AS (
+        SELECT
+            dt,
+            COUNT(DISTINCT IF(task_type = 'QUICK_TRY_ON', task_id, NULL))
+                AS quick_tryon_task_total_count,
+            COUNT(DISTINCT IF(
+                task_type = 'QUICK_TRY_ON' AND status = 'SUCCESS',
+                task_id,
+                NULL
+            )) AS quick_tryon_task_success_count,
+            COUNT(DISTINCT IF(
+                task_type = 'QUICK_TRY_ON'
+                AND status = 'SUCCESS'
+                AND total_duration_ms IS NOT NULL,
+                task_id,
+                NULL
+            )) AS quick_tryon_success_duration_task_count,
+            SUM(IF(
+                task_type = 'QUICK_TRY_ON' AND status = 'SUCCESS',
+                COALESCE(total_duration_ms, 0),
+                0
+            )) AS quick_tryon_success_total_duration_ms,
+            COUNT(DISTINCT IF(task_type = 'TRY_ON', task_id, NULL))
+                AS plus_tryon_task_total_count,
+            COUNT(DISTINCT IF(
+                task_type = 'TRY_ON' AND status = 'SUCCESS',
+                task_id,
+                NULL
+            )) AS plus_tryon_task_success_count,
+            COUNT(DISTINCT IF(
+                task_type = 'TRY_ON'
+                AND status = 'SUCCESS'
+                AND total_duration_ms IS NOT NULL,
+                task_id,
+                NULL
+            )) AS plus_tryon_success_duration_task_count,
+            SUM(IF(
+                task_type = 'TRY_ON' AND status = 'SUCCESS',
+                COALESCE(total_duration_ms, 0),
+                0
+            )) AS plus_tryon_success_total_duration_ms
         FROM service_tryon_task_base
         GROUP BY dt
     ),
@@ -397,6 +461,23 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
                 NULL
             )) AS product_detail_tryon_uv,
             COUNT(DISTINCT IF(event_name = 'v_product_detail', user_id, NULL)) AS product_detail_uv,
+            COUNT(DISTINCT IF(event_name = 'c_tryon', user_id, NULL)) AS front_tryon_click_uv,
+            COUNT(DISTINCT IF(
+                event_name = 'c_tryon' AND args_page_key = 'shop_feeds',
+                user_id,
+                NULL
+            )) AS shop_tryon_uv,
+            COUNT(DISTINCT IF(
+                event_name = 'c_tryon' AND args_page_key = 'closet_feeds',
+                user_id,
+                NULL
+            )) AS closet_tryon_uv,
+            COUNT(DISTINCT IF(event_name = 'v_closet_feeds', user_id, NULL)) AS closet_feeds_uv,
+            COUNT(DISTINCT IF(
+                event_name IN ('v_styleme_popup', 'v_styleme_page'),
+                user_id,
+                NULL
+            )) AS styleme_exposure_uv,
             COUNT(DISTINCT IF(
                 STARTS_WITH(event_name, 'c') AND product_code IS NOT NULL,
                 user_id,
@@ -460,6 +541,23 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
         COALESCE(e.product_detail_tryon_uv, 0) AS product_detail_tryon_uv,
         COALESCE(e.product_detail_uv, 0) AS product_detail_uv,
         COALESCE(s.styleme_uv, 0) AS styleme_uv,
+        COALESCE(e.front_tryon_click_uv, 0) AS front_tryon_click_uv,
+        COALESCE(e.shop_tryon_uv, 0) AS shop_tryon_uv,
+        COALESCE(e.closet_tryon_uv, 0) AS closet_tryon_uv,
+        COALESCE(e.closet_feeds_uv, 0) AS closet_feeds_uv,
+        COALESCE(e.styleme_exposure_uv, 0) AS styleme_exposure_uv,
+        COALESCE(q.quick_tryon_task_total_count, 0) AS quick_tryon_task_total_count,
+        COALESCE(q.quick_tryon_task_success_count, 0) AS quick_tryon_task_success_count,
+        COALESCE(q.quick_tryon_success_duration_task_count, 0)
+            AS quick_tryon_success_duration_task_count,
+        COALESCE(q.quick_tryon_success_total_duration_ms, 0)
+            AS quick_tryon_success_total_duration_ms,
+        COALESCE(q.plus_tryon_task_total_count, 0) AS plus_tryon_task_total_count,
+        COALESCE(q.plus_tryon_task_success_count, 0) AS plus_tryon_task_success_count,
+        COALESCE(q.plus_tryon_success_duration_task_count, 0)
+            AS plus_tryon_success_duration_task_count,
+        COALESCE(q.plus_tryon_success_total_duration_ms, 0)
+            AS plus_tryon_success_total_duration_ms,
         COALESCE(e.product_click_uv, 0) AS product_click_uv,
         COALESCE(e.product_exposure_uv, 0) AS product_exposure_uv,
         COALESCE(e.home_product_click_uv, 0) AS home_product_click_uv,
@@ -477,6 +575,7 @@ def run_dws_ai_fashion_tryon_okr_daily(dates: list[date]) -> None:
     LEFT JOIN user_group_daily g USING (dt)
     LEFT JOIN event_metric_daily e USING (dt)
     LEFT JOIN service_tryon_daily st USING (dt)
+    LEFT JOIN service_tryon_quality_daily q USING (dt)
     LEFT JOIN service_post_tryon_daily pt USING (dt)
     LEFT JOIN styleme_daily s USING (dt)
     ORDER BY d.dt;

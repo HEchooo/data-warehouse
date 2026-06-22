@@ -65,6 +65,19 @@
 | 商品详情页试穿 UV | 周内 `product_detail_tryon_uv` 之和 / 周内天数；保留前端 `c_tryon AND args_page_key = 'product_detail'` |
 | 商品详情页试穿渗透率 | 周内 `product_detail_tryon_uv` 之和 / 周内 `product_detail_uv` 之和 |
 | styleme 试穿 UV | 周内 `styleme_uv` 之和 / 周内天数 |
+| 平台试穿率 | 周内服务端试穿 `tryon_uv_total` 之和 / 周内平台 DAU 之和；平台 DAU 口径与留存 OKR 的 `platform_dau` 一致 |
+| 人均试穿次数 | 周内服务端试穿次数 `tryon_pv` 之和 / 周内服务端试穿用户 `tryon_uv_total` 之和 |
+| 日均试穿UV | 周内服务端试穿用户 `tryon_uv_total` 之和 / 周内天数 |
+| 前端tryon点击UV | 周内前端 `event_name = 'c_tryon'` 的 `prop_user_id` UV 之和 / 周内天数 |
+| 商城信息流试穿渗透率 | 周内 `c_tryon AND args_page_key = 'shop_feeds'` 的 UV 之和 / 周内 `v_shop_feeds` UV 之和 |
+| 商城信息流试穿UV | 周内 `c_tryon AND args_page_key = 'shop_feeds'` 的 UV 之和 / 周内天数 |
+| 衣橱试穿渗透率 | 周内 `c_tryon AND args_page_key = 'closet_feeds'` 的 UV 之和 / 周内 `v_closet_feeds` UV 之和 |
+| 衣橱试穿UV | 周内 `c_tryon AND args_page_key = 'closet_feeds'` 的 UV 之和 / 周内天数 |
+| styleme试穿渗透率 | 周内服务端 `styleme_uv` 之和 / 周内前端 `v_styleme_popup` 或 `v_styleme_page` UV 之和 |
+| AI试穿成功率（quick） | 周内服务端 `task_type = 'QUICK_TRY_ON'` 且 `status = 'SUCCESS'` 的任务数 / 周内服务端 `task_type = 'QUICK_TRY_ON'` 的任务数；按 `task_id` 去重 |
+| AI试穿成功率（plus） | 周内服务端 `task_type = 'TRY_ON'` 且 `status = 'SUCCESS'` 的任务数 / 周内服务端 `task_type = 'TRY_ON'` 的任务数；按 `task_id` 去重 |
+| AI试穿任务平均完成时长（quick） | 周内服务端 `task_type = 'QUICK_TRY_ON'` 且 `status = 'SUCCESS'` 的成功任务 `json_value(output, '$.totalDuration')` 总和 / 有效成功任务数；`totalDuration` 单位毫秒，展示转分钟 |
+| AI试穿任务平均完成时长（plus） | 周内服务端 `task_type = 'TRY_ON'` 且 `status = 'SUCCESS'` 的成功任务 `json_value(output, '$.totalDuration')` 总和 / 有效成功任务数；`totalDuration` 单位毫秒，展示转分钟 |
 | 人均每日试穿次数分布 | 先算每日服务端试穿 `tryon_pv / tryon_uv_total`，再按分桶统计周内 `day_count` 与 `day_ratio`；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`；分桶：`(0~3]`、`(3~6]`、`(6~10]`、`(10~15]`、`15次以上`、`0或无试穿UV` |
 
 #### 商品OKR
@@ -137,7 +150,7 @@
 | 周标签 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_label` | `MMDD-MMDD` |
 | 周内天数 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_day_count` | 周日历天数，默认 7 |
 | 次留观察天数 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `all_next_day_observed_day_count` / `new_next_day_observed_day_count` / `closet_next_day_observed_day_count` / `product_detail_next_day_observed_day_count` / `ai_tryon_next_day_observed_day_count` / `follow_next_day_observed_day_count` / `model_next_day_observed_day_count` | 对应留存指标周内“观察日已开始”的天数 |
-| 试穿 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `new_user_tryon_rate` / `new_user_tryon_uv` / `old_user_tryon_rate` / `old_user_tryon_uv` / `home_tryon_uv` / `home_tryon_penetration_rate` / `post_tryon_uv` / `post_tryon_penetration_rate` / `product_detail_tryon_uv` / `product_detail_tryon_penetration_rate` / `styleme_tryon_uv` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
+| 试穿 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `new_user_tryon_rate` / `new_user_tryon_uv` / `old_user_tryon_rate` / `old_user_tryon_uv` / `home_tryon_uv` / `home_tryon_penetration_rate` / `post_tryon_uv` / `post_tryon_penetration_rate` / `product_detail_tryon_uv` / `product_detail_tryon_penetration_rate` / `styleme_tryon_uv` / `platform_tryon_rate` / `tryon_avg_count_per_tryon_user` / `avg_daily_tryon_uv` / `front_tryon_click_uv` / `shop_feeds_tryon_penetration_rate` / `shop_feeds_tryon_uv` / `closet_feeds_tryon_penetration_rate` / `closet_feeds_tryon_uv` / `styleme_tryon_penetration_rate` / `quick_tryon_success_rate` / `plus_tryon_success_rate` / `quick_tryon_avg_duration_min` / `plus_tryon_avg_duration_min` | v1 已有指标对齐同名 `metric_name` 的 `metric_value`；v2 新增指标直接从 DWS 分子分母周聚合 |
 | 商品 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `product_click_uv` / `product_exposure_uv` / `home_product_click_uv` / `home_product_exposure_click_rate` / `tryon_result_click_uv` / `tryon_result_exposure_click_rate` / `shop_click_uv` / `shop_exposure_click_rate` | 对齐 v1 同名 `metric_name` 的 `metric_value` |
 | 留存 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `platform_dau` / `next_day_retention_rate` / `next_day_retained_user_count` / `day_7_retention_rate` / `day_7_retained_user_count` / `day_30_retention_rate` / `day_30_retained_user_count` / `home_feeds_exposure_click_rate` / `platform_avg_duration_min` / `platform_avg_content_consume` / `new_user_dau` / `new_user_next_day_retention_rate` / `new_user_avg_duration_min` / `new_user_avg_content_consume` / `closet_user_next_day_retention_rate` / `closet_user_next_day_retained_user_count` / `product_detail_user_next_day_retention_rate` / `product_detail_user_next_day_retained_user_count` / `ai_tryon_user_next_day_retention_rate` / `ai_tryon_user_next_day_retained_user_count` / `follow_user_next_day_retention_rate` / `follow_user_next_day_retained_user_count` / `model_user_next_day_retention_rate` / `model_user_next_day_retained_user_count` / `styleme_user_next_day_retention_rate` / `styleme_user_next_day_retained_user_count` | v1 已有指标对齐同名 `metric_name`；v2 新增指标直接从 DWS 分子分母周聚合 |
 | 人均每日试穿次数分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `tryon_avg_daily_count_bucket_0_3_day_count` / `tryon_avg_daily_count_bucket_0_3_day_ratio` / `tryon_avg_daily_count_bucket_3_6_day_count` / `tryon_avg_daily_count_bucket_3_6_day_ratio` / `tryon_avg_daily_count_bucket_6_10_day_count` / `tryon_avg_daily_count_bucket_6_10_day_ratio` / `tryon_avg_daily_count_bucket_10_15_day_count` / `tryon_avg_daily_count_bucket_10_15_day_ratio` / `tryon_avg_daily_count_bucket_gt_15_day_count` / `tryon_avg_daily_count_bucket_gt_15_day_ratio` / `tryon_avg_daily_count_bucket_zero_or_null_uv_day_count` / `tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio` | 对齐 v1 分布指标；同时保留桶天数与周内天数占比 |

@@ -44,3 +44,18 @@ ADD COLUMN IF NOT EXISTS shop_exposure_uv INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
 ADD COLUMN IF NOT EXISTS product_click_pv_raw INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_ai_fashion_tryon_okr_daily`
+ADD COLUMN IF NOT EXISTS front_tryon_click_uv INT64,
+ADD COLUMN IF NOT EXISTS shop_tryon_uv INT64,
+ADD COLUMN IF NOT EXISTS closet_tryon_uv INT64,
+ADD COLUMN IF NOT EXISTS closet_feeds_uv INT64,
+ADD COLUMN IF NOT EXISTS styleme_exposure_uv INT64,
+ADD COLUMN IF NOT EXISTS quick_tryon_task_total_count INT64,
+ADD COLUMN IF NOT EXISTS quick_tryon_task_success_count INT64,
+ADD COLUMN IF NOT EXISTS quick_tryon_success_duration_task_count INT64,
+ADD COLUMN IF NOT EXISTS quick_tryon_success_total_duration_ms INT64,
+ADD COLUMN IF NOT EXISTS plus_tryon_task_total_count INT64,
+ADD COLUMN IF NOT EXISTS plus_tryon_task_success_count INT64,
+ADD COLUMN IF NOT EXISTS plus_tryon_success_duration_task_count INT64,
+ADD COLUMN IF NOT EXISTS plus_tryon_success_total_duration_ms INT64;
