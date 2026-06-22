@@ -6,7 +6,6 @@ import sys
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 
-
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ads_weekly_ai_fashion_tryon_okr_v2"
@@ -241,6 +240,8 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         tryon_avg_duration_bucket_invalid_day_ratio,
         product_click_uv,
         product_exposure_uv,
+        product_exposure_click_rate,
+        product_click_avg_count_per_click_user,
         home_product_click_uv,
         home_product_exposure_click_rate,
         tryon_result_click_uv,
@@ -624,6 +625,7 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                 AS sum_plus_tryon_success_total_duration_ms,
             SUM(product_click_uv) AS sum_product_click_uv,
             SUM(product_exposure_uv) AS sum_product_exposure_uv,
+            SUM(product_click_pv_raw) AS sum_product_click_pv_raw,
             SUM(home_product_click_uv) AS sum_home_product_click_uv,
             SUM(home_product_exposure_uv) AS sum_home_product_exposure_uv,
             SUM(tryon_result_click_uv) AS sum_tryon_result_click_uv,
@@ -1021,7 +1023,7 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             ) / 60000.0
         FROM weekly_agg
     ),
-    -- 商品核心指标：口径对齐 query.sql 11~18，UV 指标按周内日均，率指标按周分子分母汇总后相除。
+    -- 商品核心指标：UV 指标按周内日均，率/人均指标按周分子分母汇总后相除。
     product_core_metrics AS (
         SELECT
             week_start_dt,
@@ -1045,6 +1047,30 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             NULL,
             day_count,
             SAFE_DIVIDE(sum_product_exposure_uv, day_count)
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '平台商品UV点击率',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_product_click_uv, NULLIF(sum_product_exposure_uv, 0))
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '商品OKR核心指标',
+            '人均点击次数',
+            NULL,
+            NULL,
+            day_count,
+            SAFE_DIVIDE(sum_product_click_pv_raw, NULLIF(sum_product_click_uv, 0))
         FROM weekly_agg
         UNION ALL
         SELECT
@@ -1771,6 +1797,10 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                 AS product_click_uv,
             MAX(IF(metric_name = '商品曝光 UV', CAST(metric_value AS NUMERIC), NULL))
                 AS product_exposure_uv,
+            MAX(IF(metric_name = '平台商品UV点击率', CAST(metric_value AS NUMERIC), NULL))
+                AS product_exposure_click_rate,
+            MAX(IF(metric_name = '人均点击次数', CAST(metric_value AS NUMERIC), NULL))
+                AS product_click_avg_count_per_click_user,
             MAX(IF(metric_name = '首页商品点击 UV', CAST(metric_value AS NUMERIC), NULL))
                 AS home_product_click_uv,
             MAX(IF(metric_name = '首页商品曝光点击率', CAST(metric_value AS NUMERIC), NULL))
@@ -1990,6 +2020,8 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             AS tryon_avg_duration_bucket_invalid_day_ratio,
         p.product_click_uv,
         p.product_exposure_uv,
+        p.product_exposure_click_rate,
+        p.product_click_avg_count_per_click_user,
         p.home_product_click_uv,
         p.home_product_exposure_click_rate,
         p.tryon_result_click_uv,
@@ -2072,7 +2104,9 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
     logging.info("开始处理: ads_weekly_ai_fashion_tryon_okr_v2")
     job = client.query(query)
     job.result()
-    logging.info("ads_weekly_ai_fashion_tryon_okr_v2 刷新完成, 处理周起始日: %s", week_starts)
+    logging.info(
+        "ads_weekly_ai_fashion_tryon_okr_v2 刷新完成, 处理周起始日: %s", week_starts
+    )
 
 
 if __name__ == "__main__":

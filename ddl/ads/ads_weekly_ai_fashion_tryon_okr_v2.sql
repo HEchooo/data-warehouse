@@ -104,5 +104,7 @@ ADD COLUMN IF NOT EXISTS day_7_retained_user_count NUMERIC,
 ADD COLUMN IF NOT EXISTS day_30_retention_rate NUMERIC,
 ADD COLUMN IF NOT EXISTS day_30_retained_user_count NUMERIC,
 ADD COLUMN IF NOT EXISTS home_feeds_exposure_click_rate NUMERIC,
+ADD COLUMN IF NOT EXISTS product_exposure_click_rate NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_count_per_click_user NUMERIC,
 ADD COLUMN IF NOT EXISTS styleme_user_next_day_retention_rate NUMERIC,
 ADD COLUMN IF NOT EXISTS styleme_user_next_day_retained_user_count NUMERIC;
