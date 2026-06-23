@@ -260,6 +260,7 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         platform_avg_content_consume,
         new_user_dau,
         new_user_next_day_retention_rate,
+        new_user_next_day_retained_user_count,
         new_user_avg_duration_min,
         new_user_avg_content_consume,
         closet_user_next_day_retention_rate,
@@ -1336,6 +1337,21 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             week_end_dt,
             week_label,
             '留存OKR核心指标',
+            '新用户次日留存用户数',
+            NULL,
+            NULL,
+            new_next_day_observed_day_count,
+            SAFE_DIVIDE(
+                sum_new_next_day_retained_user_count,
+                NULLIF(new_next_day_observed_day_count, 0)
+            )
+        FROM weekly_agg
+        UNION ALL
+        SELECT
+            week_start_dt,
+            week_end_dt,
+            week_label,
+            '留存OKR核心指标',
             '新用户人均停留时长（min）',
             NULL,
             NULL,
@@ -1837,6 +1853,8 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
                 AS new_user_dau,
             MAX(IF(metric_name = '新用户次日留存', CAST(metric_value AS NUMERIC), NULL))
                 AS new_user_next_day_retention_rate,
+            MAX(IF(metric_name = '新用户次日留存用户数', CAST(metric_value AS NUMERIC), NULL))
+                AS new_user_next_day_retained_user_count,
             MAX(IF(metric_name = '新用户人均停留时长（min）', CAST(metric_value AS NUMERIC), NULL))
                 AS new_user_avg_duration_min,
             MAX(IF(metric_name = '新用户人均消费内容', CAST(metric_value AS NUMERIC), NULL))
@@ -2040,6 +2058,7 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         p.platform_avg_content_consume,
         p.new_user_dau,
         p.new_user_next_day_retention_rate,
+        p.new_user_next_day_retained_user_count,
         p.new_user_avg_duration_min,
         p.new_user_avg_content_consume,
         p.closet_user_next_day_retention_rate,
