@@ -1,7 +1,14 @@
-# magazine, star, brand 映射关系
+# post / column 基础映射关系
 
-## post 类型判断
-## 1. dataset: v3_decom
+## 适用范围
+
+- 本文档只保留帖子、专栏以及发布信息的基础映射
+- 试穿任务相关口径见 `docs/rules/tryon-mapping.md`
+- 点赞、关注等互动口径见 `docs/rules/interaction-mapping.md`
+
+## column 类型判断
+
+### 1. dataset: `v3_decom`
 
 - 表 `v3_decom.kol_rel`：
   - `status = 0` 正常
@@ -19,17 +26,17 @@
   - `nickname`
   - `kol_type = 4`
 
-## 2.v3_decom.community_post.post_type
-- STAR_OUTFIT(2, "star_outfit"),// 明星
-- STAR_THEME(4, "star_theme"),// 明星
-- MAGAZINE_ISSUE(5, "magazine_issue"), // 杂志
-- FASHION_LOOK(6, "fashion_look"), // 品牌
-- FASHION_PRODUCT(7, "fashion_product"),// 品牌
-- FASHION_VIDEO(8, "fashion_video"),// 视频
-- FASHION_KOL(9, "fashion_kol"),// kol
+### 2. `v3_decom.community_post.post_type`
 
+- `STAR_OUTFIT(2, "star_outfit")`：明星
+- `STAR_THEME(4, "star_theme")`：明星
+- `MAGAZINE_ISSUE(5, "magazine_issue")`：杂志
+- `FASHION_LOOK(6, "fashion_look")`：品牌
+- `FASHION_PRODUCT(7, "fashion_product")`：品牌
+- `FASHION_VIDEO(8, "fashion_video")`：视频
+- `FASHION_KOL(9, "fashion_kol")`：kol
 
-## post_id, post_code 映射关系
+## post_id / post_code 映射关系
 
 - 表 `v3_decom.community_post`
 - `post id / post code / post name` 映射：
@@ -53,35 +60,6 @@
 
 ## post 状态
 - `v3_decom.community_post.status`
-- 0-隐藏 
-- 1-展示
-- 2-审核中
-
-## 试穿帖子
-- `json_extract(v3_decom.common_ext_ai_task.request_param,'$.postId')` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`
-
-## 创建模特
-- `v3_decom.common_ext_ai_task.task_type = 'MODEL'`
-
-## 试穿任务数
-- `v3_decom.common_ext_ai_task.task_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`
-
-## 试穿人数
-- `v3_decom.common_ext_ai_task.user_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`
-
-## 试穿成功
-- `v3_decom.common_ext_ai_task.user_id` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` && `status = 'SUCCESS'`
-
-## 试穿任务完成时长
-- `json_value(v3_decom.common_ext_ai_task.output,"$.totalDuration")` && `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` && `status = 'SUCCESS'`
-- `totalDuration 单位是毫秒`
-
-## style me 人数
-- `v3_decom.common_ext_ai_task.user_id` && `task_scene = 'STYLE_ME'`
-
-## 点赞
-- `v3_decom.community_post_like.post_id`, `v3_decom.community_post_like.user_id`, `v3_decom.community_post_like.gmt_create`
-
-## follow
-- `v3_decom.community_star_follow.user_id`, `v3_decom.community_star_follow.star_user_id`, `v3_decom.community_star_follow.gmt_create` 
-- star_user_id 就是专栏 id，不仅是 star 也包含 magazine, brand
+- `0`：隐藏
+- `1`：展示
+- `2`：审核中
