@@ -389,7 +389,7 @@ def build_select_sql(dates: list[date]) -> str:
             ON s.video_key = m.video_key
     ),
     -- 取待刷窗口涉及的统一视频键，后续只回看这些键的最早发布时间。
-    relevant_all_channel_published_video_keys AS (
+    relevant_all_channel_cohort_video_keys AS (
         SELECT DISTINCT all_channel_video_key
         FROM all_channel_video_base
     ),
@@ -401,9 +401,118 @@ def build_select_sql(dates: list[date]) -> str:
         FROM video_first_positive_view_dt f
         LEFT JOIN auto_publish_video_task_dim m
             ON f.video_key = m.video_key
-        INNER JOIN relevant_all_channel_published_video_keys r
+        INNER JOIN relevant_all_channel_cohort_video_keys r
             ON COALESCE(m.unified_video_key, f.video_key) = r.all_channel_video_key
         GROUP BY all_channel_video_key
+    ),
+    -- 先汇总真实渠道按发布时间 cohort 的 T/T+1/T+3/T+7/T+14 累计播放。
+    base_published_horizon_metrics AS (
+        SELECT
+            published_dt AS dt,
+            channel,
+            DATE_DIFF(dt, published_dt, DAY) AS published_horizon_day,
+            COALESCE(SUM(day_end_views), 0) AS published_horizon_view_count
+        FROM social_video_state
+        WHERE published_dt IN ({dates_str})
+            AND DATE_DIFF(dt, published_dt, DAY) IN (0, 1, 3, 7, 14)
+        GROUP BY published_dt, channel, published_horizon_day
+    ),
+    -- 为“全部渠道”发布时间 cohort 口径准备统一视频键。
+    all_channel_published_video_base AS (
+        SELECT
+            s.dt,
+            s.video_key,
+            s.published_dt,
+            s.day_end_views,
+            COALESCE(m.unified_video_key, s.video_key) AS all_channel_video_key
+        FROM social_video_state s
+        LEFT JOIN auto_publish_video_task_dim m
+            ON s.video_key = m.video_key
+    ),
+    -- 只取本批涉及发布时间 cohort 的统一视频键。
+    relevant_all_channel_published_video_keys AS (
+        SELECT DISTINCT all_channel_video_key
+        FROM all_channel_published_video_base
+        WHERE published_dt IN ({dates_str})
+    ),
+    -- 回看统一视频键全历史最早发布时间，确保“全部渠道”按统一视频首发日对齐 cohort。
+    all_channel_video_first_published_dt AS (
+        SELECT
+            COALESCE(m.unified_video_key, d.video_key) AS all_channel_video_key,
+            MIN(d.published_dt) AS first_published_dt
+        FROM `{PROJECT_ID}.{DATASET_ID}.dim_video` d
+        LEFT JOIN auto_publish_video_task_dim m
+            ON d.video_key = m.video_key
+        INNER JOIN relevant_all_channel_published_video_keys r
+            ON COALESCE(m.unified_video_key, d.video_key) = r.all_channel_video_key
+        WHERE d.published_dt IS NOT NULL
+            AND d.published_dt <= (SELECT max_dt FROM params)
+        GROUP BY all_channel_video_key
+    ),
+    -- 在真实渠道结果基础上补出“全部渠道”发布时间 cohort 的多观察窗累计播放。
+    all_channel_published_horizon_metrics AS (
+        SELECT
+            f.first_published_dt AS dt,
+            '全部渠道' AS channel,
+            DATE_DIFF(b.dt, f.first_published_dt, DAY) AS published_horizon_day,
+            COALESCE(SUM(b.day_end_views), 0) AS published_horizon_view_count
+        FROM all_channel_published_video_base b
+        INNER JOIN all_channel_video_first_published_dt f
+            ON b.all_channel_video_key = f.all_channel_video_key
+        WHERE f.first_published_dt IN ({dates_str})
+            AND DATE_DIFF(b.dt, f.first_published_dt, DAY) IN (0, 1, 3, 7, 14)
+        GROUP BY f.first_published_dt, published_horizon_day
+    ),
+    -- 合并真实渠道和“全部渠道”的发布时间 cohort 累计播放。
+    published_horizon_metrics AS (
+        SELECT
+            dt,
+            channel,
+            published_horizon_day,
+            published_horizon_view_count
+        FROM base_published_horizon_metrics
+
+        UNION ALL
+
+        SELECT
+            dt,
+            channel,
+            published_horizon_day,
+            published_horizon_view_count
+        FROM all_channel_published_horizon_metrics
+    ),
+    -- 把发布时间 cohort 的多观察窗累计播放 pivot 成字段，供 ADS 与 Superset 直接消费。
+    published_horizon_metrics_pivot AS (
+        SELECT
+            dt,
+            channel,
+            MAX(IF(
+                published_horizon_day = 0,
+                published_horizon_view_count,
+                NULL
+            )) AS published_day0_view_count,
+            MAX(IF(
+                published_horizon_day = 1,
+                published_horizon_view_count,
+                NULL
+            )) AS published_day1_view_count,
+            MAX(IF(
+                published_horizon_day = 3,
+                published_horizon_view_count,
+                NULL
+            )) AS published_day3_view_count,
+            MAX(IF(
+                published_horizon_day = 7,
+                published_horizon_view_count,
+                NULL
+            )) AS published_day7_view_count,
+            MAX(IF(
+                published_horizon_day = 14,
+                published_horizon_view_count,
+                NULL
+            )) AS published_day14_view_count
+        FROM published_horizon_metrics
+        GROUP BY dt, channel
     ),
     -- 在真实渠道结果基础上补出“全部渠道”7 天 cohort 聚合行。
     published_7d_cohort_metrics AS (
@@ -536,6 +645,31 @@ def build_select_sql(dates: list[date]) -> str:
         COALESCE(n.new_video_count, 0) AS new_video_count,
         COALESCE(n.new_video_contributed_view_count, 0)
             AS new_video_contributed_view_count,
+        CASE
+            WHEN DATE_ADD(d.dt, INTERVAL 0 DAY) <= (SELECT max_dt FROM params)
+                THEN COALESCE(ph.published_day0_view_count, 0)
+            ELSE NULL
+        END AS published_day0_view_count,
+        CASE
+            WHEN DATE_ADD(d.dt, INTERVAL 1 DAY) <= (SELECT max_dt FROM params)
+                THEN COALESCE(ph.published_day1_view_count, 0)
+            ELSE NULL
+        END AS published_day1_view_count,
+        CASE
+            WHEN DATE_ADD(d.dt, INTERVAL 3 DAY) <= (SELECT max_dt FROM params)
+                THEN COALESCE(ph.published_day3_view_count, 0)
+            ELSE NULL
+        END AS published_day3_view_count,
+        CASE
+            WHEN DATE_ADD(d.dt, INTERVAL 7 DAY) <= (SELECT max_dt FROM params)
+                THEN COALESCE(ph.published_day7_view_count, 0)
+            ELSE NULL
+        END AS published_day7_view_count,
+        CASE
+            WHEN DATE_ADD(d.dt, INTERVAL 14 DAY) <= (SELECT max_dt FROM params)
+                THEN COALESCE(ph.published_day14_view_count, 0)
+            ELSE NULL
+        END AS published_day14_view_count,
         COALESCE(p.published_7d_cohort_video_count, 0)
             AS published_7d_cohort_video_count,
         COALESCE(p.published_7d_cohort_view_count, 0)
@@ -558,6 +692,9 @@ def build_select_sql(dates: list[date]) -> str:
     LEFT JOIN new_video_channel_metrics n
         ON d.dt = n.dt
         AND c.channel = n.channel
+    LEFT JOIN published_horizon_metrics_pivot ph
+        ON d.dt = ph.dt
+        AND c.channel = ph.channel
     LEFT JOIN published_7d_cohort_metrics p
         ON d.dt = p.dt
         AND c.channel = p.channel
@@ -594,6 +731,11 @@ def run_dws_social_channel_daily(dates: list[date]) -> None:
         daily_like_increment,
         new_video_count,
         new_video_contributed_view_count,
+        published_day0_view_count,
+        published_day1_view_count,
+        published_day3_view_count,
+        published_day7_view_count,
+        published_day14_view_count,
         published_7d_cohort_video_count,
         published_7d_cohort_view_count,
         creator_count_to_prev_day,

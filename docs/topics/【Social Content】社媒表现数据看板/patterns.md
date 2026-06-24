@@ -65,6 +65,14 @@
 - 因此 staging 校验只能要求有数据且 `dt + video_key` 唯一，不能要求 `COUNT(DISTINCT dt) = len(dates)`
 - 如果需要“每天都有一行”的语义，应在 `dws_social_video_state_daily` 校验，而不是在 snapshot 层校验
 
+## 发布时间 cohort 和“新增视频”不是同一条时间轴
+
+- `每天新增视频数` 的口径是“首个 `views > 0` 的采集日”，不是 `published_dt`
+- 如果直接拿现有 `new_video_count` 或 `published_7d_cohort_*` 去改图，会把“发布时间 cohort”误做成“首采正播放 cohort”
+- 这类“按发布时间回看 T / T+1 / T+3 / T+7 / T+14 累计播放”的需求，应直接复用 `dws_social_video_state_daily_v2.published_dt + day_end_views`
+- `全部渠道` 仍要沿用统一视频键逻辑，但 cohort 日期要对齐统一视频全历史最早 `published_dt`，不能沿用首个正播放日
+- 未满观察窗的近期 cohort 应返回 `NULL`，不要拿当前累计播放去近似 `T+1 / T+3 / T+7 / T+14`
+
 ## YouTube `analytics_log` 与 `stats_log` 不能视为同口径字段替换
 
 - `yt_video_analytics_log.views / likes` 与 `yt_video_stats_log.view_count / like_count` 在相同 `video_id + collected_at` 下仍存在大量差异，迁移不是简单字段改名

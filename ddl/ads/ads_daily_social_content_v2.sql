@@ -3,6 +3,17 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2` (
     channel STRING,
     daily_view_increment INT64,
     daily_like_increment INT64,
+    new_video_count INT64,
+    new_video_contributed_view_count INT64,
+    avg_new_video_view_count NUMERIC,
+    published_day0_view_count INT64,
+    published_day1_view_count INT64,
+    published_day3_view_count INT64,
+    published_day7_view_count INT64,
+    published_day14_view_count INT64,
+    published_7d_cohort_video_count INT64,
+    published_7d_cohort_view_count INT64,
+    published_7d_cohort_avg_view_count NUMERIC,
     creator_count_to_prev_day INT64,
     daily_view_increment_per_creator NUMERIC,
     latest_3_sample_creator_count INT64,
@@ -23,6 +34,21 @@ ADD COLUMN IF NOT EXISTS new_video_contributed_view_count INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2`
 ADD COLUMN IF NOT EXISTS avg_new_video_view_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2`
+ADD COLUMN IF NOT EXISTS published_day0_view_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2`
+ADD COLUMN IF NOT EXISTS published_day1_view_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2`
+ADD COLUMN IF NOT EXISTS published_day3_view_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2`
+ADD COLUMN IF NOT EXISTS published_day7_view_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2`
+ADD COLUMN IF NOT EXISTS published_day14_view_count INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_content_v2`
 ADD COLUMN IF NOT EXISTS published_7d_cohort_video_count INT64;
