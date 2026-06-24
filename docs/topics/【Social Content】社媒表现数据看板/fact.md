@@ -122,6 +122,7 @@
 | 分桶视频数量 | `decom.ads_daily_social_content_published_day3_view_bucket_v2` | `video_count` | `published_dt = dt` 的成熟 cohort 在对应 `T+3` 累计播放分桶中的视频数；单渠道按 `video_key` 统计，`全部渠道` 按 `unified_video_key` 统计 |
 
 补充说明：
+- Superset 虚拟 dataset `virtual_social_content_v2_published_day3_view_bucket_sorted` 额外输出 `view_count`，表示对应 `dt + channel + bucket` 下视频在 `T+3` 观察日的累计播放总和，供“发布后3天全量 Views 分桶贡献占比”图使用
 - YouTube 统一按 `docs/rules/video-mapping.md` 排除 AI 团队渠道，即 `video 部门测试渠道 + video 部门内部渠道`
 - `views / likes` 源字段都是累计值，不是日增值
 - 若某视频在 `dt` 没有新采集记录，则其 `dt` 日末累计值沿用最近一次已采集值，因此 `dt` 的日增量记为 `0`
@@ -138,6 +139,7 @@
 - 发布时间 cohort 播放图里未成熟的近期 cohort 直接返回空值，不用当前累计播放去近似 `T+1 / T+3 / T+7 / T+14`
 - `T+3` 播放分桶图只产出已成熟 cohort；最新 3 个 cohort 日期不会提前补零或用当前累计播放近似
 - `T+3` 播放分桶图在 `全部渠道` 下先按统一视频键聚合到单个逻辑视频，再按聚合后的累计播放值落桶，避免同一自动发布视频重复进多个桶
+- `T+3` 播放分桶图当前有两张：`视频占比` 以 `video_count / SUM(video_count)` 计算；`Views 贡献占比` 以 `view_count / SUM(view_count)` 计算
 - `jobs/dws/dws_social_video_state_daily.py` 直接维护视频日状态层，再由渠道层按需做 `LAG` 和新增视频派生
 - “博主总数”按发布时间判断，不依赖是否已经采集到播放快照
 - “最新 3 条”不是先取发布时间最新 3 条再判断有没有数据，而是先限定截至 `dt` 已有采集数据的视频，再从这些视频里按发布时间倒序取最新 3 条
@@ -156,4 +158,4 @@
 - 编排：`env/etl_config.json`, `etl_run.py`
 - v2 脚本：`jobs/dws/dws_social_video_snapshot_daily_v2.py`, `jobs/dws/dws_social_video_state_daily_v2.py`, `jobs/dws/dws_social_channel_daily_v2.py`, `jobs/ads/ads_daily_social_content_v2.py`, `jobs/ads/ads_daily_social_content_published_day3_view_bucket_v2.py`
 - v2 DDL：`ddl/dws/dws_social_video_snapshot_daily_v2.sql`, `ddl/dws/dws_social_video_state_daily_v2.sql`, `ddl/dws/dws_social_channel_daily_v2.sql`, `ddl/ads/ads_daily_social_content_v2.sql`, `ddl/ads/ads_daily_social_content_published_day3_view_bucket_v2.sql`
-- v2 Superset：物理 dataset `ads_daily_social_content_v2`（id=262），virtual dataset `virtual_social_content_v2_published_horizon_views`（id=264）、`virtual_social_content_v2_published_day3_view_bucket_sorted`（id=266），dashboard `【Social Content】社媒表现数据看板v2`（id=116），copy dashboard `【Social Content】社媒表现数据看板v2 copy`（id=119）；chart id `637 / 638 / 639 / 640 / 641 / 642 / 643 / 664 / 665`
+- v2 Superset：物理 dataset `ads_daily_social_content_v2`（id=262），virtual dataset `virtual_social_content_v2_published_horizon_views`（id=264）、`virtual_social_content_v2_published_day3_view_bucket_sorted`（id=266），dashboard `【Social Content】社媒表现数据看板v2`（id=116），copy dashboard `【Social Content】社媒表现数据看板v2 copy`（id=119）；chart id `637 / 638 / 639 / 640 / 641 / 642 / 643 / 664 / 665 / 666`
