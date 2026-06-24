@@ -35,6 +35,8 @@
 - 目标看板：`【Social Content】社媒表现数据看板v2`
 - 最终表：`decom.ads_daily_social_content_v2`
 - 粒度：`dt + channel`
+- 分布表：`decom.ads_daily_social_content_published_day3_view_bucket_v2`
+- 分布表粒度：`dt + channel + published_day3_view_bucket`
 - 展示起点：`2026-05-01`
 - Dashboard：[【Social Content】社媒表现数据看板v2](https://bi.alvinclub.ca/superset/dashboard/116/)（id=116）
 - v1 链路保持不变；v2 从快照层起使用独立表：
@@ -42,6 +44,7 @@
   - `decom.dws_social_video_state_daily_v2`
   - `decom.dws_social_channel_daily_v2`
   - `decom.ads_daily_social_content_v2`
+  - `decom.ads_daily_social_content_published_day3_view_bucket_v2`
 - v2 复用 `decom.dim_video` 与 `decom.dim_auto_publish_video_task`
 - v2 的 YouTube 累计快照改用 `videos.yt_video_stats_log.view_count / like_count`
 - v2 渠道聚合层排除与投资人报表一致的 10 个 YouTube 测试 / 内部频道；该报表不按 `decom.dim_video.is_formal_video` 做例外保留
@@ -64,6 +67,7 @@
 | 当天发布新视频在发布当天（T）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布当天日末的累计播放总和；单渠道按原始视频统计，`全部渠道` 按统一视频全历史最早发布时间对齐 cohort |
 | 当天发布新视频在发布后1天（T+1）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 1 天日末的累计播放总和；未满 `T+1` 的近期 cohort 返回空值 |
 | 当天发布新视频在发布后3天（T+3）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 3 天日末的累计播放总和；未满 `T+3` 的近期 cohort 返回空值 |
+| 3天全量 view count 分桶视频数量占比 | 以 `published_dt = dt` 的视频作为 cohort，取这些视频在发布后第 3 天日末的累计播放值做严格开闭区间分桶：`0`、`(0,100]`、`(100,500]`、`(500,1000]`、`(1000,3000]`、`(3000,10000]`、`(10000,+∞)`；单渠道按原始视频统计，`全部渠道` 按统一视频全历史最早发布时间对齐 cohort，并把同一统一视频在 `T+3` 的各平台累计播放汇总后落到唯一分桶 |
 | 当天发布新视频在发布后7天（T+7）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 7 天日末的累计播放总和；未满 `T+7` 的近期 cohort 返回空值 |
 | 当天发布新视频在发布后14天（T+14）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 14 天日末的累计播放总和；未满 `T+14` 的近期 cohort 返回空值 |
 | 前一天新增 views / 博主总数 | `dt` 当天新增 views / 截至 `dt-1` 已发布过视频的历史去重博主总数；YouTube 博主为 `channel_id`，TikTok 为 `user_id`，Ins 为 `account_id`；`全部渠道` 按 `channel + creator_id` 去重 |
@@ -108,6 +112,15 @@
 | 前一天新增 views / 博主总数 | `decom.ads_daily_social_content` | `daily_view_increment_per_creator` | 分子为 `daily_view_increment`；分母为 `creator_count_to_prev_day`，即截至 `dt-1` 已发布过视频的历史去重博主数；`全部渠道` 用 `channel + creator_id` 去重 |
 | 每个博主最新 3 条的平均赞播率 | `decom.ads_daily_social_content` | `latest_3_avg_like_view_rate` | 先限定截至 `dt` 已有采集数据的视频，再按发布时间倒序取每个博主其中最新 3 条；汇总样本池的 `latest_3_sample_like_count / latest_3_sample_view_count`；`全部渠道` 仍按 `channel + creator_id` 分组取各博主最新 3 条 |
 
+### 分布报表：`decom.ads_daily_social_content_published_day3_view_bucket_v2`
+
+| 需求字段 | 落地表 | 落地字段 | 口径 |
+|------|------|------|------|
+| 渠道 | `decom.ads_daily_social_content_published_day3_view_bucket_v2` | `channel` | 固定枚举 `全部渠道 / youtube / tiktok / ins` |
+| 3天全量 view count 分桶排序 | `decom.ads_daily_social_content_published_day3_view_bucket_v2` | `published_day3_view_bucket_order` | 固定为 `1-7`，对应 `0`、`(0,100]`、`(100,500]`、`(500,1000]`、`(1000,3000]`、`(3000,10000]`、`(10000,+∞)` |
+| 3天全量 view count 分桶名称 | `decom.ads_daily_social_content_published_day3_view_bucket_v2` | `published_day3_view_bucket` | 展示层直接使用的 `T+3` 累计播放分桶标签 |
+| 分桶视频数量 | `decom.ads_daily_social_content_published_day3_view_bucket_v2` | `video_count` | `published_dt = dt` 的成熟 cohort 在对应 `T+3` 累计播放分桶中的视频数；单渠道按 `video_key` 统计，`全部渠道` 按 `unified_video_key` 统计 |
+
 补充说明：
 - YouTube 统一按 `docs/rules/video-mapping.md` 排除 AI 团队渠道，即 `video 部门测试渠道 + video 部门内部渠道`
 - `views / likes` 源字段都是累计值，不是日增值
@@ -123,6 +136,8 @@
 - 发布时间 cohort 播放图与“每天新增视频数”不是同一口径：前者按 `published_dt` 分 cohort，后者按首个 `views > 0` 的采集日统计新增视频
 - 发布时间 cohort 播放图的 `T / T+1 / T+3 / T+7 / T+14` 都表示对应观察日的日末累计播放，不是这几天内逐日播放增量求和
 - 发布时间 cohort 播放图里未成熟的近期 cohort 直接返回空值，不用当前累计播放去近似 `T+1 / T+3 / T+7 / T+14`
+- `T+3` 播放分桶图只产出已成熟 cohort；最新 3 个 cohort 日期不会提前补零或用当前累计播放近似
+- `T+3` 播放分桶图在 `全部渠道` 下先按统一视频键聚合到单个逻辑视频，再按聚合后的累计播放值落桶，避免同一自动发布视频重复进多个桶
 - `jobs/dws/dws_social_video_state_daily.py` 直接维护视频日状态层，再由渠道层按需做 `LAG` 和新增视频派生
 - “博主总数”按发布时间判断，不依赖是否已经采集到播放快照
 - “最新 3 条”不是先取发布时间最新 3 条再判断有没有数据，而是先限定截至 `dt` 已有采集数据的视频，再从这些视频里按发布时间倒序取最新 3 条
@@ -139,6 +154,6 @@
 - 脚本：`jobs/dim/dim_video.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_social_video_snapshot_daily.py`, `jobs/dws/dws_social_video_state_daily.py`, `jobs/dws/dws_social_channel_daily.py`, `jobs/ads/ads_daily_social_content.py`
 - DDL：`ddl/dim/dim_video.sql`, `ddl/dim/dim_auto_publish_video_task.sql`, `ddl/dws/dws_social_video_snapshot_daily.sql`, `ddl/dws/dws_social_video_state_daily.sql`, `ddl/dws/dws_social_channel_daily.sql`, `ddl/ads/ads_daily_social_content.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`
-- v2 脚本：`jobs/dws/dws_social_video_snapshot_daily_v2.py`, `jobs/dws/dws_social_video_state_daily_v2.py`, `jobs/dws/dws_social_channel_daily_v2.py`, `jobs/ads/ads_daily_social_content_v2.py`
-- v2 DDL：`ddl/dws/dws_social_video_snapshot_daily_v2.sql`, `ddl/dws/dws_social_video_state_daily_v2.sql`, `ddl/dws/dws_social_channel_daily_v2.sql`, `ddl/ads/ads_daily_social_content_v2.sql`
-- v2 Superset：物理 dataset `ads_daily_social_content_v2`（id=262），chart id `637 / 638 / 639 / 640 / 641 / 642 / 643`，dashboard `【Social Content】社媒表现数据看板v2`（id=116）
+- v2 脚本：`jobs/dws/dws_social_video_snapshot_daily_v2.py`, `jobs/dws/dws_social_video_state_daily_v2.py`, `jobs/dws/dws_social_channel_daily_v2.py`, `jobs/ads/ads_daily_social_content_v2.py`, `jobs/ads/ads_daily_social_content_published_day3_view_bucket_v2.py`
+- v2 DDL：`ddl/dws/dws_social_video_snapshot_daily_v2.sql`, `ddl/dws/dws_social_video_state_daily_v2.sql`, `ddl/dws/dws_social_channel_daily_v2.sql`, `ddl/ads/ads_daily_social_content_v2.sql`, `ddl/ads/ads_daily_social_content_published_day3_view_bucket_v2.sql`
+- v2 Superset：物理 dataset `ads_daily_social_content_v2`（id=262），virtual dataset `virtual_social_content_v2_published_horizon_views`（id=264）、`virtual_social_content_v2_published_day3_view_bucket_sorted`（id=266），dashboard `【Social Content】社媒表现数据看板v2`（id=116），copy dashboard `【Social Content】社媒表现数据看板v2 copy`（id=119）；chart id `637 / 638 / 639 / 640 / 641 / 642 / 643 / 664 / 665`
