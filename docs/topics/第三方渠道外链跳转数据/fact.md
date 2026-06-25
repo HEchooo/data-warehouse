@@ -4,7 +4,7 @@
 
 - 表：`ads_daily_thirdapp_channel_uv`
 - 粒度：`dt × channel`
-- Dashboard：[【AI-Fashion】第三方渠道曝光 UV](https://bi.alvinclub.ca/superset/dashboard/111/)（id=111）
+- Dashboard：[【AI-Fashion】第三方渠道外链跳转数据 ](https://bi.alvinclub.ca/superset/dashboard/111/)（id=111）
 - Superset：物理 dataset `ads_daily_thirdapp_channel_uv`（id=244），chart `第三方渠道曝光 UV（日表）- 曝光 UV 趋势`（id=607）、`第三方渠道曝光 UV（日表）- 明细表`（id=608）
 
 ### `dws_thirdapp_channel_device_daily`
