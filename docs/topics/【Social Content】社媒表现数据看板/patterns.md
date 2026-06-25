@@ -72,6 +72,7 @@
 - 这类“按发布时间回看 T / T+1 / T+3 / T+7 / T+14 累计播放”的需求，应直接复用 `dws_social_video_state_daily_v2.published_dt + day_end_views`
 - `全部渠道` 仍要沿用统一视频键逻辑，但 cohort 日期要对齐统一视频全历史最早 `published_dt`，不能沿用首个正播放日
 - 未满观察窗的近期 cohort 应返回 `NULL`，不要拿当前累计播放去近似 `T+1 / T+3 / T+7 / T+14`
+- 即使 `ads_daily_social_content_v2` 已经提前产出了某个 cohort 的 `T+1 / T+3` 字段，只要对应观察日还没完整走完，Superset 展示层也必须按 `CURRENT_DATE("America/Toronto")` 再做一次成熟截断；否则当天查看昨天 cohort 时会提前看到未成熟的 `T+1`
 
 ## 周维度账号样本不要复用视频级统一键逻辑
 
