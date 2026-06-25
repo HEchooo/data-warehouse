@@ -73,6 +73,12 @@
 - `全部渠道` 仍要沿用统一视频键逻辑，但 cohort 日期要对齐统一视频全历史最早 `published_dt`，不能沿用首个正播放日
 - 未满观察窗的近期 cohort 应返回 `NULL`，不要拿当前累计播放去近似 `T+1 / T+3 / T+7 / T+14`
 
+## 周维度账号样本不要复用视频级统一键逻辑
+
+- 如果分桶对象从“视频”切到“账号-自然周”，`全部渠道` 不能继续沿用 `unified_video_key` 去重思路
+- 原因是这时样本主键已经变成账号，而当前主题并没有跨平台统一账号键；保守口径应按 `channel + creator_id` 区分账号
+- 同时，这类“账号周均 T+3 Views”需求的分母应固定为 `7`，不是“该账号该周有发视频的天数”；因此最新只保留完整成熟自然周，不展示半周样本
+
 ## YouTube `analytics_log` 与 `stats_log` 不能视为同口径字段替换
 
 - `yt_video_analytics_log.views / likes` 与 `yt_video_stats_log.view_count / like_count` 在相同 `video_id + collected_at` 下仍存在大量差异，迁移不是简单字段改名
