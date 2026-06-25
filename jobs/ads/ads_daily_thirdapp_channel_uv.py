@@ -165,6 +165,8 @@ def run_ads_daily_thirdapp_channel_uv(dates: list[date]) -> None:
         dt,
         channel,
         exposure_uv,
+        video_detail_exposure_pv,
+        product_click_count,
         update_time
     )
     WITH
@@ -185,7 +187,9 @@ def run_ads_daily_thirdapp_channel_uv(dates: list[date]) -> None:
         SELECT
             dt,
             channel,
-            COUNT(DISTINCT device_id) AS exposure_uv
+            COUNTIF(thirdapp_open_pv > 0) AS exposure_uv,
+            SUM(video_detail_exposure_pv) AS video_detail_exposure_pv,
+            SUM(product_click_count) AS product_click_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_thirdapp_channel_device_daily`
         WHERE dt IN (
             SELECT dt
@@ -197,7 +201,9 @@ def run_ads_daily_thirdapp_channel_uv(dates: list[date]) -> None:
     overall_metric_daily AS (
         SELECT
             dt,
-            COUNT(DISTINCT device_id) AS exposure_uv
+            COUNT(DISTINCT IF(thirdapp_open_pv > 0, device_id, NULL)) AS exposure_uv,
+            SUM(video_detail_exposure_pv) AS video_detail_exposure_pv,
+            SUM(product_click_count) AS product_click_count
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_thirdapp_channel_device_daily`
         WHERE dt IN (
             SELECT dt
@@ -218,7 +224,9 @@ def run_ads_daily_thirdapp_channel_uv(dates: list[date]) -> None:
         SELECT
             k.dt,
             k.channel,
-            COALESCE(m.exposure_uv, 0) AS exposure_uv
+            COALESCE(m.exposure_uv, 0) AS exposure_uv,
+            COALESCE(m.video_detail_exposure_pv, 0) AS video_detail_exposure_pv,
+            COALESCE(m.product_click_count, 0) AS product_click_count
         FROM channel_keys k
         LEFT JOIN channel_metric_daily m
             ON k.dt = m.dt
@@ -229,7 +237,9 @@ def run_ads_daily_thirdapp_channel_uv(dates: list[date]) -> None:
         SELECT
             d.dt,
             'overall' AS channel,
-            COALESCE(m.exposure_uv, 0) AS exposure_uv
+            COALESCE(m.exposure_uv, 0) AS exposure_uv,
+            COALESCE(m.video_detail_exposure_pv, 0) AS video_detail_exposure_pv,
+            COALESCE(m.product_click_count, 0) AS product_click_count
         FROM target_dates d
         LEFT JOIN overall_metric_daily m
             ON d.dt = m.dt
@@ -238,6 +248,8 @@ def run_ads_daily_thirdapp_channel_uv(dates: list[date]) -> None:
         dt,
         channel,
         exposure_uv,
+        video_detail_exposure_pv,
+        product_click_count,
         CURRENT_TIMESTAMP() AS update_time
     FROM channel_level
     UNION ALL
@@ -245,6 +257,8 @@ def run_ads_daily_thirdapp_channel_uv(dates: list[date]) -> None:
         dt,
         channel,
         exposure_uv,
+        video_detail_exposure_pv,
+        product_click_count,
         CURRENT_TIMESTAMP() AS update_time
     FROM overall_level;
     """

@@ -6,3 +6,9 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_thirdapp_channel_uv` (
 )
 PARTITION BY dt
 CLUSTER BY channel;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_thirdapp_channel_uv`
+ADD COLUMN IF NOT EXISTS video_detail_exposure_pv INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_thirdapp_channel_uv`
+ADD COLUMN IF NOT EXISTS product_click_count INT64;

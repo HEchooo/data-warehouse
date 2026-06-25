@@ -14,6 +14,11 @@ TABLE_NAME = "dws_thirdapp_channel_device_daily"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
+THIRDAPP_CHANNEL_EVENT_NAMES = (
+    "'v_thirdapp_open', "
+    "'v_kol_post_detail_page', "
+    "'c_third_party_goods'"
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -88,7 +93,7 @@ def get_thirdapp_channel_device_dates_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
 ) -> list[date]:
     """
-    thirdapp 渠道曝光 DWS 只依赖事件表。
+    thirdapp 渠道主题 DWS 只依赖事件表。
 
     规则：
     - 目标表不存在或为空时，按历史事件日期全量初始化
@@ -102,7 +107,7 @@ def get_thirdapp_channel_device_dates_to_process(
         query = f"""
         SELECT DISTINCT DATE({event_ts}, '{EASTERN_TZ}') AS dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE event_name = 'v_thirdapp_open'
+        WHERE event_name IN ({THIRDAPP_CHANNEL_EVENT_NAMES})
             AND NULLIF(prop_device_id, '') IS NOT NULL
             AND NULLIF(LOWER(TRIM(JSON_VALUE(args, '$.sf'))), '') IS NOT NULL
             AND DATE({event_ts}, '{EASTERN_TZ}') IS NOT NULL
@@ -113,12 +118,12 @@ def get_thirdapp_channel_device_dates_to_process(
 
     query = f"""
     WITH
-    -- 最近 6 小时发生变化的 thirdapp 曝光业务日。
+    -- 最近 6 小时发生变化的 thirdapp 渠道主题业务日。
     changed_event_dates AS (
         SELECT DISTINCT DATE({event_ts}, '{EASTERN_TZ}') AS dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-            AND event_name = 'v_thirdapp_open'
+            AND event_name IN ({THIRDAPP_CHANNEL_EVENT_NAMES})
             AND NULLIF(prop_device_id, '') IS NOT NULL
             AND NULLIF(LOWER(TRIM(JSON_VALUE(args, '$.sf'))), '') IS NOT NULL
             AND DATE({event_ts}, '{EASTERN_TZ}') IS NOT NULL
@@ -144,13 +149,14 @@ def get_thirdapp_channel_device_dates_to_process(
 
 def run_dws_thirdapp_channel_device_daily(dates: list[date]) -> None:
     """
-    产出 thirdapp 渠道曝光设备级中间层。
+    产出 thirdapp 渠道主题设备级中间层。
 
     粒度：
     - dt × channel × device_id
 
     说明：
-    - DWS 保留设备级明细，供 ADS 同时支持渠道粒度 UV 和 overall 全局去重 UV
+    - DWS 保留设备级主题事实，供 ADS 同时支持渠道粒度 UV、overall 全局去重 UV
+      以及渠道粒度 PV / count 聚合
     """
     if not dates:
         logging.info("没有新的 dws_thirdapp_channel_device_daily 日期需要处理")
@@ -169,6 +175,9 @@ def run_dws_thirdapp_channel_device_daily(dates: list[date]) -> None:
         dt,
         channel,
         device_id,
+        thirdapp_open_pv,
+        video_detail_exposure_pv,
+        product_click_count,
         update_time
     )
     WITH
@@ -177,15 +186,17 @@ def run_dws_thirdapp_channel_device_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 先提取渠道映射所需原始字段，统一做小写和空值清洗。
+    -- 先提取渠道映射和主题指标所需原始字段，统一做小写和空值清洗。
     base_events AS (
         SELECT
             DATE({event_ts}, '{EASTERN_TZ}') AS dt,
             NULLIF(LOWER(TRIM(JSON_VALUE(args, '$.app_name'))), '') AS app_name,
             LOWER(COALESCE(JSON_VALUE(args, '$.sf'), '')) AS sf,
-            NULLIF(prop_device_id, '') AS device_id
+            NULLIF(prop_device_id, '') AS device_id,
+            event_name,
+            NULLIF(CAST(product_code AS STRING), '') AS product_code
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE event_name = 'v_thirdapp_open'
+        WHERE event_name IN ({THIRDAPP_CHANNEL_EVENT_NAMES})
             AND NULLIF(prop_device_id, '') IS NOT NULL
             AND NULLIF(LOWER(TRIM(JSON_VALUE(args, '$.sf'))), '') IS NOT NULL
             AND DATE({event_ts}, '{EASTERN_TZ}') IN (
@@ -198,22 +209,39 @@ def run_dws_thirdapp_channel_device_daily(dates: list[date]) -> None:
     -- 2. 其他情况使用 app_name
     -- 3. 若未来出现 app_name 仍为空且 sf 不命中 youtube，则兜底为 unknown
     normalized_events AS (
-        SELECT DISTINCT
+        SELECT
             dt,
             CASE
                 WHEN app_name IS NULL AND sf LIKE '%youtube%' THEN 'youtube'
                 WHEN app_name IS NULL THEN 'unknown'
                 ELSE app_name
             END AS channel,
-            device_id
+            device_id,
+            event_name,
+            product_code
         FROM base_events
+    ),
+    -- 聚合到设备级主题事实，沉淀 UV 计算所需开屏曝光以及新增 PV / count 指标。
+    device_metric_daily AS (
+        SELECT
+            dt,
+            channel,
+            device_id,
+            COUNTIF(event_name = 'v_thirdapp_open') AS thirdapp_open_pv,
+            COUNTIF(event_name = 'v_kol_post_detail_page') AS video_detail_exposure_pv,
+            COUNTIF(event_name = 'c_third_party_goods' AND product_code IS NOT NULL) AS product_click_count
+        FROM normalized_events
+        GROUP BY dt, channel, device_id
     )
     SELECT
         dt,
         channel,
         device_id,
+        thirdapp_open_pv,
+        video_detail_exposure_pv,
+        product_click_count,
         CURRENT_TIMESTAMP() AS update_time
-    FROM normalized_events;
+    FROM device_metric_daily;
     """
     logging.info("开始处理: dws_thirdapp_channel_device_daily")
     client.query(query).result()
