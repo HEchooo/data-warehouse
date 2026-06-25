@@ -250,18 +250,6 @@ def calc_rate(numerator, denominator):
     return float(numerator) / float(denominator)
 
 
-def format_rate_today_yesterday(
-    today_numerator,
-    today_denominator,
-    yesterday_numerator,
-    yesterday_denominator,
-) -> str:
-    return (
-        f"当日 {format_percent(calc_rate(today_numerator, today_denominator))} / "
-        f"昨日 {format_percent(calc_rate(yesterday_numerator, yesterday_denominator))}"
-    )
-
-
 def format_duration_seconds(value) -> str:
     if value is None:
         return "--"
@@ -270,121 +258,247 @@ def format_duration_seconds(value) -> str:
     return f"{float(value):,.2f} 秒"
 
 
-def format_today_yesterday(today_value, yesterday_value) -> str:
-    return (
-        f"当日 {format_int(today_value)} / "
-        f"昨日 {format_int(yesterday_value)}"
-    )
+def build_value_rows(row: dict) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+    overview_rows = [
+        {"metric": "新增视频", "value": format_int(row["new_video_count"])},
+        {"metric": "活跃视频数", "value": format_int(row["active_video_count"])},
+        {
+            "metric": "新增视频播放数",
+            "value": format_int(row["new_video_view_count"]),
+        },
+        {
+            "metric": "新增视频平均播放数",
+            "value": format_rounded_int(row["avg_new_video_view_count"]),
+        },
+        {
+            "metric": "新增视频 7 日播放数",
+            "value": format_rounded_int(row["new_video_7d_avg_view_count"]),
+        },
+        {
+            "metric": "视频制作成本（美元）",
+            "value": format_decimal(row["video_production_cost_usd"]),
+        },
+        {
+            "metric": "每千次播放成本（美元）",
+            "value": format_decimal(row["cost_per_thousand_views_usd"], 2),
+        },
+    ]
+    conversion_rows = [
+        {"metric": "新增下载", "value": format_int(row["new_download_count"])},
+        {
+            "metric": "播放下载转化率",
+            "value": format_percent(row["play_download_conversion_rate"]),
+        },
+    ]
+    user_rows = [
+        {"metric": "新增设备数", "value": format_int(row["new_device_count"])},
+        {"metric": "活跃设备数", "value": format_int(row["active_device_count"])},
+        {
+            "metric": "活跃注册用户数",
+            "value": format_int(row["active_registered_user_count"]),
+        },
+        {
+            "metric": "人均停留时长",
+            "value": format_duration_seconds(row["avg_duration_sec"]),
+        },
+    ]
+    content_rows = [
+        {
+            "metric": "人均内容展示量",
+            "value": format_decimal(row["avg_content_exposure_count"], 2),
+        },
+        {
+            "metric": "人均内容点击量",
+            "value": format_decimal(row["avg_content_click_count"], 2),
+        },
+        {"metric": "内容点击率", "value": format_percent(row["content_ctr"])},
+        {
+            "metric": "人均商详页点击量",
+            "value": format_decimal(
+                row["avg_product_detail_exposure_count"],
+                2,
+            ),
+        },
+    ]
+    return overview_rows, conversion_rows, user_rows, content_rows
+
+
+def build_publish_rows(row: dict) -> list[dict]:
+    return [
+        {
+            "metric": "活跃运营账号数",
+            "today": format_int(row["active_account_count"]),
+            "yesterday": format_int(row["previous_active_account_count"]),
+        },
+        {
+            "metric": "API 发布视频数",
+            "today": format_int(row["api_task_total"]),
+            "yesterday": format_int(row["previous_api_task_total"]),
+        },
+        {
+            "metric": "RPA 发布视频数",
+            "today": format_int(row["rpa_task_total"]),
+            "yesterday": format_int(row["previous_rpa_task_total"]),
+        },
+        {
+            "metric": "发布总视频数",
+            "today": format_int(row["publish_task_total"]),
+            "yesterday": format_int(row["previous_publish_task_total"]),
+        },
+        {
+            "metric": "账号发视频率",
+            "today": format_percent(
+                calc_rate(
+                    row["publish_task_total"],
+                    row["active_account_count"],
+                )
+            ),
+            "yesterday": format_percent(
+                calc_rate(
+                    row["previous_publish_task_total"],
+                    row["previous_active_account_count"],
+                )
+            ),
+        },
+        {
+            "metric": "API 发布成功视频数",
+            "today": format_int(row["api_task_success_count"]),
+            "yesterday": format_int(row["previous_api_task_success_count"]),
+        },
+        {
+            "metric": "RPA 发布成功视频数",
+            "today": format_int(row["rpa_task_success_count"]),
+            "yesterday": format_int(row["previous_rpa_task_success_count"]),
+        },
+        {
+            "metric": "发布成功总视频数",
+            "today": format_int(row["publish_task_success_count"]),
+            "yesterday": format_int(row["previous_publish_task_success_count"]),
+        },
+        {
+            "metric": "视频发布成功率",
+            "today": format_percent(
+                calc_rate(
+                    row["publish_task_success_count"],
+                    row["publish_task_total"],
+                )
+            ),
+            "yesterday": format_percent(
+                calc_rate(
+                    row["previous_publish_task_success_count"],
+                    row["previous_publish_task_total"],
+                )
+            ),
+        },
+        {
+            "metric": "新增视频数",
+            "today": format_int(row["new_video_count"]),
+            "yesterday": format_int(row["previous_new_video_count"]),
+        },
+        {
+            "metric": "社媒平台发布视频数读数成功率",
+            "today": format_percent(
+                calc_rate(
+                    row["new_video_count"],
+                    row["publish_task_total"],
+                )
+            ),
+            "yesterday": format_percent(
+                calc_rate(
+                    row["previous_new_video_count"],
+                    row["previous_publish_task_total"],
+                )
+            ),
+        },
+    ]
+
+
+def build_value_table(rows: list[dict], element_id: str) -> dict:
+    return {
+        "tag": "table",
+        "element_id": element_id,
+        "margin": "8px 0px 0px 0px",
+        "page_size": len(rows),
+        "row_height": "low",
+        "header_style": {
+            "text_align": "center",
+            "text_size": "normal",
+            "background_style": "grey",
+            "text_color": "default",
+            "bold": True,
+            "lines": 1,
+        },
+        "columns": [
+            {
+                "name": "metric",
+                "display_name": "Metrics",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "50%",
+            },
+            {
+                "name": "value",
+                "display_name": "Value",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "50%",
+            },
+        ],
+        "rows": rows,
+    }
+
+
+def build_compare_table(rows: list[dict], element_id: str) -> dict:
+    return {
+        "tag": "table",
+        "element_id": element_id,
+        "margin": "8px 0px 0px 0px",
+        "page_size": 10,
+        "row_height": "low",
+        "header_style": {
+            "text_align": "center",
+            "text_size": "normal",
+            "background_style": "grey",
+            "text_color": "default",
+            "bold": True,
+            "lines": 1,
+        },
+        "columns": [
+            {
+                "name": "metric",
+                "display_name": "Metrics",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "45%",
+            },
+            {
+                "name": "today",
+                "display_name": "Today",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "27.5%",
+            },
+            {
+                "name": "yesterday",
+                "display_name": "Yesterday",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "27.5%",
+            },
+        ],
+        "rows": rows,
+    }
 
 
 def build_card_payload(row: dict) -> dict:
     dt_text = row["dt"].isoformat()
-
-    metrics_overview = "\n".join(
-        [
-            f"**新增视频**：{format_int(row['new_video_count'])}",
-            f"**活跃视频数**：{format_int(row['active_video_count'])}",
-            f"**新增视频播放数**：{format_int(row['new_video_view_count'])}",
-            (
-                "**新增视频平均播放数**："
-                f"{format_rounded_int(row['avg_new_video_view_count'])}"
-            ),
-            (
-                "**新增视频 7 日播放数**："
-                f"{format_rounded_int(row['new_video_7d_avg_view_count'])}"
-            ),
-            (
-                "**视频制作成本（美元）**："
-                f"{format_decimal(row['video_production_cost_usd'])}"
-            ),
-            (
-                "**每千次播放成本（美元）**："
-                f"{format_decimal(row['cost_per_thousand_views_usd'], 2)}"
-            ),
-        ]
-    )
-    metrics_publish = "\n".join(
-        [
-            (
-                "**活跃运营账号数**："
-                f"{format_today_yesterday(row['active_account_count'], row['previous_active_account_count'])}"
-            ),
-            (
-                "**API 发布视频数**："
-                f"{format_today_yesterday(row['api_task_total'], row['previous_api_task_total'])}"
-            ),
-            (
-                "**RPA 发布视频数**："
-                f"{format_today_yesterday(row['rpa_task_total'], row['previous_rpa_task_total'])}"
-            ),
-            (
-                "**发布总视频数**："
-                f"{format_today_yesterday(row['publish_task_total'], row['previous_publish_task_total'])}"
-            ),
-            (
-                "**账号发视频率**："
-                f"{format_rate_today_yesterday(row['publish_task_total'], row['active_account_count'], row['previous_publish_task_total'], row['previous_active_account_count'])}"
-            ),
-            (
-                "**API 发布成功视频数**："
-                f"{format_today_yesterday(row['api_task_success_count'], row['previous_api_task_success_count'])}"
-            ),
-            (
-                "**RPA 发布成功视频数**："
-                f"{format_today_yesterday(row['rpa_task_success_count'], row['previous_rpa_task_success_count'])}"
-            ),
-            (
-                "**发布成功总视频数**："
-                f"{format_today_yesterday(row['publish_task_success_count'], row['previous_publish_task_success_count'])}"
-            ),
-            (
-                "**视频发布成功率**："
-                f"{format_rate_today_yesterday(row['publish_task_success_count'], row['publish_task_total'], row['previous_publish_task_success_count'], row['previous_publish_task_total'])}"
-            ),
-            (
-                "**新增视频数**："
-                f"{format_today_yesterday(row['new_video_count'], row['previous_new_video_count'])}"
-            ),
-            (
-                "**社媒平台发布视频数读数成功率**："
-                f"{format_rate_today_yesterday(row['new_video_count'], row['publish_task_total'], row['previous_new_video_count'], row['previous_publish_task_total'])}"
-            ),
-        ]
-    )
-    metrics_conversion = "\n".join(
-        [
-            f"**新增下载**：{format_int(row['new_download_count'])}",
-            f"**播放下载转化率**：{format_percent(row['play_download_conversion_rate'])}",
-        ]
-    )
-    metrics_user = "\n".join(
-        [
-            f"**新增设备数**：{format_int(row['new_device_count'])}",
-            f"**活跃设备数**：{format_int(row['active_device_count'])}",
-            (
-                "**活跃注册用户数**："
-                f"{format_int(row['active_registered_user_count'])}"
-            ),
-            f"**人均停留时长**：{format_duration_seconds(row['avg_duration_sec'])}",
-        ]
-    )
-    metrics_content = "\n".join(
-        [
-            (
-                "**人均内容展示量**："
-                f"{format_decimal(row['avg_content_exposure_count'], 2)}"
-            ),
-            (
-                "**人均内容点击量**："
-                f"{format_decimal(row['avg_content_click_count'], 2)}"
-            ),
-            f"**内容点击率**：{format_percent(row['content_ctr'])}",
-            (
-                "**人均商详页点击量**："
-                f"{format_decimal(row['avg_product_detail_exposure_count'], 2)}"
-            ),
-        ]
-    )
+    overview_rows, conversion_rows, user_rows, content_rows = build_value_rows(row)
+    publish_rows = build_publish_rows(row)
 
     update_time = row.get("update_time")
     if isinstance(update_time, datetime):
@@ -395,10 +509,7 @@ def build_card_payload(row: dict) -> dict:
     return {
         "msg_type": "interactive",
         "card": {
-            "config": {
-                "wide_screen_mode": True,
-                "enable_forward": True,
-            },
+            "schema": "2.0",
             "header": {
                 "template": "blue",
                 "title": {
@@ -406,55 +517,94 @@ def build_card_payload(row: dict) -> dict:
                     "content": f"核心业务报表 - 明细表 | {dt_text}",
                 },
             },
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
+            "body": {
+                "direction": "vertical",
+                "padding": "12px 12px 12px 12px",
+                "elements": [
+                    {
+                        "tag": "markdown",
                         "content": (
                             f"**数据日期**：`{dt_text}`\n"
                             f"**日期口径**：America/Toronto 昨日\n"
                             f"**更新时间**：{update_time_text}"
                         ),
+                        "text_align": "left",
+                        "margin": "0px 0px 0px 0px",
                     },
-                },
-                {"tag": "hr"},
-                {"tag": "div", "text": {"tag": "lark_md", "content": metrics_overview}},
-                {"tag": "hr"},
-                {"tag": "div", "text": {"tag": "lark_md", "content": metrics_publish}},
-                {"tag": "hr"},
-                {
-                    "tag": "div",
-                    "text": {"tag": "lark_md", "content": metrics_conversion},
-                },
-                {"tag": "hr"},
-                {"tag": "div", "text": {"tag": "lark_md", "content": metrics_user}},
-                {"tag": "hr"},
-                {"tag": "div", "text": {"tag": "lark_md", "content": metrics_content}},
-                {
-                    "tag": "action",
-                    "actions": [
-                        {
-                            "tag": "button",
-                            "text": {
-                                "tag": "plain_text",
-                                "content": "打开 Dashboard",
-                            },
-                            "type": "primary",
-                            "url": DASHBOARD_URL,
+                    {
+                        "tag": "markdown",
+                        "content": "**概览**",
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_value_table(overview_rows, element_id="overview_metrics"),
+                    {
+                        "tag": "markdown",
+                        "content": "**发布**",
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_compare_table(publish_rows, element_id="publish_metrics"),
+                    {
+                        "tag": "markdown",
+                        "content": "**转化**",
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_value_table(
+                        conversion_rows,
+                        element_id="conversion_metrics",
+                    ),
+                    {
+                        "tag": "markdown",
+                        "content": "**用户**",
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_value_table(user_rows, element_id="user_metrics"),
+                    {
+                        "tag": "markdown",
+                        "content": "**内容**",
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_value_table(content_rows, element_id="content_metrics"),
+                    {
+                        "tag": "button",
+                        "text": {
+                            "tag": "plain_text",
+                            "content": "打开 Dashboard",
                         },
-                        {
-                            "tag": "button",
-                            "text": {
-                                "tag": "plain_text",
-                                "content": "查看数据口径",
-                            },
-                            "type": "primary",
-                            "url": METRIC_DOC_URL,
-                        }
-                    ],
-                },
-            ],
+                        "type": "primary",
+                        "width": "default",
+                        "size": "medium",
+                        "behaviors": [
+                            {
+                                "type": "open_url",
+                                "default_url": DASHBOARD_URL,
+                            }
+                        ],
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    {
+                        "tag": "button",
+                        "text": {
+                            "tag": "plain_text",
+                            "content": "查看数据口径",
+                        },
+                        "type": "primary",
+                        "width": "default",
+                        "size": "medium",
+                        "behaviors": [
+                            {
+                                "type": "open_url",
+                                "default_url": METRIC_DOC_URL,
+                            }
+                        ],
+                        "margin": "12px 0px 0px 0px",
+                    },
+                ],
+            },
         },
     }
 
