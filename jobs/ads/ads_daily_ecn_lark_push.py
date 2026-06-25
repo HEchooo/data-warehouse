@@ -195,13 +195,6 @@ def format_int(value) -> str:
     return f"{int(value):,}"
 
 
-def format_today_yesterday(today_value, yesterday_value) -> str:
-    return (
-        f"当日 {format_int(today_value)} / "
-        f"昨日 {format_int(yesterday_value)}"
-    )
-
-
 def format_percent(value, scale: int = 2) -> str:
     if value is None:
         return "--"
@@ -216,16 +209,139 @@ def calc_rate(numerator, denominator):
     return float(numerator) / float(denominator)
 
 
-def format_rate_today_yesterday(
-    today_numerator,
-    today_denominator,
-    yesterday_numerator,
-    yesterday_denominator,
-) -> str:
-    return (
-        f"当日 {format_percent(calc_rate(today_numerator, today_denominator))} / "
-        f"昨日 {format_percent(calc_rate(yesterday_numerator, yesterday_denominator))}"
-    )
+def build_table_rows(row: dict) -> list[dict]:
+    return [
+        {
+            "metric": "活跃运营账号数",
+            "today": format_int(row["active_account_count"]),
+            "yesterday": format_int(row["previous_active_account_count"]),
+        },
+        {
+            "metric": "API 发布视频数",
+            "today": format_int(row["api_task_total"]),
+            "yesterday": format_int(row["previous_api_task_total"]),
+        },
+        {
+            "metric": "RPA 发布视频数",
+            "today": format_int(row["rpa_task_total"]),
+            "yesterday": format_int(row["previous_rpa_task_total"]),
+        },
+        {
+            "metric": "发布总视频数",
+            "today": format_int(row["publish_task_total"]),
+            "yesterday": format_int(row["previous_publish_task_total"]),
+        },
+        {
+            "metric": "账号发视频率",
+            "today": format_percent(
+                calc_rate(
+                    row["publish_task_total"],
+                    row["active_account_count"],
+                )
+            ),
+            "yesterday": format_percent(
+                calc_rate(
+                    row["previous_publish_task_total"],
+                    row["previous_active_account_count"],
+                )
+            ),
+        },
+        {
+            "metric": "API 发布成功视频数",
+            "today": format_int(row["api_task_success_count"]),
+            "yesterday": format_int(row["previous_api_task_success_count"]),
+        },
+        {
+            "metric": "RPA 发布成功视频数",
+            "today": format_int(row["rpa_task_success_count"]),
+            "yesterday": format_int(row["previous_rpa_task_success_count"]),
+        },
+        {
+            "metric": "发布成功总视频数",
+            "today": format_int(row["publish_task_success_count"]),
+            "yesterday": format_int(row["previous_publish_task_success_count"]),
+        },
+        {
+            "metric": "视频发布成功率",
+            "today": format_percent(
+                calc_rate(
+                    row["publish_task_success_count"],
+                    row["publish_task_total"],
+                )
+            ),
+            "yesterday": format_percent(
+                calc_rate(
+                    row["previous_publish_task_success_count"],
+                    row["previous_publish_task_total"],
+                )
+            ),
+        },
+        {
+            "metric": "新增视频数",
+            "today": format_int(row["new_video_count"]),
+            "yesterday": format_int(row["previous_new_video_count"]),
+        },
+        {
+            "metric": "社媒平台发布视频数读数成功率",
+            "today": format_percent(
+                calc_rate(
+                    row["new_video_count"],
+                    row["publish_task_total"],
+                )
+            ),
+            "yesterday": format_percent(
+                calc_rate(
+                    row["previous_new_video_count"],
+                    row["previous_publish_task_total"],
+                )
+            ),
+        },
+    ]
+
+
+def build_metrics_table(rows: list[dict], element_id: str) -> dict:
+    return {
+        "tag": "table",
+        "element_id": element_id,
+        "margin": "8px 0px 0px 0px",
+        "page_size": 10,
+        "row_height": "low",
+        "header_style": {
+            "text_align": "center",
+            "text_size": "normal",
+            "background_style": "grey",
+            "text_color": "default",
+            "bold": True,
+            "lines": 1,
+        },
+        "columns": [
+            {
+                "name": "metric",
+                "display_name": "Metrics",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "45%",
+            },
+            {
+                "name": "today",
+                "display_name": "Today",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "27.5%",
+            },
+            {
+                "name": "yesterday",
+                "display_name": "Yesterday",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "27.5%",
+            },
+        ],
+        "rows": rows,
+    }
 
 
 def build_card_payload(row: dict) -> dict:
@@ -235,63 +351,12 @@ def build_card_payload(row: dict) -> dict:
         update_time_text = update_time.strftime("%Y-%m-%d %H:%M:%S UTC")
     else:
         update_time_text = "--"
-
-    metrics_publish = "\n".join(
-        [
-            (
-                "**活跃运营账号数**："
-                f"{format_today_yesterday(row['active_account_count'], row['previous_active_account_count'])}"
-            ),
-            (
-                "**API 发布视频数**："
-                f"{format_today_yesterday(row['api_task_total'], row['previous_api_task_total'])}"
-            ),
-            (
-                "**RPA 发布视频数**："
-                f"{format_today_yesterday(row['rpa_task_total'], row['previous_rpa_task_total'])}"
-            ),
-            (
-                "**发布总视频数**："
-                f"{format_today_yesterday(row['publish_task_total'], row['previous_publish_task_total'])}"
-            ),
-            (
-                "**账号发视频率**："
-                f"{format_rate_today_yesterday(row['publish_task_total'], row['active_account_count'], row['previous_publish_task_total'], row['previous_active_account_count'])}"
-            ),
-            (
-                "**API 发布成功视频数**："
-                f"{format_today_yesterday(row['api_task_success_count'], row['previous_api_task_success_count'])}"
-            ),
-            (
-                "**RPA 发布成功视频数**："
-                f"{format_today_yesterday(row['rpa_task_success_count'], row['previous_rpa_task_success_count'])}"
-            ),
-            (
-                "**发布成功总视频数**："
-                f"{format_today_yesterday(row['publish_task_success_count'], row['previous_publish_task_success_count'])}"
-            ),
-            (
-                "**视频发布成功率**："
-                f"{format_rate_today_yesterday(row['publish_task_success_count'], row['publish_task_total'], row['previous_publish_task_success_count'], row['previous_publish_task_total'])}"
-            ),
-            (
-                "**新增视频数**："
-                f"{format_today_yesterday(row['new_video_count'], row['previous_new_video_count'])}"
-            ),
-            (
-                "**社媒平台发布视频数读数成功率**："
-                f"{format_rate_today_yesterday(row['new_video_count'], row['publish_task_total'], row['previous_new_video_count'], row['previous_publish_task_total'])}"
-            ),
-        ]
-    )
+    metrics_rows = build_table_rows(row)
 
     return {
         "msg_type": "interactive",
         "card": {
-            "config": {
-                "wide_screen_mode": True,
-                "enable_forward": True,
-            },
+            "schema": "2.0",
             "header": {
                 "template": "blue",
                 "title": {
@@ -299,21 +364,26 @@ def build_card_payload(row: dict) -> dict:
                     "content": f"ECN 数据发布 | {dt_text}",
                 },
             },
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
+            "body": {
+                "direction": "vertical",
+                "padding": "12px 12px 12px 12px",
+                "elements": [
+                    {
+                        "tag": "markdown",
                         "content": (
                             f"**数据日期**：`{dt_text}`\n"
                             f"**日期口径**：America/Toronto 昨日\n"
                             f"**更新时间**：{update_time_text}"
                         ),
+                        "text_align": "left",
+                        "margin": "0px 0px 0px 0px",
                     },
-                },
-                {"tag": "hr"},
-                {"tag": "div", "text": {"tag": "lark_md", "content": metrics_publish}},
-            ],
+                    build_metrics_table(
+                        metrics_rows,
+                        element_id="publish_metrics",
+                    ),
+                ],
+            },
         },
     }
 
