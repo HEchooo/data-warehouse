@@ -114,6 +114,16 @@
 | 前一天新增 views / 博主总数 | `decom.ads_daily_social_content` | `daily_view_increment_per_creator` | 分子为 `daily_view_increment`；分母为 `creator_count_to_prev_day`，即截至 `dt-1` 已发布过视频的历史去重博主数；`全部渠道` 用 `channel + creator_id` 去重 |
 | 每个博主最新 3 条的平均赞播率 | `decom.ads_daily_social_content` | `latest_3_avg_like_view_rate` | 先限定截至 `dt` 已有采集数据的视频，再按发布时间倒序取每个博主其中最新 3 条；汇总样本池的 `latest_3_sample_like_count / latest_3_sample_view_count`；`全部渠道` 仍按 `channel + creator_id` 分组取各博主最新 3 条 |
 
+### Superset 虚拟 dataset：`virtual_social_content_v2_published_horizon_views`
+
+| 需求字段 | 落地位置 | 落地字段 | 口径 |
+|------|------|------|------|
+| 日期 | Superset 虚拟 dataset `virtual_social_content_v2_published_horizon_views` | `dt` | 发布时间 cohort 日期，直接复用 `decom.ads_daily_social_content_v2.dt` |
+| 渠道 | Superset 虚拟 dataset `virtual_social_content_v2_published_horizon_views` | `channel` | 固定枚举 `全部渠道 / youtube / tiktok / ins` |
+| 观察窗标签 | Superset 虚拟 dataset `virtual_social_content_v2_published_horizon_views` | `horizon_label` | 使用不可见控制字符前缀稳定 `T / T+1 / T+3 / T+7 / T+14` 的排序 |
+| 累计播放总和 | Superset 虚拟 dataset `virtual_social_content_v2_published_horizon_views` | `view_count` | 对应发布时间 cohort 在 `T / T+1 / T+3 / T+7 / T+14` 观察日的累计播放总和；未成熟 cohort 返回 `NULL` |
+| 发布时间 cohort 视频数 | Superset 虚拟 dataset `virtual_social_content_v2_published_horizon_views` | `video_count` | 对应发布时间 cohort 的发布视频数；真实渠道按 `video_key` 去重，`全部渠道` 按 `unified_video_key` 对齐全历史最早发布时间后去重；未成熟 cohort 返回 `NULL` |
+
 ### 分布报表：`decom.ads_daily_social_content_published_day3_view_bucket_v2`
 
 | 需求字段 | 落地表 | 落地字段 | 口径 |
@@ -158,6 +168,7 @@
 - “新视频7天平均播放数”的分子使用 `dt` 当天该 cohort 视频的 `day_end_views` 汇总，等价于这些视频“首采正播放后第 7 天”的累计播放数；若中间某天无新采集，则仍沿用最近一次已知累计值
 - 发布时间 cohort 播放图与“每天新增视频数”不是同一口径：前者按 `published_dt` 分 cohort，后者按首个 `views > 0` 的采集日统计新增视频
 - 发布时间 cohort 播放图的 `T / T+1 / T+3 / T+7 / T+14` 都表示对应观察日的日末累计播放，不是这几天内逐日播放增量求和
+- dashboard 图表 `Social Content v2（日表）-发布时间 cohort 平均播放折线图` 在 Superset 层使用 `SUM(view_count) / SUM(video_count)` 展示平均播放量；底层 `view_count` 仍保留 cohort 总播放，供其他图表复用
 - 发布时间 cohort 播放图里未成熟的近期 cohort 直接返回空值，不用当前累计播放去近似 `T+1 / T+3 / T+7 / T+14`
 - 发布时间 cohort 播放图展示时还会按 `America/Toronto` 当前自然日动态截断未走完整天的观察窗；例如在 `2026-06-25` 查看 `2026-06-24` cohort 时，只展示 `T`，不展示 `T+1`
 - `T+3` 播放分桶图只产出已成熟 cohort；最新 3 个 cohort 日期不会提前补零或用当前累计播放近似
