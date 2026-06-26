@@ -23,6 +23,29 @@ TENANT_CODE = "T18002707"
 
 client = bigquery.Client(project=PROJECT_ID)
 
+MAKEPOD_CHANNEL_RULES = (
+    {
+        "channel": "Facebook",
+        "prop_share_code": "AAACXvNZSVQ",
+        "invite_user_id": "2606093799415",
+    },
+    {
+        "channel": "Google",
+        "prop_share_code": "AAACXvMF8vw",
+        "invite_user_id": "2606090368095",
+    },
+    {
+        "channel": "TikTok",
+        "prop_share_code": "AAACXvMzgK4",
+        "invite_user_id": "2606091027981",
+    },
+)
+MAKEPOD_FALLBACK_CHANNEL = "Other"
+MAKEPOD_CHANNELS = [
+    *(rule["channel"] for rule in MAKEPOD_CHANNEL_RULES),
+    MAKEPOD_FALLBACK_CHANNEL,
+]
+
 
 def configure_logging() -> Path:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -43,6 +66,50 @@ def configure_logging() -> Path:
     logger.addHandler(file_handler)
 
     return log_path
+
+
+def sql_string_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def makepod_channels_array_sql() -> str:
+    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_CHANNELS)
+
+
+def build_makepod_share_code_channel_case_sql(field_expr: str) -> str:
+    when_clauses = "\n".join(
+        [
+            "                "
+            + f"WHEN CAST({field_expr} AS STRING) = "
+            + f"{sql_string_literal(rule['prop_share_code'])} "
+            + f"THEN {sql_string_literal(rule['channel'])}"
+            for rule in MAKEPOD_CHANNEL_RULES
+        ]
+    )
+    return (
+        "CASE\n"
+        f"{when_clauses}\n"
+        f"                ELSE {sql_string_literal(MAKEPOD_FALLBACK_CHANNEL)}\n"
+        "            END"
+    )
+
+
+def build_makepod_invite_user_channel_case_sql(field_expr: str) -> str:
+    when_clauses = "\n".join(
+        [
+            "                "
+            + f"WHEN CAST({field_expr} AS STRING) = "
+            + f"{sql_string_literal(rule['invite_user_id'])} "
+            + f"THEN {sql_string_literal(rule['channel'])}"
+            for rule in MAKEPOD_CHANNEL_RULES
+        ]
+    )
+    return (
+        "CASE\n"
+        f"{when_clauses}\n"
+        f"                ELSE {sql_string_literal(MAKEPOD_FALLBACK_CHANNEL)}\n"
+        "            END"
+    )
 
 
 def dates_to_sql_list(dates: list[date]) -> str:
@@ -226,8 +293,15 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
+    channels_array_sql = makepod_channels_array_sql()
     event_dt = makepod_event_date_expr()
     register_ts = service_ts_expr()
+    share_code_channel_sql = build_makepod_share_code_channel_case_sql(
+        "e.prop_share_code"
+    )
+    invite_user_channel_sql = build_makepod_invite_user_channel_case_sql(
+        "u.invite_user_id"
+    )
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -236,6 +310,7 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
     INSERT INTO `{target_table_id()}`
     (
         dt,
+        channel,
         dau_uv_total,
         dau_new_uv,
         dau_old_uv,
@@ -251,16 +326,22 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
+    -- 渠道枚举：固定产出 4 个展示渠道。
+    channel_list AS (
+        SELECT channel
+        FROM UNNEST([{channels_array_sql}]) AS channel
+    ),
     -- 达人邀请用户映射：只保留存在于 kol_rel 的邀请用户。
     kol_invite_users AS (
         SELECT DISTINCT CAST(user_id AS STRING) AS invite_user_id
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.kol_rel`
         WHERE user_id IS NOT NULL
     ),
-    -- 事件基础层：统一到设备日，并沉淀后续聚合所需的行为标记。
-    device_daily AS (
+    -- 事件基础层：统一到设备日渠道，并沉淀后续聚合所需的行为标记。
+    device_daily_channel AS (
         SELECT
             {event_dt} AS dt,
+            {share_code_channel_sql} AS channel,
             e.prop_device_id,
             MAX(
                 CASE
@@ -292,7 +373,7 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             AND e.prop_device_id IS NOT NULL
             AND e.prop_device_id != ''
             AND e.event_name NOT IN ({PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL})
-        GROUP BY dt, e.prop_device_id
+        GROUP BY dt, channel, e.prop_device_id
     ),
     -- 首次到访维表：用于新老设备分群。
     device_first_visit AS (
@@ -308,6 +389,7 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
     traffic_metrics AS (
         SELECT
             d.dt,
+            d.channel,
             COUNT(DISTINCT d.prop_device_id) AS dau_uv_total,
             COUNT(
                 DISTINCT IF(f.first_visit_date = d.dt, d.prop_device_id, NULL)
@@ -324,35 +406,37 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             COUNT(
                 DISTINCT IF(d.is_kol_invited_visitor = 1, d.prop_device_id, NULL)
             ) AS kol_invited_visitor_uv
-        FROM device_daily d
+        FROM device_daily_channel d
         LEFT JOIN device_first_visit f
             ON d.prop_device_id = f.prop_device_id
-        GROUP BY d.dt
+        GROUP BY d.dt, d.channel
     ),
-    -- 注册人数：按 user_info 注册日统计去重用户数。
-    register_metrics AS (
+    -- 注册基础层：按注册日产出用户渠道键。
+    register_base AS (
         SELECT
             DATE({register_ts}, '{SHANGHAI_TZ}') AS dt,
-            COUNT(
-                DISTINCT IF(
-                    COALESCE(
-                        NULLIF(CAST(user_id AS STRING), ''),
-                        NULLIF(CAST(id AS STRING), '')
-                    ) IS NOT NULL,
-                    COALESCE(
-                        NULLIF(CAST(user_id AS STRING), ''),
-                        NULLIF(CAST(id AS STRING), '')
-                    ),
-                    NULL
-                )
-            ) AS register_user_count
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_info`
+            {invite_user_channel_sql} AS channel,
+            COALESCE(
+                NULLIF(CAST(u.user_id AS STRING), ''),
+                NULLIF(CAST(u.id AS STRING), '')
+            ) AS register_user_key
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_info` u
         WHERE tenant_code = '{TENANT_CODE}'
             AND DATE({register_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
-        GROUP BY dt
+    ),
+    -- 注册人数：按 user_info 注册日和用户渠道统计去重用户数。
+    register_metrics AS (
+        SELECT
+            dt,
+            channel,
+            COUNT(DISTINCT register_user_key) AS register_user_count
+        FROM register_base
+        WHERE register_user_key IS NOT NULL
+        GROUP BY dt, channel
     )
     SELECT
         d.dt,
+        c.channel,
         COALESCE(t.dau_uv_total, 0) AS dau_uv_total,
         COALESCE(t.dau_new_uv, 0) AS dau_new_uv,
         COALESCE(t.dau_old_uv, 0) AS dau_old_uv,
@@ -362,10 +446,13 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         COALESCE(t.kol_invited_visitor_uv, 0) AS kol_invited_visitor_uv,
         CURRENT_TIMESTAMP() AS update_time
     FROM target_dates d
+    CROSS JOIN channel_list c
     LEFT JOIN traffic_metrics t
         ON d.dt = t.dt
+        AND c.channel = t.channel
     LEFT JOIN register_metrics r
-        ON d.dt = r.dt;
+        ON d.dt = r.dt
+        AND c.channel = r.channel;
     """
     logging.info("开始处理: dws_makepod_traffic_daily")
     client.query(query).result()

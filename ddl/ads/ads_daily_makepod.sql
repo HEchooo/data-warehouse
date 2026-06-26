@@ -16,3 +16,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_makepod` (
     update_time TIMESTAMP
 )
 PARTITION BY dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_makepod`
+ADD COLUMN channel STRING;

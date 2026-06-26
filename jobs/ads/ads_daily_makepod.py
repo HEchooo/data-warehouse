@@ -3,18 +3,22 @@ import logging
 from pathlib import Path
 import sys
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
-
 
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ads_daily_makepod"
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 
 client = bigquery.Client(project=PROJECT_ID)
+
+MAKEPOD_CHANNELS = ["Facebook", "Google", "TikTok", "Other"]
 
 
 def configure_logging() -> Path:
@@ -36,6 +40,14 @@ def configure_logging() -> Path:
     logger.addHandler(file_handler)
 
     return log_path
+
+
+def sql_string_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def makepod_channels_array_sql() -> str:
+    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_CHANNELS)
 
 
 def dates_to_sql_list(dates: list[date]) -> str:
@@ -136,6 +148,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
+    channels_array_sql = makepod_channels_array_sql()
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -144,6 +157,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
     INSERT INTO `{target_table_id()}`
     (
         dt,
+        channel,
         dau_uv_total,
         dau_new_uv,
         dau_old_uv,
@@ -165,10 +179,16 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
+    -- 渠道枚举：固定产出 4 个展示渠道。
+    channel_list AS (
+        SELECT channel
+        FROM UNNEST([{channels_array_sql}]) AS channel
+    ),
     -- Makepod 流量主题 DWS：只取本批目标日期。
     traffic_fact AS (
         SELECT
             dt,
+            channel,
             dau_uv_total,
             dau_new_uv,
             dau_old_uv,
@@ -183,6 +203,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
     order_fact AS (
         SELECT
             dt,
+            channel,
             order_user_count,
             pay_user_count,
             pay_order_count,
@@ -194,6 +215,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
     )
     SELECT
         d.dt,
+        c.channel,
         COALESCE(t.dau_uv_total, 0) AS dau_uv_total,
         COALESCE(t.dau_new_uv, 0) AS dau_new_uv,
         COALESCE(t.dau_old_uv, 0) AS dau_old_uv,
@@ -209,10 +231,13 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         COALESCE(t.kol_invited_visitor_uv, 0) AS kol_invited_visitor_uv,
         CURRENT_TIMESTAMP() AS update_time
     FROM target_dates d
+    CROSS JOIN channel_list c
     LEFT JOIN traffic_fact t
         ON d.dt = t.dt
+        AND c.channel = t.channel
     LEFT JOIN order_fact o
-        ON d.dt = o.dt;
+        ON d.dt = o.dt
+        AND c.channel = o.channel;
     """
     logging.info("开始处理: ads_daily_makepod")
     client.query(query).result()

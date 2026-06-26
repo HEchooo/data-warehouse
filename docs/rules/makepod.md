@@ -12,6 +12,14 @@
 - `invite_user_id` 是邀请用户 id，其中包含达人
 - 达人指的是 `v3_decom.kol_rel.user_id = decom.dwd_makepod_event_log.invite_user_id` 的记录
 
+## 渠道映射
+
+- 当前 Makepod 渠道固定枚举：`Facebook`、`Google`、`TikTok`、`Other`
+- `prop_share_code -> invite_user_id -> channel` 映射：
+  - `AAACXvNZSVQ -> 2606093799415 -> Facebook`
+  - `AAACXvMF8vw -> 2606090368095 -> Google`
+  - `AAACXvMzgK4 -> 2606091027981 -> TikTok`
+
 ## 注册相关
 
 - `v3_decom.user_info` 表，`tenant_code = 'T18002707'`

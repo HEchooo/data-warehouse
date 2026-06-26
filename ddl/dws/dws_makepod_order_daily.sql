@@ -9,3 +9,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_makepod_order_daily` (
     update_time TIMESTAMP
 )
 PARTITION BY dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_makepod_order_daily`
+ADD COLUMN channel STRING;

@@ -3,6 +3,10 @@ import logging
 from pathlib import Path
 import sys
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 
@@ -11,12 +15,31 @@ DATASET_ID = "decom"
 V3_DATASET_ID = "v3_decom"
 SHANGHAI_TZ = "Asia/Shanghai"
 TABLE_NAME = "dws_makepod_order_daily"
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 TENANT_CODE = "T18002707"
 
 client = bigquery.Client(project=PROJECT_ID)
+
+MAKEPOD_INVITE_USER_CHANNEL_RULES = (
+    {
+        "channel": "Facebook",
+        "invite_user_id": "2606093799415",
+    },
+    {
+        "channel": "Google",
+        "invite_user_id": "2606090368095",
+    },
+    {
+        "channel": "TikTok",
+        "invite_user_id": "2606091027981",
+    },
+)
+MAKEPOD_FALLBACK_CHANNEL = "Other"
+MAKEPOD_CHANNELS = [
+    *(rule["channel"] for rule in MAKEPOD_INVITE_USER_CHANNEL_RULES),
+    MAKEPOD_FALLBACK_CHANNEL,
+]
 
 
 def configure_logging() -> Path:
@@ -38,6 +61,32 @@ def configure_logging() -> Path:
     logger.addHandler(file_handler)
 
     return log_path
+
+
+def sql_string_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def makepod_channels_array_sql() -> str:
+    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_CHANNELS)
+
+
+def build_makepod_invite_user_channel_case_sql(field_expr: str) -> str:
+    when_clauses = "\n".join(
+        [
+            "                "
+            + f"WHEN CAST({field_expr} AS STRING) = "
+            + f"{sql_string_literal(rule['invite_user_id'])} "
+            + f"THEN {sql_string_literal(rule['channel'])}"
+            for rule in MAKEPOD_INVITE_USER_CHANNEL_RULES
+        ]
+    )
+    return (
+        "CASE\n"
+        f"{when_clauses}\n"
+        f"                ELSE {sql_string_literal(MAKEPOD_FALLBACK_CHANNEL)}\n"
+        "            END"
+    )
 
 
 def dates_to_sql_list(dates: list[date]) -> str:
@@ -235,8 +284,10 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
+    channels_array_sql = makepod_channels_array_sql()
     order_ts = service_ts_expr("gmt_create")
     pay_ts = service_ts_expr("pay_time")
+    user_channel_sql = build_makepod_invite_user_channel_case_sql("invite_user_id")
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -245,6 +296,7 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
     INSERT INTO `{target_table_id()}`
     (
         dt,
+        channel,
         order_user_count,
         pay_user_count,
         pay_order_count,
@@ -258,6 +310,11 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
     target_dates AS (
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
+    ),
+    -- 渠道枚举：固定产出 4 个展示渠道。
+    channel_list AS (
+        SELECT channel
+        FROM UNNEST([{channels_array_sql}]) AS channel
     ),
     -- 汇率字典：按币种统一映射到 USD。
     currency_rate_dim AS (
@@ -277,26 +334,51 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         WHERE order_id IS NOT NULL
         GROUP BY 1
     ),
-    -- 下单人数：按 user_order.gmt_create 统计。
+    -- 用户渠道维表：按 user_info 把服务端 user_id 映射为稳定渠道。
+    user_channel_dim AS (
+        SELECT
+            service_user_id,
+            channel
+        FROM (
+            SELECT
+                CAST(user_id AS STRING) AS service_user_id,
+                {user_channel_sql} AS channel,
+                ROW_NUMBER() OVER (
+                    PARTITION BY CAST(user_id AS STRING)
+                    ORDER BY
+                        {datastream_change_ts_expr()} DESC,
+                        TIMESTAMP(gmt_create, 'UTC') DESC
+                ) AS rn
+            FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_info`
+            WHERE tenant_code = '{TENANT_CODE}'
+                AND NULLIF(CAST(user_id AS STRING), '') IS NOT NULL
+        )
+        WHERE rn = 1
+    ),
+    -- 下单人数：按 user_order.gmt_create 和用户渠道统计。
     order_metrics AS (
         SELECT
             DATE({order_ts}, '{SHANGHAI_TZ}') AS dt,
+            COALESCE(c.channel, '{MAKEPOD_FALLBACK_CHANNEL}') AS channel,
             COUNT(
                 DISTINCT IF(
-                    NULLIF(CAST(user_id AS STRING), '') IS NOT NULL,
-                    CAST(user_id AS STRING),
+                    NULLIF(CAST(o.user_id AS STRING), '') IS NOT NULL,
+                    CAST(o.user_id AS STRING),
                     NULL
                 )
             ) AS order_user_count
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_order`
-        WHERE tenant_code = '{TENANT_CODE}'
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_order` o
+        LEFT JOIN user_channel_dim c
+            ON CAST(o.user_id AS STRING) = c.service_user_id
+        WHERE o.tenant_code = '{TENANT_CODE}'
             AND DATE({order_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
-        GROUP BY dt
+        GROUP BY dt, channel
     ),
-    -- 支付指标：按 pay_order.pay_time 统计支付成功订单，并统一换算 USD。
+    -- 支付指标：按 pay_order.pay_time 和用户渠道统计支付成功订单，并统一换算 USD。
     pay_metrics AS (
         SELECT
             DATE({pay_ts}, '{SHANGHAI_TZ}') AS dt,
+            COALESCE(c.channel, '{MAKEPOD_FALLBACK_CHANNEL}') AS channel,
             COUNT(
                 DISTINCT IF(
                     NULLIF(CAST(p.user_id AS STRING), '') IS NOT NULL,
@@ -340,14 +422,17 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
             ON UPPER(CAST(p.currency_type AS STRING)) = r.from_currency
         LEFT JOIN order_item_quantity i
             ON CAST(p.order_id AS STRING) = i.order_id
+        LEFT JOIN user_channel_dim c
+            ON CAST(p.user_id AS STRING) = c.service_user_id
         WHERE p.tenant_code = '{TENANT_CODE}'
             AND p.pay_status = 4
             AND p.pay_time IS NOT NULL
             AND DATE({pay_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
-        GROUP BY dt
+        GROUP BY dt, channel
     )
     SELECT
         d.dt,
+        c.channel,
         COALESCE(o.order_user_count, 0) AS order_user_count,
         COALESCE(p.pay_user_count, 0) AS pay_user_count,
         COALESCE(p.pay_order_count, 0) AS pay_order_count,
@@ -356,10 +441,13 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         COALESCE(p.pay_sku_quantity, 0) AS pay_sku_quantity,
         CURRENT_TIMESTAMP() AS update_time
     FROM target_dates d
+    CROSS JOIN channel_list c
     LEFT JOIN order_metrics o
         ON d.dt = o.dt
+        AND c.channel = o.channel
     LEFT JOIN pay_metrics p
-        ON d.dt = p.dt;
+        ON d.dt = p.dt
+        AND c.channel = p.channel;
     """
     logging.info("开始处理: dws_makepod_order_daily")
     client.query(query).result()
