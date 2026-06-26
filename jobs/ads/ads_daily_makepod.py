@@ -18,7 +18,13 @@ INCREMENTAL_WINDOW_HOURS = 6
 
 client = bigquery.Client(project=PROJECT_ID)
 
-MAKEPOD_REPORT_CHANNELS = ["Facebook", "Google", "TikTok", "Overall"]
+MAKEPOD_REPORT_CHANNELS = [
+    "TikTok",
+    "Google",
+    "Facebook",
+    "Other Channel",
+    "Organic",
+]
 
 
 def configure_logging() -> Path:
@@ -170,7 +176,6 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         pay_gmv_usd,
         pay_fee_amount,
         pay_sku_quantity,
-        kol_invited_visitor_uv,
         update_time
     )
     WITH
@@ -179,7 +184,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 3 个已知渠道和 Overall。
+    -- 渠道枚举：固定产出 5 个渠道分类。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel
@@ -194,8 +199,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
             dau_old_uv,
             register_user_count,
             product_detail_view_uv,
-            add_cart_uv,
-            kol_invited_visitor_uv
+            add_cart_uv
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_makepod_traffic_daily`
         WHERE dt IN ({dates_str})
     ),
@@ -228,7 +232,6 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         COALESCE(o.pay_gmv_usd, 0) AS pay_gmv_usd,
         COALESCE(o.pay_fee_amount, 0) AS pay_fee_amount,
         COALESCE(o.pay_sku_quantity, 0) AS pay_sku_quantity,
-        COALESCE(t.kol_invited_visitor_uv, 0) AS kol_invited_visitor_uv,
         CURRENT_TIMESTAMP() AS update_time
     FROM target_dates d
     CROSS JOIN channel_list c

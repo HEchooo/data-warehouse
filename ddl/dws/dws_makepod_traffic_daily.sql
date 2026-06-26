@@ -13,3 +13,6 @@ PARTITION BY dt;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dws_makepod_traffic_daily`
 ADD COLUMN channel STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_makepod_traffic_daily`
+DROP COLUMN kol_invited_visitor_uv;

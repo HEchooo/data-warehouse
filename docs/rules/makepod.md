@@ -10,13 +10,12 @@
 
 - `decom.dwd_makepod_event_log` 表，也就是 `ods_event_log` 中 `prop_version_type = 'makepod'`
 - `invite_user_id` 是邀请用户 id，其中包含达人
-- 达人指的是 `v3_decom.kol_rel.user_id = decom.dwd_makepod_event_log.invite_user_id` 的记录
-
 ## 渠道映射
 
 - 当前 Makepod 已知映射渠道固定为：`Facebook`、`Google`、`TikTok`
-- 报表展示渠道固定为：`Facebook`、`Google`、`TikTok`、`Overall`
-- 未命中已知映射的记录，不再单独落 `Other`；会只计入 `Overall`
+- 报表展示渠道固定为：`TikTok`、`Google`、`Facebook`、`Other Channel`、`Organic`
+- `Other Channel`：未命中已知映射，但存在 `share_code` 或 `invite_user_id`
+- `Organic`：不存在 `share_code` 且不存在 `invite_user_id`
 - `prop_share_code -> invite_user_id -> channel` 映射：
   - `AAACXvNZSVQ -> 2606093799415 -> Facebook`
   - `AAACXvMF8vw -> 2606090368095 -> Google`

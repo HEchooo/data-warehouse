@@ -19,3 +19,6 @@ PARTITION BY dt;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_makepod`
 ADD COLUMN channel STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_makepod`
+DROP COLUMN kol_invited_visitor_uv;
