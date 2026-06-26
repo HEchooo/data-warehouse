@@ -13,9 +13,10 @@
 ## 渠道映射
 
 - 当前 Makepod 已知映射渠道固定为：`Facebook`、`Google`、`TikTok`
-- 报表展示渠道固定为：`TikTok`、`Google`、`Facebook`、`Other Channel`、`Organic`
+- 报表展示渠道固定为：`TikTok`、`Google`、`Facebook`、`Other Channel`、`Organic`、`Overall`
 - `Other Channel`：未命中已知映射，但存在 `share_code` 或 `invite_user_id`
 - `Organic`：不存在 `share_code` 且不存在 `invite_user_id`
+- `Overall`：全站去重汇总；不是前面各渠道直接相加，跨渠道重复主体在 `Overall` 中只记 1 次
 - `prop_share_code -> invite_user_id -> channel` 映射：
   - `AAACXvNZSVQ -> 2606093799415 -> Facebook`
   - `AAACXvMF8vw -> 2606090368095 -> Google`

@@ -29,6 +29,7 @@ MAKEPOD_REPORT_CHANNELS = [
     "Facebook",
     "Other Channel",
     "Organic",
+    "Overall",
 ]
 
 
@@ -277,7 +278,7 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 5 个渠道分类。
+    -- 渠道枚举：固定产出 5 个互斥渠道和 1 个 Overall 汇总渠道。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel
@@ -322,6 +323,16 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             has_add_cart
         FROM event_device_base
     ),
+    -- Overall 设备日层：不分渠道按设备全局去重，保证跨渠道重复设备只算 1 个。
+    device_daily_overall AS (
+        SELECT
+            dt,
+            prop_device_id,
+            MAX(has_product_detail_view) AS has_product_detail_view,
+            MAX(has_add_cart) AS has_add_cart
+        FROM event_device_base
+        GROUP BY dt, prop_device_id
+    ),
     -- 首次到访维表：用于新老设备分群。
     device_first_visit AS (
         SELECT
@@ -332,8 +343,8 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             AND prop_device_id != ''
             AND first_visit_date IS NOT NULL
     ),
-    -- 流量指标：按渠道统计设备级指标。
-    traffic_metrics AS (
+    -- 分渠道流量指标：按渠道统计设备级指标。
+    traffic_channel_metrics AS (
         SELECT
             d.dt,
             d.channel,
@@ -355,6 +366,39 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             ON d.prop_device_id = f.prop_device_id
         GROUP BY d.dt, d.channel
     ),
+    -- Overall 流量指标：不分渠道按设备全局去重。
+    traffic_overall_metrics AS (
+        SELECT
+            d.dt,
+            'Overall' AS channel,
+            COUNT(DISTINCT d.prop_device_id) AS dau_uv_total,
+            COUNT(
+                DISTINCT IF(f.first_visit_date = d.dt, d.prop_device_id, NULL)
+            ) AS dau_new_uv,
+            COUNT(
+                DISTINCT IF(f.first_visit_date < d.dt, d.prop_device_id, NULL)
+            ) AS dau_old_uv,
+            COUNT(
+                DISTINCT IF(d.has_product_detail_view = 1, d.prop_device_id, NULL)
+            ) AS product_detail_view_uv,
+            COUNT(
+                DISTINCT IF(d.has_add_cart = 1, d.prop_device_id, NULL)
+            ) AS add_cart_uv
+        FROM device_daily_overall d
+        LEFT JOIN device_first_visit f
+            ON d.prop_device_id = f.prop_device_id
+        GROUP BY d.dt
+    ),
+    -- 流量指标汇总：合并分渠道和 Overall。
+    traffic_metrics AS (
+        SELECT *
+        FROM traffic_channel_metrics
+
+        UNION ALL
+
+        SELECT *
+        FROM traffic_overall_metrics
+    ),
     -- 注册基础层：直接复用用户渠道维表。
     register_base AS (
         SELECT
@@ -364,8 +408,8 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         FROM `{PROJECT_ID}.{DATASET_ID}.dim_makepod_user_channel`
         WHERE register_date IN ({dates_str})
     ),
-    -- 注册指标：按渠道统计注册用户数。
-    register_metrics AS (
+    -- 分渠道注册指标：按渠道统计注册用户数。
+    register_channel_metrics AS (
         SELECT
             dt,
             channel,
@@ -373,6 +417,26 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         FROM register_base
         WHERE register_user_key IS NOT NULL
         GROUP BY dt, channel
+    ),
+    -- Overall 注册指标：不分渠道汇总全部注册用户。
+    register_overall_metrics AS (
+        SELECT
+            dt,
+            'Overall' AS channel,
+            COUNT(DISTINCT register_user_key) AS register_user_count
+        FROM register_base
+        WHERE register_user_key IS NOT NULL
+        GROUP BY dt
+    ),
+    -- 注册指标汇总：合并分渠道和 Overall。
+    register_metrics AS (
+        SELECT *
+        FROM register_channel_metrics
+
+        UNION ALL
+
+        SELECT *
+        FROM register_overall_metrics
     )
     SELECT
         d.dt,

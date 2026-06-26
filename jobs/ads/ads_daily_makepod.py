@@ -24,6 +24,7 @@ MAKEPOD_REPORT_CHANNELS = [
     "Facebook",
     "Other Channel",
     "Organic",
+    "Overall",
 ]
 
 
