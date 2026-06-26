@@ -40,11 +40,9 @@ MAKEPOD_CHANNEL_RULES = (
         "invite_user_id": "2606091027981",
     },
 )
-MAKEPOD_FALLBACK_CHANNEL = "Other"
-MAKEPOD_CHANNELS = [
-    *(rule["channel"] for rule in MAKEPOD_CHANNEL_RULES),
-    MAKEPOD_FALLBACK_CHANNEL,
-]
+MAKEPOD_KNOWN_CHANNELS = tuple(rule["channel"] for rule in MAKEPOD_CHANNEL_RULES)
+MAKEPOD_OVERALL_CHANNEL = "Overall"
+MAKEPOD_REPORT_CHANNELS = [*MAKEPOD_KNOWN_CHANNELS, MAKEPOD_OVERALL_CHANNEL]
 
 
 def configure_logging() -> Path:
@@ -72,11 +70,11 @@ def sql_string_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def makepod_channels_array_sql() -> str:
-    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_CHANNELS)
+def makepod_report_channels_array_sql() -> str:
+    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_REPORT_CHANNELS)
 
 
-def build_makepod_share_code_channel_case_sql(field_expr: str) -> str:
+def build_makepod_share_code_known_channel_case_sql(field_expr: str) -> str:
     when_clauses = "\n".join(
         [
             "                "
@@ -89,12 +87,12 @@ def build_makepod_share_code_channel_case_sql(field_expr: str) -> str:
     return (
         "CASE\n"
         f"{when_clauses}\n"
-        f"                ELSE {sql_string_literal(MAKEPOD_FALLBACK_CHANNEL)}\n"
+        "                ELSE NULL\n"
         "            END"
     )
 
 
-def build_makepod_invite_user_channel_case_sql(field_expr: str) -> str:
+def build_makepod_invite_user_known_channel_case_sql(field_expr: str) -> str:
     when_clauses = "\n".join(
         [
             "                "
@@ -107,7 +105,7 @@ def build_makepod_invite_user_channel_case_sql(field_expr: str) -> str:
     return (
         "CASE\n"
         f"{when_clauses}\n"
-        f"                ELSE {sql_string_literal(MAKEPOD_FALLBACK_CHANNEL)}\n"
+        "                ELSE NULL\n"
         "            END"
     )
 
@@ -293,13 +291,13 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
-    channels_array_sql = makepod_channels_array_sql()
+    channels_array_sql = makepod_report_channels_array_sql()
     event_dt = makepod_event_date_expr()
     register_ts = service_ts_expr()
-    share_code_channel_sql = build_makepod_share_code_channel_case_sql(
+    share_code_channel_sql = build_makepod_share_code_known_channel_case_sql(
         "e.prop_share_code"
     )
-    invite_user_channel_sql = build_makepod_invite_user_channel_case_sql(
+    invite_user_channel_sql = build_makepod_invite_user_known_channel_case_sql(
         "u.invite_user_id"
     )
 
@@ -326,7 +324,7 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 4 个展示渠道。
+    -- 渠道枚举：固定产出 3 个已知渠道和 Overall。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel
@@ -337,11 +335,11 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         FROM `{PROJECT_ID}.{V3_DATASET_ID}.kol_rel`
         WHERE user_id IS NOT NULL
     ),
-    -- 事件基础层：统一到设备日渠道，并沉淀后续聚合所需的行为标记。
-    device_daily_channel AS (
+    -- 事件基础层：统一到设备日，并保留已知渠道映射和行为标记。
+    event_device_base AS (
         SELECT
             {event_dt} AS dt,
-            {share_code_channel_sql} AS channel,
+            {share_code_channel_sql} AS known_channel,
             e.prop_device_id,
             MAX(
                 CASE
@@ -373,7 +371,30 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             AND e.prop_device_id IS NOT NULL
             AND e.prop_device_id != ''
             AND e.event_name NOT IN ({PASSIVE_ACTIVITY_EXCLUDED_EVENTS_SQL})
-        GROUP BY dt, channel, e.prop_device_id
+        GROUP BY dt, known_channel, e.prop_device_id
+    ),
+    -- 已知渠道设备日层：只保留 Facebook / Google / TikTok 三个渠道。
+    device_daily_known_channel AS (
+        SELECT
+            dt,
+            known_channel AS channel,
+            prop_device_id,
+            has_product_detail_view,
+            has_add_cart,
+            is_kol_invited_visitor
+        FROM event_device_base
+        WHERE known_channel IS NOT NULL
+    ),
+    -- Overall 设备日层：不分渠道，按设备全局去重。
+    device_daily_overall AS (
+        SELECT
+            dt,
+            prop_device_id,
+            MAX(has_product_detail_view) AS has_product_detail_view,
+            MAX(has_add_cart) AS has_add_cart,
+            MAX(is_kol_invited_visitor) AS is_kol_invited_visitor
+        FROM event_device_base
+        GROUP BY dt, prop_device_id
     ),
     -- 首次到访维表：用于新老设备分群。
     device_first_visit AS (
@@ -385,8 +406,8 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             AND prop_device_id != ''
             AND first_visit_date IS NOT NULL
     ),
-    -- 聚合流量主题的设备级指标。
-    traffic_metrics AS (
+    -- 已知渠道流量指标：按渠道统计设备级指标。
+    traffic_known_channel_metrics AS (
         SELECT
             d.dt,
             d.channel,
@@ -406,16 +427,52 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
             COUNT(
                 DISTINCT IF(d.is_kol_invited_visitor = 1, d.prop_device_id, NULL)
             ) AS kol_invited_visitor_uv
-        FROM device_daily_channel d
+        FROM device_daily_known_channel d
         LEFT JOIN device_first_visit f
             ON d.prop_device_id = f.prop_device_id
         GROUP BY d.dt, d.channel
+    ),
+    -- Overall 流量指标：不分渠道按设备全局去重。
+    traffic_overall_metrics AS (
+        SELECT
+            d.dt,
+            '{MAKEPOD_OVERALL_CHANNEL}' AS channel,
+            COUNT(DISTINCT d.prop_device_id) AS dau_uv_total,
+            COUNT(
+                DISTINCT IF(f.first_visit_date = d.dt, d.prop_device_id, NULL)
+            ) AS dau_new_uv,
+            COUNT(
+                DISTINCT IF(f.first_visit_date < d.dt, d.prop_device_id, NULL)
+            ) AS dau_old_uv,
+            COUNT(
+                DISTINCT IF(d.has_product_detail_view = 1, d.prop_device_id, NULL)
+            ) AS product_detail_view_uv,
+            COUNT(
+                DISTINCT IF(d.has_add_cart = 1, d.prop_device_id, NULL)
+            ) AS add_cart_uv,
+            COUNT(
+                DISTINCT IF(d.is_kol_invited_visitor = 1, d.prop_device_id, NULL)
+            ) AS kol_invited_visitor_uv
+        FROM device_daily_overall d
+        LEFT JOIN device_first_visit f
+            ON d.prop_device_id = f.prop_device_id
+        GROUP BY d.dt
+    ),
+    -- 流量指标汇总：合并已知渠道与 Overall。
+    traffic_metrics AS (
+        SELECT *
+        FROM traffic_known_channel_metrics
+
+        UNION ALL
+
+        SELECT *
+        FROM traffic_overall_metrics
     ),
     -- 注册基础层：按注册日产出用户渠道键。
     register_base AS (
         SELECT
             DATE({register_ts}, '{SHANGHAI_TZ}') AS dt,
-            {invite_user_channel_sql} AS channel,
+            {invite_user_channel_sql} AS known_channel,
             COALESCE(
                 NULLIF(CAST(u.user_id AS STRING), ''),
                 NULLIF(CAST(u.id AS STRING), '')
@@ -424,15 +481,36 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         WHERE tenant_code = '{TENANT_CODE}'
             AND DATE({register_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
     ),
-    -- 注册人数：按 user_info 注册日和用户渠道统计去重用户数。
-    register_metrics AS (
+    -- 已知渠道注册人数：只统计映射到三个已知渠道的用户。
+    register_known_channel_metrics AS (
         SELECT
             dt,
-            channel,
+            known_channel AS channel,
             COUNT(DISTINCT register_user_key) AS register_user_count
         FROM register_base
         WHERE register_user_key IS NOT NULL
-        GROUP BY dt, channel
+            AND known_channel IS NOT NULL
+        GROUP BY dt, known_channel
+    ),
+    -- Overall 注册人数：不分渠道汇总全部注册用户。
+    register_overall_metrics AS (
+        SELECT
+            dt,
+            '{MAKEPOD_OVERALL_CHANNEL}' AS channel,
+            COUNT(DISTINCT register_user_key) AS register_user_count
+        FROM register_base
+        WHERE register_user_key IS NOT NULL
+        GROUP BY dt
+    ),
+    -- 注册指标汇总：合并已知渠道与 Overall。
+    register_metrics AS (
+        SELECT *
+        FROM register_known_channel_metrics
+
+        UNION ALL
+
+        SELECT *
+        FROM register_overall_metrics
     )
     SELECT
         d.dt,

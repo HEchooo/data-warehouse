@@ -35,11 +35,11 @@ MAKEPOD_INVITE_USER_CHANNEL_RULES = (
         "invite_user_id": "2606091027981",
     },
 )
-MAKEPOD_FALLBACK_CHANNEL = "Other"
-MAKEPOD_CHANNELS = [
-    *(rule["channel"] for rule in MAKEPOD_INVITE_USER_CHANNEL_RULES),
-    MAKEPOD_FALLBACK_CHANNEL,
-]
+MAKEPOD_KNOWN_CHANNELS = tuple(
+    rule["channel"] for rule in MAKEPOD_INVITE_USER_CHANNEL_RULES
+)
+MAKEPOD_OVERALL_CHANNEL = "Overall"
+MAKEPOD_REPORT_CHANNELS = [*MAKEPOD_KNOWN_CHANNELS, MAKEPOD_OVERALL_CHANNEL]
 
 
 def configure_logging() -> Path:
@@ -67,11 +67,11 @@ def sql_string_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def makepod_channels_array_sql() -> str:
-    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_CHANNELS)
+def makepod_report_channels_array_sql() -> str:
+    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_REPORT_CHANNELS)
 
 
-def build_makepod_invite_user_channel_case_sql(field_expr: str) -> str:
+def build_makepod_invite_user_known_channel_case_sql(field_expr: str) -> str:
     when_clauses = "\n".join(
         [
             "                "
@@ -84,7 +84,7 @@ def build_makepod_invite_user_channel_case_sql(field_expr: str) -> str:
     return (
         "CASE\n"
         f"{when_clauses}\n"
-        f"                ELSE {sql_string_literal(MAKEPOD_FALLBACK_CHANNEL)}\n"
+        "                ELSE NULL\n"
         "            END"
     )
 
@@ -284,10 +284,12 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
-    channels_array_sql = makepod_channels_array_sql()
+    channels_array_sql = makepod_report_channels_array_sql()
     order_ts = service_ts_expr("gmt_create")
     pay_ts = service_ts_expr("pay_time")
-    user_channel_sql = build_makepod_invite_user_channel_case_sql("invite_user_id")
+    user_channel_sql = build_makepod_invite_user_known_channel_case_sql(
+        "invite_user_id"
+    )
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -311,7 +313,7 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 4 个展示渠道。
+    -- 渠道枚举：固定产出 3 个已知渠道和 Overall。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel
@@ -355,11 +357,11 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         )
         WHERE rn = 1
     ),
-    -- 下单人数：按 user_order.gmt_create 和用户渠道统计。
-    order_metrics AS (
+    -- 已知渠道下单人数：只统计映射到三个已知渠道的用户。
+    order_known_channel_metrics AS (
         SELECT
             DATE({order_ts}, '{SHANGHAI_TZ}') AS dt,
-            COALESCE(c.channel, '{MAKEPOD_FALLBACK_CHANNEL}') AS channel,
+            c.channel AS channel,
             COUNT(
                 DISTINCT IF(
                     NULLIF(CAST(o.user_id AS STRING), '') IS NOT NULL,
@@ -372,13 +374,41 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
             ON CAST(o.user_id AS STRING) = c.service_user_id
         WHERE o.tenant_code = '{TENANT_CODE}'
             AND DATE({order_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
+            AND c.channel IS NOT NULL
         GROUP BY dt, channel
     ),
-    -- 支付指标：按 pay_order.pay_time 和用户渠道统计支付成功订单，并统一换算 USD。
-    pay_metrics AS (
+    -- Overall 下单人数：不分渠道汇总全部下单用户。
+    order_overall_metrics AS (
+        SELECT
+            DATE({order_ts}, '{SHANGHAI_TZ}') AS dt,
+            '{MAKEPOD_OVERALL_CHANNEL}' AS channel,
+            COUNT(
+                DISTINCT IF(
+                    NULLIF(CAST(o.user_id AS STRING), '') IS NOT NULL,
+                    CAST(o.user_id AS STRING),
+                    NULL
+                )
+            ) AS order_user_count
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_order` o
+        WHERE o.tenant_code = '{TENANT_CODE}'
+            AND DATE({order_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
+        GROUP BY dt
+    ),
+    -- 下单指标汇总：合并已知渠道与 Overall。
+    order_metrics AS (
+        SELECT *
+        FROM order_known_channel_metrics
+
+        UNION ALL
+
+        SELECT *
+        FROM order_overall_metrics
+    ),
+    -- 已知渠道支付指标：只统计映射到三个已知渠道的支付成功订单，并统一换算 USD。
+    pay_known_channel_metrics AS (
         SELECT
             DATE({pay_ts}, '{SHANGHAI_TZ}') AS dt,
-            COALESCE(c.channel, '{MAKEPOD_FALLBACK_CHANNEL}') AS channel,
+            c.channel AS channel,
             COUNT(
                 DISTINCT IF(
                     NULLIF(CAST(p.user_id AS STRING), '') IS NOT NULL,
@@ -428,7 +458,72 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
             AND p.pay_status = 4
             AND p.pay_time IS NOT NULL
             AND DATE({pay_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
+            AND c.channel IS NOT NULL
         GROUP BY dt, channel
+    ),
+    -- Overall 支付指标：不分渠道汇总全部支付成功订单。
+    pay_overall_metrics AS (
+        SELECT
+            DATE({pay_ts}, '{SHANGHAI_TZ}') AS dt,
+            '{MAKEPOD_OVERALL_CHANNEL}' AS channel,
+            COUNT(
+                DISTINCT IF(
+                    NULLIF(CAST(p.user_id AS STRING), '') IS NOT NULL,
+                    CAST(p.user_id AS STRING),
+                    NULL
+                )
+            ) AS pay_user_count,
+            COUNT(
+                DISTINCT IF(
+                    NULLIF(CAST(p.order_id AS STRING), '') IS NOT NULL,
+                    CAST(p.order_id AS STRING),
+                    NULL
+                )
+            ) AS pay_order_count,
+            COALESCE(SUM(
+                (
+                    COALESCE(SAFE_CAST(p.pay_amount AS NUMERIC), 0)
+                    + COALESCE(SAFE_CAST(p.pay_fee AS NUMERIC), 0)
+                )
+                * COALESCE(
+                    r.usd_rate,
+                    CASE
+                        WHEN UPPER(CAST(p.currency_type AS STRING)) = 'USD' THEN 1
+                        ELSE 0
+                    END
+                )
+            ), 0) AS pay_gmv_usd,
+            COALESCE(SUM(
+                COALESCE(SAFE_CAST(p.pay_fee AS NUMERIC), 0)
+                * COALESCE(
+                    r.usd_rate,
+                    CASE
+                        WHEN UPPER(CAST(p.currency_type AS STRING)) = 'USD' THEN 1
+                        ELSE 0
+                    END
+                )
+            ), 0) AS pay_fee_amount,
+            COALESCE(SUM(COALESCE(i.pay_sku_quantity, 0)), 0) AS pay_sku_quantity
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.pay_order` p
+        LEFT JOIN currency_rate_dim r
+            ON UPPER(CAST(p.currency_type AS STRING)) = r.from_currency
+        LEFT JOIN order_item_quantity i
+            ON CAST(p.order_id AS STRING) = i.order_id
+        WHERE p.tenant_code = '{TENANT_CODE}'
+            AND p.pay_status = 4
+            AND p.pay_time IS NOT NULL
+            AND DATE({pay_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
+        GROUP BY dt
+    ),
+    -- 支付指标汇总：合并已知渠道与 Overall。
+    pay_metrics AS (
+        SELECT *
+        FROM pay_known_channel_metrics
+
+        UNION ALL
+
+        SELECT *
+        FROM pay_overall_metrics
     )
     SELECT
         d.dt,

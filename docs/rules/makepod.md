@@ -14,7 +14,9 @@
 
 ## 渠道映射
 
-- 当前 Makepod 渠道固定枚举：`Facebook`、`Google`、`TikTok`、`Other`
+- 当前 Makepod 已知映射渠道固定为：`Facebook`、`Google`、`TikTok`
+- 报表展示渠道固定为：`Facebook`、`Google`、`TikTok`、`Overall`
+- 未命中已知映射的记录，不再单独落 `Other`；会只计入 `Overall`
 - `prop_share_code -> invite_user_id -> channel` 映射：
   - `AAACXvNZSVQ -> 2606093799415 -> Facebook`
   - `AAACXvMF8vw -> 2606090368095 -> Google`

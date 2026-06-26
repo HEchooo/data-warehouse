@@ -18,7 +18,7 @@ INCREMENTAL_WINDOW_HOURS = 6
 
 client = bigquery.Client(project=PROJECT_ID)
 
-MAKEPOD_CHANNELS = ["Facebook", "Google", "TikTok", "Other"]
+MAKEPOD_REPORT_CHANNELS = ["Facebook", "Google", "TikTok", "Overall"]
 
 
 def configure_logging() -> Path:
@@ -46,8 +46,8 @@ def sql_string_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def makepod_channels_array_sql() -> str:
-    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_CHANNELS)
+def makepod_report_channels_array_sql() -> str:
+    return ", ".join(sql_string_literal(channel) for channel in MAKEPOD_REPORT_CHANNELS)
 
 
 def dates_to_sql_list(dates: list[date]) -> str:
@@ -148,7 +148,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
 
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
-    channels_array_sql = makepod_channels_array_sql()
+    channels_array_sql = makepod_report_channels_array_sql()
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -179,7 +179,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 4 个展示渠道。
+    -- 渠道枚举：固定产出 3 个已知渠道和 Overall。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel
