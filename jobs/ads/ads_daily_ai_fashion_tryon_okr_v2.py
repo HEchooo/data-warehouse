@@ -441,80 +441,151 @@ def build_select_sql(day_dts: list[date]) -> str:
     SELECT
         dt,
         -- 试穿 OKR 核心指标
-        SAFE_DIVIDE(tryon_new_uv, NULLIF(dau_new_uv, 0)) AS new_user_tryon_rate,
+        CAST(SAFE_DIVIDE(tryon_new_uv, NULLIF(dau_new_uv, 0)) AS NUMERIC) AS new_user_tryon_rate,
         CAST(tryon_new_uv AS NUMERIC) AS new_user_tryon_uv,
-        SAFE_DIVIDE(tryon_old_uv, NULLIF(dau_old_uv, 0)) AS old_user_tryon_rate,
+        CAST(SAFE_DIVIDE(tryon_old_uv, NULLIF(dau_old_uv, 0)) AS NUMERIC) AS old_user_tryon_rate,
         CAST(tryon_old_uv AS NUMERIC) AS old_user_tryon_uv,
         CAST(home_tryon_uv AS NUMERIC) AS home_tryon_uv,
-        SAFE_DIVIDE(home_tryon_uv, NULLIF(home_feeds_uv, 0)) AS home_tryon_penetration_rate,
+        CAST(SAFE_DIVIDE(home_tryon_uv, NULLIF(home_feeds_uv, 0)) AS NUMERIC) AS home_tryon_penetration_rate,
         CAST(post_tryon_uv AS NUMERIC) AS post_tryon_uv,
-        SAFE_DIVIDE(post_tryon_uv, NULLIF(post_scene_exposure_uv, 0)) AS post_tryon_penetration_rate,
+        CAST(SAFE_DIVIDE(post_tryon_uv, NULLIF(post_scene_exposure_uv, 0)) AS NUMERIC) AS post_tryon_penetration_rate,
         CAST(product_detail_tryon_uv AS NUMERIC) AS product_detail_tryon_uv,
-        SAFE_DIVIDE(product_detail_tryon_uv, NULLIF(product_detail_uv, 0)) AS product_detail_tryon_penetration_rate,
+        CAST(
+            SAFE_DIVIDE(product_detail_tryon_uv, NULLIF(product_detail_uv, 0)) AS NUMERIC
+        ) AS product_detail_tryon_penetration_rate,
         CAST(styleme_uv AS NUMERIC) AS styleme_tryon_uv,
-        SAFE_DIVIDE(tryon_uv_total, NULLIF(all_user_dau, 0)) AS platform_tryon_rate,
-        SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) AS tryon_avg_count_per_tryon_user,
+        CAST(SAFE_DIVIDE(tryon_uv_total, NULLIF(all_user_dau, 0)) AS NUMERIC) AS platform_tryon_rate,
+        CAST(SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) AS NUMERIC) AS tryon_avg_count_per_tryon_user,
         CAST(tryon_uv_total AS NUMERIC) AS avg_daily_tryon_uv,
         CAST(front_tryon_click_uv AS NUMERIC) AS front_tryon_click_uv,
-        SAFE_DIVIDE(shop_tryon_uv, NULLIF(shop_exposure_uv, 0)) AS shop_feeds_tryon_penetration_rate,
+        CAST(SAFE_DIVIDE(shop_tryon_uv, NULLIF(shop_exposure_uv, 0)) AS NUMERIC)
+            AS shop_feeds_tryon_penetration_rate,
         CAST(shop_tryon_uv AS NUMERIC) AS shop_feeds_tryon_uv,
-        SAFE_DIVIDE(closet_tryon_uv, NULLIF(closet_feeds_uv, 0)) AS closet_feeds_tryon_penetration_rate,
+        CAST(SAFE_DIVIDE(closet_tryon_uv, NULLIF(closet_feeds_uv, 0)) AS NUMERIC)
+            AS closet_feeds_tryon_penetration_rate,
         CAST(closet_tryon_uv AS NUMERIC) AS closet_feeds_tryon_uv,
-        SAFE_DIVIDE(styleme_uv, NULLIF(styleme_exposure_uv, 0)) AS styleme_tryon_penetration_rate,
-        SAFE_DIVIDE(quick_tryon_task_success_count, NULLIF(quick_tryon_task_total_count, 0)) AS quick_tryon_success_rate,
-        SAFE_DIVIDE(plus_tryon_task_success_count, NULLIF(plus_tryon_task_total_count, 0)) AS plus_tryon_success_rate,
-        SAFE_DIVIDE(quick_tryon_success_total_duration_ms, NULLIF(quick_tryon_success_duration_task_count, 0)) / 60000.0
-            AS quick_tryon_avg_duration_min,
-        SAFE_DIVIDE(plus_tryon_success_total_duration_ms, NULLIF(plus_tryon_success_duration_task_count, 0)) / 60000.0
-            AS plus_tryon_avg_duration_min,
+        CAST(SAFE_DIVIDE(styleme_uv, NULLIF(styleme_exposure_uv, 0)) AS NUMERIC)
+            AS styleme_tryon_penetration_rate,
+        CAST(
+            SAFE_DIVIDE(quick_tryon_task_success_count, NULLIF(quick_tryon_task_total_count, 0)) AS NUMERIC
+        ) AS quick_tryon_success_rate,
+        CAST(
+            SAFE_DIVIDE(plus_tryon_task_success_count, NULLIF(plus_tryon_task_total_count, 0)) AS NUMERIC
+        ) AS plus_tryon_success_rate,
+        CAST(
+            SAFE_DIVIDE(
+                quick_tryon_success_total_duration_ms,
+                NULLIF(quick_tryon_success_duration_task_count, 0)
+            ) / 60000.0 AS NUMERIC
+        ) AS quick_tryon_avg_duration_min,
+        CAST(
+            SAFE_DIVIDE(
+                plus_tryon_success_total_duration_ms,
+                NULLIF(plus_tryon_success_duration_task_count, 0)
+            ) / 60000.0 AS NUMERIC
+        ) AS plus_tryon_avg_duration_min,
         -- 商品 OKR 核心指标
         CAST(product_click_uv AS NUMERIC) AS product_click_uv,
         CAST(product_exposure_uv AS NUMERIC) AS product_exposure_uv,
-        SAFE_DIVIDE(product_click_uv, NULLIF(product_exposure_uv, 0)) AS product_exposure_click_rate,
-        SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) AS product_click_avg_count_per_click_user,
+        CAST(SAFE_DIVIDE(product_click_uv, NULLIF(product_exposure_uv, 0)) AS NUMERIC)
+            AS product_exposure_click_rate,
+        CAST(SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) AS NUMERIC)
+            AS product_click_avg_count_per_click_user,
         CAST(home_product_click_uv AS NUMERIC) AS home_product_click_uv,
-        SAFE_DIVIDE(home_product_click_uv, NULLIF(home_product_exposure_uv, 0)) AS home_product_exposure_click_rate,
+        CAST(SAFE_DIVIDE(home_product_click_uv, NULLIF(home_product_exposure_uv, 0)) AS NUMERIC)
+            AS home_product_exposure_click_rate,
         CAST(tryon_result_click_uv AS NUMERIC) AS tryon_result_click_uv,
-        SAFE_DIVIDE(tryon_result_click_uv, NULLIF(tryon_result_exposure_uv, 0)) AS tryon_result_exposure_click_rate,
+        CAST(SAFE_DIVIDE(tryon_result_click_uv, NULLIF(tryon_result_exposure_uv, 0)) AS NUMERIC)
+            AS tryon_result_exposure_click_rate,
         CAST(shop_click_uv AS NUMERIC) AS shop_click_uv,
-        SAFE_DIVIDE(shop_click_uv, NULLIF(shop_exposure_uv, 0)) AS shop_exposure_click_rate,
+        CAST(SAFE_DIVIDE(shop_click_uv, NULLIF(shop_exposure_uv, 0)) AS NUMERIC)
+            AS shop_exposure_click_rate,
         -- 留存 OKR 核心指标
         CAST(all_user_dau AS NUMERIC) AS platform_dau,
-        SAFE_DIVIDE(all_next_day_retained_user_count,
-            NULLIF(all_next_day_retained_user_count + all_next_day_not_retained_user_count, 0)) AS next_day_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                all_next_day_retained_user_count,
+                NULLIF(all_next_day_retained_user_count + all_next_day_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS next_day_retention_rate,
         CAST(all_next_day_retained_user_count AS NUMERIC) AS next_day_retained_user_count,
-        SAFE_DIVIDE(all_day_7_retained_user_count,
-            NULLIF(all_day_7_retained_user_count + all_day_7_not_retained_user_count, 0)) AS day_7_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                all_day_7_retained_user_count,
+                NULLIF(all_day_7_retained_user_count + all_day_7_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS day_7_retention_rate,
         CAST(all_day_7_retained_user_count AS NUMERIC) AS day_7_retained_user_count,
-        SAFE_DIVIDE(all_day_30_retained_user_count,
-            NULLIF(all_day_30_retained_user_count + all_day_30_not_retained_user_count, 0)) AS day_30_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                all_day_30_retained_user_count,
+                NULLIF(all_day_30_retained_user_count + all_day_30_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS day_30_retention_rate,
         CAST(all_day_30_retained_user_count AS NUMERIC) AS day_30_retained_user_count,
-        SAFE_DIVIDE(home_feeds_click_user_count, NULLIF(home_feeds_exposure_user_count, 0)) AS home_feeds_exposure_click_rate,
-        SAFE_DIVIDE(all_user_duration_sum_sec, NULLIF(all_user_dau, 0)) / 60.0 AS platform_avg_duration_min,
-        SAFE_DIVIDE(all_content_consume_sum, NULLIF(all_user_content_dau, 0)) AS platform_avg_content_consume,
+        CAST(SAFE_DIVIDE(home_feeds_click_user_count, NULLIF(home_feeds_exposure_user_count, 0)) AS NUMERIC)
+            AS home_feeds_exposure_click_rate,
+        CAST(SAFE_DIVIDE(all_user_duration_sum_sec, NULLIF(all_user_dau, 0)) / 60.0 AS NUMERIC)
+            AS platform_avg_duration_min,
+        CAST(SAFE_DIVIDE(all_content_consume_sum, NULLIF(all_user_content_dau, 0)) AS NUMERIC)
+            AS platform_avg_content_consume,
         CAST(new_user_dau AS NUMERIC) AS new_user_dau,
-        SAFE_DIVIDE(new_next_day_retained_user_count,
-            NULLIF(new_next_day_retained_user_count + new_next_day_not_retained_user_count, 0)) AS new_user_next_day_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                new_next_day_retained_user_count,
+                NULLIF(new_next_day_retained_user_count + new_next_day_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS new_user_next_day_retention_rate,
         CAST(new_next_day_retained_user_count AS NUMERIC) AS new_user_next_day_retained_user_count,
-        SAFE_DIVIDE(new_user_duration_sum_sec, NULLIF(new_user_dau, 0)) / 60.0 AS new_user_avg_duration_min,
-        SAFE_DIVIDE(new_content_consume_sum, NULLIF(new_user_content_dau, 0)) AS new_user_avg_content_consume,
-        SAFE_DIVIDE(closet_next_day_retained_user_count,
-            NULLIF(closet_next_day_retained_user_count + closet_next_day_not_retained_user_count, 0)) AS closet_user_next_day_retention_rate,
+        CAST(SAFE_DIVIDE(new_user_duration_sum_sec, NULLIF(new_user_dau, 0)) / 60.0 AS NUMERIC)
+            AS new_user_avg_duration_min,
+        CAST(SAFE_DIVIDE(new_content_consume_sum, NULLIF(new_user_content_dau, 0)) AS NUMERIC)
+            AS new_user_avg_content_consume,
+        CAST(
+            SAFE_DIVIDE(
+                closet_next_day_retained_user_count,
+                NULLIF(closet_next_day_retained_user_count + closet_next_day_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS closet_user_next_day_retention_rate,
         CAST(closet_next_day_retained_user_count AS NUMERIC) AS closet_user_next_day_retained_user_count,
-        SAFE_DIVIDE(product_detail_next_day_retained_user_count,
-            NULLIF(product_detail_next_day_retained_user_count + product_detail_next_day_not_retained_user_count, 0)) AS product_detail_user_next_day_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                product_detail_next_day_retained_user_count,
+                NULLIF(
+                    product_detail_next_day_retained_user_count
+                    + product_detail_next_day_not_retained_user_count,
+                    0
+                )
+            ) AS NUMERIC
+        ) AS product_detail_user_next_day_retention_rate,
         CAST(product_detail_next_day_retained_user_count AS NUMERIC) AS product_detail_user_next_day_retained_user_count,
-        SAFE_DIVIDE(ai_tryon_next_day_retained_user_count,
-            NULLIF(ai_tryon_next_day_retained_user_count + ai_tryon_next_day_not_retained_user_count, 0)) AS ai_tryon_user_next_day_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                ai_tryon_next_day_retained_user_count,
+                NULLIF(ai_tryon_next_day_retained_user_count + ai_tryon_next_day_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS ai_tryon_user_next_day_retention_rate,
         CAST(ai_tryon_next_day_retained_user_count AS NUMERIC) AS ai_tryon_user_next_day_retained_user_count,
-        SAFE_DIVIDE(follow_next_day_retained_user_count,
-            NULLIF(follow_next_day_retained_user_count + follow_next_day_not_retained_user_count, 0)) AS follow_user_next_day_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                follow_next_day_retained_user_count,
+                NULLIF(follow_next_day_retained_user_count + follow_next_day_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS follow_user_next_day_retention_rate,
         CAST(follow_next_day_retained_user_count AS NUMERIC) AS follow_user_next_day_retained_user_count,
-        SAFE_DIVIDE(model_next_day_retained_user_count,
-            NULLIF(model_next_day_retained_user_count + model_next_day_not_retained_user_count, 0)) AS model_user_next_day_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                model_next_day_retained_user_count,
+                NULLIF(model_next_day_retained_user_count + model_next_day_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS model_user_next_day_retention_rate,
         CAST(model_next_day_retained_user_count AS NUMERIC) AS model_user_next_day_retained_user_count,
-        SAFE_DIVIDE(styleme_next_day_retained_user_count,
-            NULLIF(styleme_next_day_retained_user_count + styleme_next_day_not_retained_user_count, 0)) AS styleme_user_next_day_retention_rate,
+        CAST(
+            SAFE_DIVIDE(
+                styleme_next_day_retained_user_count,
+                NULLIF(styleme_next_day_retained_user_count + styleme_next_day_not_retained_user_count, 0)
+            ) AS NUMERIC
+        ) AS styleme_user_next_day_retention_rate,
         CAST(styleme_next_day_retained_user_count AS NUMERIC) AS styleme_user_next_day_retained_user_count,
         CURRENT_TIMESTAMP() AS update_time
     FROM day_fact
