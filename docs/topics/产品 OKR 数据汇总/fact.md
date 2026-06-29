@@ -13,7 +13,7 @@
 
 - 表：`ads_weekly_ai_fashion_tryon_okr`
 - 粒度：`week_start_dt + metric_name + metric_bucket(可空)`
-- Dashboard：[产品 OKR 数据汇总](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
+- Dashboard：[产品 OKR 数据汇总（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
 - Chart（核心指标）：[【AI-Fashion】试穿OKR（核心指标）](https://bi.alvinclub.ca/superset/explore/?slice_id=628)（id=628）
 - Chart（分布）：[【AI-Fashion】人均每日试穿次数分布（周）](https://bi.alvinclub.ca/superset/explore/?slice_id=629)（id=629）
 
@@ -21,7 +21,7 @@
 
 - 表：`ads_weekly_ai_fashion_tryon_okr`
 - 粒度：`week_start_dt + metric_name + metric_bucket(可空)`
-- Dashboard：[产品 OKR 数据汇总](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
+- Dashboard：[产品 OKR 数据汇总（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
 - Chart（核心指标）：[【AI-Fashion】商品OKR（核心指标）](https://bi.alvinclub.ca/superset/explore/?slice_id=630)（id=630）
 - Chart（分布）：[【AI-Fashion】人均商品点击次数分布（周）](https://bi.alvinclub.ca/superset/explore/?slice_id=631)（id=631）
 
@@ -29,7 +29,7 @@
 
 - 表：`ads_weekly_ai_fashion_tryon_okr`
 - 粒度：`week_start_dt + metric_name`
-- Dashboard：[产品 OKR 数据汇总](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
+- Dashboard：[产品 OKR 数据汇总（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
 - 当前状态：指标逻辑已写入周表，留存 OKR 图表待创建
 
 ### v2 周级宽表
@@ -38,7 +38,7 @@
 - 粒度：`week_start_dt`
 - 当前状态：已建表，已回刷 `0427-0503` 至 `0615-0621` 周桶，已接入 `env/etl_config.json` 调度
 - 设计目标：复用 v1 已验证指标逻辑，将 `metric_name / metric_value` 的 long form 转为每个指标一个字段，便于 Superset 直接可视化
-- Dashboard：[产品 OKR 数据汇总 v2](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-v2/)（id=117）
+- Dashboard：[产品 OKR 数据汇总（Week）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-v2/)（id=117）
 - 物理 Dataset：`id=263`（`decom.ads_weekly_ai_fashion_tryon_okr_v2`）
 - Chart（试穿核心指标）：`id=644`
 - Chart（商品核心指标）：`id=645`
@@ -46,6 +46,19 @@
 - Chart（试穿分布）：`id=647`
 - Chart（试穿时长分布）：`id=649`
 - Chart（商品点击分布）：`id=648`
+
+### v2 日级宽表（Day）
+
+- 表：`ads_daily_ai_fashion_tryon_okr_v2`
+- 粒度：`dt`
+- 当前状态：物理表已存在；仓库脚本 / DDL / 编排已补齐；Superset 物理 Dataset、3 张核心图和 Day dashboard 已创建；历史回刷仍待确认
+- 设计目标：复用 v2 周级宽表同口径核心指标，直接输出日级字段，供 Day 看板使用
+- 口径裁剪：不输出三个分布图相关列、不输出各 `*_observed_day_count`，也不保留任何 `week_*` 维度列
+- Dashboard：[产品 OKR 数据汇总（Day）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-day/)（id=120）
+- 物理 Dataset：`id=268`（`decom.ads_daily_ai_fashion_tryon_okr_v2`）
+- Chart（试穿核心指标）：`id=669`
+- Chart（商品核心指标）：`id=670`
+- Chart（留存核心指标）：`id=671`
 
 ## 字段
 
@@ -191,14 +204,23 @@
   - `ddl/dws/dws_user_retention_feature_daily.sql`
 - 终层脚本：
   - v1：`jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
+  - v2（日）：`jobs/ads/ads_daily_ai_fashion_tryon_okr_v2.py`
   - v2：`jobs/ads/ads_weekly_ai_fashion_tryon_okr_v2.py`
 - 终层 DDL：
   - v1：`ddl/ads/ads_weekly_ai_fashion_tryon_okr.sql`
+  - v2（日）：`ddl/ads/ads_daily_ai_fashion_tryon_okr_v2.sql`
   - v2：`ddl/ads/ads_weekly_ai_fashion_tryon_okr_v2.sql`
-- 编排：`env/etl_config.json`（v1 / v2 均依赖上述 4 张 DWS；v2 schedule_group 为 `ads_weekly_ai_fashion_tryon_okr_v2`）
+- 编排：`env/etl_config.json`
+  - v1：`ads_weekly_ai_fashion_tryon_okr`
+  - v2（周）：`ads_weekly_ai_fashion_tryon_okr_v2`
+  - v2（日）：`ads_daily_ai_fashion_tryon_okr_v2`
 - Superset 资产（当前）：
-  - Dashboard：`id=114`，slug=`ai-fashion-product-okr-summary`
+  - Dashboard：`id=114`，slug=`ai-fashion-product-okr-summary`（deprecated）
+  - Dashboard：`id=117`，slug=`ai-fashion-product-okr-summary-v2`（Week）
+  - Dashboard：`id=120`，slug=`ai-fashion-product-okr-summary-day`（Day）
   - 物理 Dataset：`id=250`（`decom.ads_weekly_ai_fashion_tryon_okr`）
+  - 物理 Dataset：`id=263`（`decom.ads_weekly_ai_fashion_tryon_okr_v2`）
+  - 物理 Dataset：`id=268`（`decom.ads_daily_ai_fashion_tryon_okr_v2`）
   - 虚拟 Dataset（试穿核心指标）：`id=256`（`decom.vds_ai_fashion_tryon_okr_core_weekly`）
   - 虚拟 Dataset（试穿分布）：`id=257`（`decom.vds_ai_fashion_tryon_okr_bucket_weekly`）
   - 虚拟 Dataset（商品核心指标）：`id=258`（`decom.vds_ai_fashion_product_okr_core_weekly`）
@@ -207,3 +229,6 @@
   - Chart：`id=629`（`【AI-Fashion】人均每日试穿次数分布（周）`）
   - Chart：`id=630`（`【AI-Fashion】商品OKR（核心指标）`）
   - Chart：`id=631`（`【AI-Fashion】人均商品点击次数分布（周）`）
+  - Chart：`id=669`（`【AI-Fashion Day】试穿OKR（核心指标）`）
+  - Chart：`id=670`（`【AI-Fashion Day】商品OKR（核心指标）`）
+  - Chart：`id=671`（`【AI-Fashion Day】留存OKR（核心指标）`）

@@ -1133,6 +1133,21 @@
     },
     {
       "layer": "ADS",
+      "table_name": "ads_daily_ai_fashion_tryon_okr_v2",
+      "stage": "ADS",
+      "name": "ADS AI-Fashion 试穿 OKR 日报 v2 宽表 ETL",
+      "script": "jobs/ads/ads_daily_ai_fashion_tryon_okr_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_ai_fashion_tryon_okr_daily",
+        "dws_user_activity_daily",
+        "dws_user_retention_feature_daily",
+        "dws_user_daily"
+      ],
+      "schedule_group": "ads_daily_ai_fashion_tryon_okr_v2"
+    },
+    {
+      "layer": "ADS",
       "table_name": "ads_daily_video_code_conversion",
       "stage": "ADS",
       "name": "ADS 视频编码转化日报 ETL",

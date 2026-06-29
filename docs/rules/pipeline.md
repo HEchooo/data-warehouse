@@ -34,6 +34,7 @@
 - `ads_daily_formal_video_increment`
 - `ads_weekly_formal_video_increment_growth`
 - `ads_weekly_ai_fashion_tryon_okr`
+- `ads_daily_ai_fashion_tryon_okr_v2`
 - `ads_daily_closet_overview`
 - `ads_daily_video_code_conversion`
 - `ads_daily_push`
@@ -68,6 +69,7 @@
 - `jobs/ads/ads_daily_formal_video_increment.py`
 - `jobs/ads/ads_weekly_formal_video_increment_growth.py`
 - `jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
+- `jobs/ads/ads_daily_ai_fashion_tryon_okr_v2.py`
 - `jobs/ads/ads_daily_closet_overview.py`
 - `jobs/ads/ads_daily_video_code_conversion.py`
 - `jobs/ads/ads_daily_push.py`
@@ -110,6 +112,7 @@
   - `ads_daily_formal_video_increment`
   - `ads_weekly_formal_video_increment_growth`
   - `ads_weekly_ai_fashion_tryon_okr`
+  - `ads_daily_ai_fashion_tryon_okr_v2`
   - `ads_daily_closet_overview`
   - `ads_daily_investor`
   - `ads_daily_video_code_conversion`
@@ -195,7 +198,10 @@
   - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`
   - YouTube 累计播放与点赞复用 Social Content v2 的 `yt_video_stats_log.view_count / like_count` 口径
 - AI-Fashion 试穿 OKR 链路：
-  - `dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily -> ads_weekly_ai_fashion_tryon_okr`
+  - `dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily`
+  - `dwd_event_log + dws_user_daily + dws_user_activity_daily + dws_user_retention_feature_daily + dws_ai_fashion_tryon_okr_daily -> ads_daily_ai_fashion_tryon_okr_v2`
+  - `dws_ai_fashion_tryon_okr_daily -> ads_weekly_ai_fashion_tryon_okr`
+  - `dws_ai_fashion_tryon_okr_daily + dws_user_activity_daily + dws_user_daily + dws_user_retention_feature_daily -> ads_weekly_ai_fashion_tryon_okr_v2`
 - 视频编码转化链路：
   - `dwd_event_log + dim_user_first_active -> dws_video_code_search_user_daily`
   - `videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dws_video_code_search_user_daily -> dws_video_code_conversion_daily`
