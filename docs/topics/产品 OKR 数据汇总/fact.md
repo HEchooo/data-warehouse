@@ -51,14 +51,17 @@
 
 - 表：`ads_daily_ai_fashion_tryon_okr_v2`
 - 粒度：`dt`
-- 当前状态：物理表已存在；仓库脚本 / DDL / 编排已补齐；Superset 物理 Dataset、3 张核心图和 Day dashboard 已创建；历史回刷仍待确认
+- 当前状态：物理表已存在；仓库脚本 / DDL / 编排已补齐；Superset 物理 Dataset、6 张图和 Day dashboard 已创建；`2026-04-27` ~ `2026-06-29` 历史已完成回刷
 - 设计目标：复用 v2 周级宽表同口径核心指标，直接输出日级字段，供 Day 看板使用
-- 口径裁剪：不输出三个分布图相关列、不输出各 `*_observed_day_count`，也不保留任何 `week_*` 维度列
+- 口径裁剪：不输出各 `*_observed_day_count`，也不保留任何 `week_*` 维度列
 - Dashboard：[产品 OKR 数据汇总（Day）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-day/)（id=120）
 - 物理 Dataset：`id=268`（`decom.ads_daily_ai_fashion_tryon_okr_v2`）
 - Chart（试穿核心指标）：`id=669`
 - Chart（商品核心指标）：`id=670`
 - Chart（留存核心指标）：`id=671`
+- Chart（试穿分布）：`id=672`
+- Chart（商品点击分布）：`id=673`
+- Chart（试穿时长分布）：`id=674`
 
 ## 字段
 
@@ -232,3 +235,6 @@
   - Chart：`id=669`（`【AI-Fashion Day】试穿OKR（核心指标）`）
   - Chart：`id=670`（`【AI-Fashion Day】商品OKR（核心指标）`）
   - Chart：`id=671`（`【AI-Fashion Day】留存OKR（核心指标）`）
+  - Chart：`id=672`（`【AI-Fashion Day】人均每日试穿次数分布`）
+  - Chart：`id=673`（`【AI-Fashion Day】人均商品点击次数分布`）
+  - Chart：`id=674`（`【AI-Fashion Day】AI试穿时长分布`）

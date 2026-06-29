@@ -2,8 +2,9 @@
 -- 口径与 ads_weekly_ai_fashion_tryon_okr_v2 完全一致，仅把粒度从「周」改为「单日 dt」：
 --   - 周内 UV 求和 / 天数 -> 当日 UV 值
 --   - 率指标 SUM(分子)/SUM(分母) -> 当日分子 / 当日分母
+--   - 三个分布图直接按用户日明细输出当日各桶人数与占比
 --   - 留存观察未到位的天，留存率与留存数为 NULL（由 DWS is_*_observation_started 驱动）
--- 已按需求去掉：三个分布图相关列、各 *_observed_day_count 列、week_* 维度列。
+-- 不保留各 *_observed_day_count 列与 week_* 维度列。
 CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_ai_fashion_tryon_okr_v2` (
     dt DATE,
     -- 试穿 OKR 核心指标
@@ -73,3 +74,41 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_ai_fashion_tryon_okr_v2` (
     update_time TIMESTAMP
 )
 PARTITION BY dt;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_ai_fashion_tryon_okr_v2`
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_0_30s_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_0_30s_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_30_60s_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_30_60s_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_1_2min_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_1_2min_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_2_5min_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_2_5min_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_ge_5min_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_ge_5min_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_invalid_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_duration_bucket_invalid_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_0_3_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_0_3_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_3_6_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_3_6_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_6_10_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_6_10_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_10_15_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_10_15_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_gt_15_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_gt_15_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_zero_or_null_uv_day_count INT64,
+ADD COLUMN IF NOT EXISTS tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_0_3_day_count INT64,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_0_3_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_3_5_day_count INT64,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_3_5_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_5_10_day_count INT64,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_5_10_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_10_15_day_count INT64,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_10_15_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_gt_15_day_count INT64,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_gt_15_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_zero_or_null_uv_day_count INT64,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio NUMERIC;

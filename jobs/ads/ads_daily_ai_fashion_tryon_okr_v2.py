@@ -4,11 +4,12 @@
 
 设计要点：
 - 口径与周表 ``ads_weekly_ai_fashion_tryon_okr_v2`` 完全一致，仅把粒度从「周」改为「单日 dt」。
-- 复用周表相同的 4 张 DWS 源 CTE，日粒度下：
+- 复用周表相同的 5 张 DWS 源表，日粒度下：
     * 周内 UV 求和 / 天数 -> 当日 UV 值
     * 率指标 SUM(分子)/SUM(分母) -> 当日分子 / 当日分母
+    * 三个分布图改为直接读取用户日明细，按当日 DAU 输出各桶人数与占比
     * 留存观察未到位的天，留存率与留存数为 NULL（由 DWS is_*_observation_started 驱动）
-- 已按需求去掉：三个分布图相关列、各 *_observed_day_count 列、week_* 维度列。
+- 不保留各 *_observed_day_count 列与 week_* 维度列。
 """
 
 from datetime import date, datetime, timedelta
@@ -24,6 +25,7 @@ PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ads_daily_ai_fashion_tryon_okr_v2"
 TRYON_SOURCE_TABLE_NAME = "dws_ai_fashion_tryon_okr_daily"
+TRYON_USER_DAILY_SOURCE_TABLE_NAME = "dws_ai_fashion_tryon_okr_user_daily"
 USER_ACTIVITY_SOURCE_TABLE_NAME = "dws_user_activity_daily"
 USER_DAILY_SOURCE_TABLE_NAME = "dws_user_daily"
 RETENTION_FEATURE_SOURCE_TABLE_NAME = "dws_user_retention_feature_daily"
@@ -57,6 +59,18 @@ TARGET_COLUMNS = (
     "plus_tryon_success_rate",
     "quick_tryon_avg_duration_min",
     "plus_tryon_avg_duration_min",
+    "tryon_avg_duration_bucket_0_30s_day_count",
+    "tryon_avg_duration_bucket_0_30s_day_ratio",
+    "tryon_avg_duration_bucket_30_60s_day_count",
+    "tryon_avg_duration_bucket_30_60s_day_ratio",
+    "tryon_avg_duration_bucket_1_2min_day_count",
+    "tryon_avg_duration_bucket_1_2min_day_ratio",
+    "tryon_avg_duration_bucket_2_5min_day_count",
+    "tryon_avg_duration_bucket_2_5min_day_ratio",
+    "tryon_avg_duration_bucket_ge_5min_day_count",
+    "tryon_avg_duration_bucket_ge_5min_day_ratio",
+    "tryon_avg_duration_bucket_invalid_day_count",
+    "tryon_avg_duration_bucket_invalid_day_ratio",
     "product_click_uv",
     "product_exposure_uv",
     "product_exposure_click_rate",
@@ -94,6 +108,30 @@ TARGET_COLUMNS = (
     "model_user_next_day_retained_user_count",
     "styleme_user_next_day_retention_rate",
     "styleme_user_next_day_retained_user_count",
+    "tryon_avg_daily_count_bucket_0_3_day_count",
+    "tryon_avg_daily_count_bucket_0_3_day_ratio",
+    "tryon_avg_daily_count_bucket_3_6_day_count",
+    "tryon_avg_daily_count_bucket_3_6_day_ratio",
+    "tryon_avg_daily_count_bucket_6_10_day_count",
+    "tryon_avg_daily_count_bucket_6_10_day_ratio",
+    "tryon_avg_daily_count_bucket_10_15_day_count",
+    "tryon_avg_daily_count_bucket_10_15_day_ratio",
+    "tryon_avg_daily_count_bucket_gt_15_day_count",
+    "tryon_avg_daily_count_bucket_gt_15_day_ratio",
+    "tryon_avg_daily_count_bucket_zero_or_null_uv_day_count",
+    "tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio",
+    "product_click_avg_daily_count_bucket_0_3_day_count",
+    "product_click_avg_daily_count_bucket_0_3_day_ratio",
+    "product_click_avg_daily_count_bucket_3_5_day_count",
+    "product_click_avg_daily_count_bucket_3_5_day_ratio",
+    "product_click_avg_daily_count_bucket_5_10_day_count",
+    "product_click_avg_daily_count_bucket_5_10_day_ratio",
+    "product_click_avg_daily_count_bucket_10_15_day_count",
+    "product_click_avg_daily_count_bucket_10_15_day_ratio",
+    "product_click_avg_daily_count_bucket_gt_15_day_count",
+    "product_click_avg_daily_count_bucket_gt_15_day_ratio",
+    "product_click_avg_daily_count_bucket_zero_or_null_uv_day_count",
+    "product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio",
     "update_time",
 )
 
@@ -131,6 +169,10 @@ def target_table_id() -> str:
 
 def tryon_source_table_id() -> str:
     return f"{PROJECT_ID}.{DATASET_ID}.{TRYON_SOURCE_TABLE_NAME}"
+
+
+def tryon_user_daily_source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TRYON_USER_DAILY_SOURCE_TABLE_NAME}"
 
 
 def user_activity_source_table_id() -> str:
@@ -181,6 +223,7 @@ def get_dates_to_process(
         SELECT DISTINCT dt
         FROM (
             SELECT dt FROM `{tryon_source_table_id()}`
+            UNION DISTINCT SELECT dt FROM `{tryon_user_daily_source_table_id()}`
             UNION DISTINCT SELECT dt FROM `{user_activity_source_table_id()}`
             UNION DISTINCT SELECT dt FROM `{user_daily_source_table_id()}`
             UNION DISTINCT SELECT dt FROM `{retention_feature_source_table_id()}`
@@ -193,6 +236,9 @@ def get_dates_to_process(
     query = f"""
     WITH changed_dates AS (
         SELECT DISTINCT dt FROM `{tryon_source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+        UNION DISTINCT
+        SELECT DISTINCT dt FROM `{tryon_user_daily_source_table_id()}`
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
         UNION DISTINCT
         SELECT DISTINCT dt FROM `{user_activity_source_table_id()}`
@@ -266,6 +312,262 @@ def build_select_sql(day_dts: list[date]) -> str:
             product_click_pv_raw
         FROM `{tryon_source_table_id()}`
         WHERE dt BETWEEN DATE '{min_dt}' AND DATE '{max_dt}'
+    ),
+    -- 用户日明细分布基座：三个分布图统一读取用户级试穿 / 时长 / 点击明细。
+    tryon_user_distribution_daily AS (
+        SELECT
+            dt,
+            user_id,
+            tryon_task_count,
+            tryon_success_duration_task_count,
+            tryon_success_total_duration_ms,
+            product_click_pv_raw
+        FROM `{tryon_user_daily_source_table_id()}`
+        WHERE dt BETWEEN DATE '{min_dt}' AND DATE '{max_dt}'
+    ),
+    -- 人均每日试穿次数分布：按用户当日试穿次数分桶，分母为当日去重 DAU。
+    tryon_count_distribution_daily AS (
+        SELECT
+            dt,
+            COUNTIF(tryon_task_count > 0 AND tryon_task_count <= 3)
+                AS tryon_avg_daily_count_bucket_0_3_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(tryon_task_count > 0 AND tryon_task_count <= 3),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_daily_count_bucket_0_3_day_ratio,
+            COUNTIF(tryon_task_count > 3 AND tryon_task_count <= 6)
+                AS tryon_avg_daily_count_bucket_3_6_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(tryon_task_count > 3 AND tryon_task_count <= 6),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_daily_count_bucket_3_6_day_ratio,
+            COUNTIF(tryon_task_count > 6 AND tryon_task_count <= 10)
+                AS tryon_avg_daily_count_bucket_6_10_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(tryon_task_count > 6 AND tryon_task_count <= 10),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_daily_count_bucket_6_10_day_ratio,
+            COUNTIF(tryon_task_count > 10 AND tryon_task_count <= 15)
+                AS tryon_avg_daily_count_bucket_10_15_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(tryon_task_count > 10 AND tryon_task_count <= 15),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_daily_count_bucket_10_15_day_ratio,
+            COUNTIF(tryon_task_count > 15)
+                AS tryon_avg_daily_count_bucket_gt_15_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(tryon_task_count > 15),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_daily_count_bucket_gt_15_day_ratio,
+            COUNTIF(tryon_task_count = 0)
+                AS tryon_avg_daily_count_bucket_zero_or_null_uv_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(tryon_task_count = 0),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio
+        FROM tryon_user_distribution_daily
+        GROUP BY dt
+    ),
+    -- AI 试穿时长分布：按用户当日人均成功任务时长分桶，分母为当日去重 DAU。
+    tryon_duration_distribution_daily AS (
+        SELECT
+            dt,
+            COUNTIF(
+                tryon_success_duration_task_count > 0
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) <= 30000
+            ) AS tryon_avg_duration_bucket_0_30s_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(
+                        tryon_success_duration_task_count > 0
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) <= 30000
+                    ),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_duration_bucket_0_30s_day_ratio,
+            COUNTIF(
+                tryon_success_duration_task_count > 0
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) > 30000
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) <= 60000
+            ) AS tryon_avg_duration_bucket_30_60s_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(
+                        tryon_success_duration_task_count > 0
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) > 30000
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) <= 60000
+                    ),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_duration_bucket_30_60s_day_ratio,
+            COUNTIF(
+                tryon_success_duration_task_count > 0
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) > 60000
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) <= 120000
+            ) AS tryon_avg_duration_bucket_1_2min_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(
+                        tryon_success_duration_task_count > 0
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) > 60000
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) <= 120000
+                    ),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_duration_bucket_1_2min_day_ratio,
+            COUNTIF(
+                tryon_success_duration_task_count > 0
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) > 120000
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) <= 300000
+            ) AS tryon_avg_duration_bucket_2_5min_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(
+                        tryon_success_duration_task_count > 0
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) > 120000
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) <= 300000
+                    ),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_duration_bucket_2_5min_day_ratio,
+            COUNTIF(
+                tryon_success_duration_task_count > 0
+                AND SAFE_DIVIDE(
+                    tryon_success_total_duration_ms,
+                    tryon_success_duration_task_count
+                ) > 300000
+            ) AS tryon_avg_duration_bucket_ge_5min_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(
+                        tryon_success_duration_task_count > 0
+                        AND SAFE_DIVIDE(
+                            tryon_success_total_duration_ms,
+                            tryon_success_duration_task_count
+                        ) > 300000
+                    ),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_duration_bucket_ge_5min_day_ratio,
+            COUNTIF(tryon_success_duration_task_count = 0)
+                AS tryon_avg_duration_bucket_invalid_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(tryon_success_duration_task_count = 0),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS tryon_avg_duration_bucket_invalid_day_ratio
+        FROM tryon_user_distribution_daily
+        GROUP BY dt
+    ),
+    -- 人均商品点击次数分布：按用户当日商品点击次数分桶，分母为当日去重 DAU。
+    product_click_distribution_daily AS (
+        SELECT
+            dt,
+            COUNTIF(product_click_pv_raw > 0 AND product_click_pv_raw <= 3)
+                AS product_click_avg_daily_count_bucket_0_3_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(product_click_pv_raw > 0 AND product_click_pv_raw <= 3),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS product_click_avg_daily_count_bucket_0_3_day_ratio,
+            COUNTIF(product_click_pv_raw > 3 AND product_click_pv_raw <= 5)
+                AS product_click_avg_daily_count_bucket_3_5_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(product_click_pv_raw > 3 AND product_click_pv_raw <= 5),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS product_click_avg_daily_count_bucket_3_5_day_ratio,
+            COUNTIF(product_click_pv_raw > 5 AND product_click_pv_raw <= 10)
+                AS product_click_avg_daily_count_bucket_5_10_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(product_click_pv_raw > 5 AND product_click_pv_raw <= 10),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS product_click_avg_daily_count_bucket_5_10_day_ratio,
+            COUNTIF(product_click_pv_raw > 10 AND product_click_pv_raw <= 15)
+                AS product_click_avg_daily_count_bucket_10_15_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(product_click_pv_raw > 10 AND product_click_pv_raw <= 15),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS product_click_avg_daily_count_bucket_10_15_day_ratio,
+            COUNTIF(product_click_pv_raw > 15)
+                AS product_click_avg_daily_count_bucket_gt_15_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(product_click_pv_raw > 15),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS product_click_avg_daily_count_bucket_gt_15_day_ratio,
+            COUNTIF(product_click_pv_raw = 0)
+                AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_count,
+            CAST(
+                SAFE_DIVIDE(
+                    COUNTIF(product_click_pv_raw = 0),
+                    COUNT(*)
+                ) AS NUMERIC
+            ) AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio
+        FROM tryon_user_distribution_daily
+        GROUP BY dt
     ),
     -- 全量与新用户 DAU、时长、留存观察日级事实。
     user_activity_daily AS (
@@ -484,6 +786,30 @@ def build_select_sql(day_dts: list[date]) -> str:
                 NULLIF(plus_tryon_success_duration_task_count, 0)
             ) / 60000.0 AS NUMERIC
         ) AS plus_tryon_avg_duration_min,
+        COALESCE(tdd.tryon_avg_duration_bucket_0_30s_day_count, 0)
+            AS tryon_avg_duration_bucket_0_30s_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_0_30s_day_ratio, 0)
+            AS tryon_avg_duration_bucket_0_30s_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_30_60s_day_count, 0)
+            AS tryon_avg_duration_bucket_30_60s_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_30_60s_day_ratio, 0)
+            AS tryon_avg_duration_bucket_30_60s_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_1_2min_day_count, 0)
+            AS tryon_avg_duration_bucket_1_2min_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_1_2min_day_ratio, 0)
+            AS tryon_avg_duration_bucket_1_2min_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_2_5min_day_count, 0)
+            AS tryon_avg_duration_bucket_2_5min_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_2_5min_day_ratio, 0)
+            AS tryon_avg_duration_bucket_2_5min_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_ge_5min_day_count, 0)
+            AS tryon_avg_duration_bucket_ge_5min_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_ge_5min_day_ratio, 0)
+            AS tryon_avg_duration_bucket_ge_5min_day_ratio,
+        COALESCE(tdd.tryon_avg_duration_bucket_invalid_day_count, 0)
+            AS tryon_avg_duration_bucket_invalid_day_count,
+        COALESCE(tdd.tryon_avg_duration_bucket_invalid_day_ratio, 0)
+            AS tryon_avg_duration_bucket_invalid_day_ratio,
         -- 商品 OKR 核心指标
         CAST(product_click_uv AS NUMERIC) AS product_click_uv,
         CAST(product_exposure_uv AS NUMERIC) AS product_exposure_uv,
@@ -587,8 +913,62 @@ def build_select_sql(day_dts: list[date]) -> str:
             ) AS NUMERIC
         ) AS styleme_user_next_day_retention_rate,
         CAST(styleme_next_day_retained_user_count AS NUMERIC) AS styleme_user_next_day_retained_user_count,
+        COALESCE(td.tryon_avg_daily_count_bucket_0_3_day_count, 0)
+            AS tryon_avg_daily_count_bucket_0_3_day_count,
+        COALESCE(td.tryon_avg_daily_count_bucket_0_3_day_ratio, 0)
+            AS tryon_avg_daily_count_bucket_0_3_day_ratio,
+        COALESCE(td.tryon_avg_daily_count_bucket_3_6_day_count, 0)
+            AS tryon_avg_daily_count_bucket_3_6_day_count,
+        COALESCE(td.tryon_avg_daily_count_bucket_3_6_day_ratio, 0)
+            AS tryon_avg_daily_count_bucket_3_6_day_ratio,
+        COALESCE(td.tryon_avg_daily_count_bucket_6_10_day_count, 0)
+            AS tryon_avg_daily_count_bucket_6_10_day_count,
+        COALESCE(td.tryon_avg_daily_count_bucket_6_10_day_ratio, 0)
+            AS tryon_avg_daily_count_bucket_6_10_day_ratio,
+        COALESCE(td.tryon_avg_daily_count_bucket_10_15_day_count, 0)
+            AS tryon_avg_daily_count_bucket_10_15_day_count,
+        COALESCE(td.tryon_avg_daily_count_bucket_10_15_day_ratio, 0)
+            AS tryon_avg_daily_count_bucket_10_15_day_ratio,
+        COALESCE(td.tryon_avg_daily_count_bucket_gt_15_day_count, 0)
+            AS tryon_avg_daily_count_bucket_gt_15_day_count,
+        COALESCE(td.tryon_avg_daily_count_bucket_gt_15_day_ratio, 0)
+            AS tryon_avg_daily_count_bucket_gt_15_day_ratio,
+        COALESCE(td.tryon_avg_daily_count_bucket_zero_or_null_uv_day_count, 0)
+            AS tryon_avg_daily_count_bucket_zero_or_null_uv_day_count,
+        COALESCE(td.tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio, 0)
+            AS tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio,
+        COALESCE(cd.product_click_avg_daily_count_bucket_0_3_day_count, 0)
+            AS product_click_avg_daily_count_bucket_0_3_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_0_3_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_0_3_day_ratio,
+        COALESCE(cd.product_click_avg_daily_count_bucket_3_5_day_count, 0)
+            AS product_click_avg_daily_count_bucket_3_5_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_3_5_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_3_5_day_ratio,
+        COALESCE(cd.product_click_avg_daily_count_bucket_5_10_day_count, 0)
+            AS product_click_avg_daily_count_bucket_5_10_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_5_10_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_5_10_day_ratio,
+        COALESCE(cd.product_click_avg_daily_count_bucket_10_15_day_count, 0)
+            AS product_click_avg_daily_count_bucket_10_15_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_10_15_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_10_15_day_ratio,
+        COALESCE(cd.product_click_avg_daily_count_bucket_gt_15_day_count, 0)
+            AS product_click_avg_daily_count_bucket_gt_15_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_gt_15_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_gt_15_day_ratio,
+        COALESCE(cd.product_click_avg_daily_count_bucket_zero_or_null_uv_day_count, 0)
+            AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio,
         CURRENT_TIMESTAMP() AS update_time
     FROM day_fact
+    LEFT JOIN tryon_count_distribution_daily td
+        USING (dt)
+    LEFT JOIN tryon_duration_distribution_daily tdd
+        USING (dt)
+    LEFT JOIN product_click_distribution_daily cd
+        USING (dt)
     """
 
 
