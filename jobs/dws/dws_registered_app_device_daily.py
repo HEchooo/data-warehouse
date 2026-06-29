@@ -296,7 +296,8 @@ def run_dws_registered_app_device_daily(dates: list[date]) -> None:
                     'v_shop_feeds',
                     'v_star_post_feeds',
                     'v_brand_post_feeds',
-                    'v_kol_post_feeds'
+                    'v_kol_post_feeds',
+                    'v_magazine_post_feeds'
                 )
                     AND raw_event_id IS NOT NULL
 
