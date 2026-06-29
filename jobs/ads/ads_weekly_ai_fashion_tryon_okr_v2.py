@@ -10,6 +10,7 @@ PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ads_weekly_ai_fashion_tryon_okr_v2"
 TRYON_SOURCE_TABLE_NAME = "dws_ai_fashion_tryon_okr_daily"
+TRYON_USER_DAILY_SOURCE_TABLE_NAME = "dws_ai_fashion_tryon_okr_user_daily"
 USER_ACTIVITY_SOURCE_TABLE_NAME = "dws_user_activity_daily"
 USER_DAILY_SOURCE_TABLE_NAME = "dws_user_daily"
 RETENTION_FEATURE_SOURCE_TABLE_NAME = "dws_user_retention_feature_daily"
@@ -52,6 +53,10 @@ def target_table_id() -> str:
 
 def tryon_source_table_id() -> str:
     return f"{PROJECT_ID}.{DATASET_ID}.{TRYON_SOURCE_TABLE_NAME}"
+
+
+def tryon_user_daily_source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{TRYON_USER_DAILY_SOURCE_TABLE_NAME}"
 
 
 def user_activity_source_table_id() -> str:
@@ -104,6 +109,8 @@ def get_week_starts_to_process(
         FROM (
             SELECT dt FROM `{tryon_source_table_id()}`
             UNION DISTINCT
+            SELECT dt FROM `{tryon_user_daily_source_table_id()}`
+            UNION DISTINCT
             SELECT dt FROM `{user_activity_source_table_id()}`
             UNION DISTINCT
             SELECT dt FROM `{user_daily_source_table_id()}`
@@ -142,6 +149,12 @@ def get_week_starts_to_process(
         FROM `{retention_feature_source_table_id()}`
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
     ),
+    -- 最近 6 小时试穿用户日明细变更。
+    changed_tryon_user_daily_dates AS (
+        SELECT DISTINCT dt
+        FROM `{tryon_user_daily_source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+    ),
     -- 汇总所有会影响周报的业务日。
     changed_dates AS (
         SELECT dt FROM changed_tryon_dates
@@ -151,6 +164,8 @@ def get_week_starts_to_process(
         SELECT dt FROM changed_user_daily_dates
         UNION DISTINCT
         SELECT dt FROM changed_retention_feature_dates
+        UNION DISTINCT
+        SELECT dt FROM changed_tryon_user_daily_dates
     )
     SELECT DISTINCT DATE_TRUNC(dt, WEEK(MONDAY)) AS week_start_dt
     FROM changed_dates
@@ -288,11 +303,17 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         tryon_avg_daily_count_bucket_zero_or_null_uv_day_count,
         tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio,
         product_click_avg_daily_count_bucket_0_3_day_count,
+        product_click_avg_daily_count_bucket_0_3_day_ratio,
         product_click_avg_daily_count_bucket_3_5_day_count,
+        product_click_avg_daily_count_bucket_3_5_day_ratio,
         product_click_avg_daily_count_bucket_5_10_day_count,
+        product_click_avg_daily_count_bucket_5_10_day_ratio,
         product_click_avg_daily_count_bucket_10_15_day_count,
+        product_click_avg_daily_count_bucket_10_15_day_ratio,
         product_click_avg_daily_count_bucket_gt_15_day_count,
+        product_click_avg_daily_count_bucket_gt_15_day_ratio,
         product_click_avg_daily_count_bucket_zero_or_null_uv_day_count,
+        product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio,
         update_time
     )
     WITH
@@ -1575,177 +1596,207 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             )
         FROM weekly_agg
     ),
-    -- 人均每日试穿次数分桶：按 query.sql 同口径分桶并统计周内天数占比。
-    distribution_daily AS (
+    -- 用户周聚合基座：从用户日明细 DWS 读取，周内按用户求和。
+    user_weekly_distribution_base AS (
+        SELECT
+            c.week_start_dt,
+            c.week_end_dt,
+            c.week_label,
+            u.user_id,
+            SUM(u.tryon_task_count) AS weekly_tryon_count,
+            SUM(u.tryon_success_duration_task_count)
+                AS weekly_success_duration_task_count,
+            SUM(u.tryon_success_total_duration_ms)
+                AS weekly_success_total_duration_ms,
+            SUM(u.product_click_pv_raw) AS weekly_product_click_count
+        FROM week_calendar c
+        JOIN `{tryon_user_daily_source_table_id()}` u
+            ON u.dt = c.dt
+        GROUP BY c.week_start_dt, c.week_end_dt, c.week_label, u.user_id
+    ),
+    -- 周内去重 DAU：三个分布图的统一分母。
+    weekly_unique_dau AS (
         SELECT
             week_start_dt,
-            week_end_dt,
-            week_label,
+            COUNT(*) AS unique_dau
+        FROM user_weekly_distribution_base
+        GROUP BY week_start_dt
+    ),
+    -- 人均每日试穿次数分桶：按用户周内日均试穿次数分桶，DAU 为分母。
+    distribution_user_tryon AS (
+        SELECT
+            u.week_start_dt,
+            u.week_end_dt,
+            u.week_label,
             CASE
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 0
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 3 THEN '(0~3]'
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 3
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 6 THEN '(3~6]'
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 6
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 10 THEN '(6~10]'
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 10
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 15 THEN '(10~15]'
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 15 THEN '15次以上'
-                ELSE '0或无试穿UV'
+                WHEN u.weekly_tryon_count = 0 THEN '0或无试穿UV'
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 3
+                    THEN '(0~3]'
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 6
+                    THEN '(3~6]'
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 10
+                    THEN '(6~10]'
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 15
+                    THEN '(10~15]'
+                ELSE '15次以上'
             END AS metric_bucket,
             CASE
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 0
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 3 THEN 1
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 3
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 6 THEN 2
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 6
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 10 THEN 3
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 10
-                    AND SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) <= 15 THEN 4
-                WHEN SAFE_DIVIDE(tryon_pv, NULLIF(tryon_uv_total, 0)) > 15 THEN 5
-                ELSE 9
+                WHEN u.weekly_tryon_count = 0 THEN 9
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 3 THEN 1
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 6 THEN 2
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 10 THEN 3
+                WHEN SAFE_DIVIDE(u.weekly_tryon_count, w.day_count) <= 15 THEN 4
+                ELSE 5
             END AS metric_bucket_order
-        FROM week_daily_fact
+        FROM user_weekly_distribution_base u
+        JOIN weekly_agg w
+            USING (week_start_dt, week_end_dt, week_label)
     ),
-    -- 分桶周聚合层：输出每周各分桶天数与占比。
+    -- 试穿次数分桶聚合：输出每周各桶用户数与用户占比。
     distribution_metrics AS (
         SELECT
-            week_start_dt,
-            week_end_dt,
-            week_label,
+            b.week_start_dt,
+            b.week_end_dt,
+            b.week_label,
             '人均每日试穿次数分布' AS metric_type,
             '人均每日试穿次数分布' AS metric_name,
-            metric_bucket_order,
-            metric_bucket,
+            b.metric_bucket_order,
+            b.metric_bucket,
             COUNT(*) AS metric_day_count,
-            SAFE_DIVIDE(
-                COUNT(*),
-                SUM(COUNT(*)) OVER (PARTITION BY week_start_dt)
-            ) AS metric_value
-        FROM distribution_daily
+            SAFE_DIVIDE(COUNT(*), d.unique_dau) AS metric_value
+        FROM distribution_user_tryon b
+        JOIN weekly_unique_dau d USING (week_start_dt)
         GROUP BY
-            week_start_dt,
-            week_end_dt,
-            week_label,
-            metric_bucket_order,
-            metric_bucket
+            b.week_start_dt,
+            b.week_end_dt,
+            b.week_label,
+            b.metric_bucket_order,
+            b.metric_bucket,
+            d.unique_dau
     ),
-    -- AI 试穿时长分桶基础层：先算每日“全试穿成功任务平均完成时长”。
-    duration_distribution_daily_base AS (
+    -- AI 试穿时长分桶：按用户周内人均任务完成时长分桶。
+    duration_distribution_user AS (
         SELECT
-            week_start_dt,
-            week_end_dt,
-            week_label,
-            SAFE_DIVIDE(
-                all_tryon_success_total_duration_ms,
-                NULLIF(all_tryon_success_duration_task_count, 0)
-            ) AS avg_tryon_duration_ms
-        FROM week_daily_fact
-    ),
-    -- AI 试穿时长分桶：按“全试穿成功任务平均完成时长”做日级分桶，不限制试穿类型。
-    duration_distribution_daily AS (
-        SELECT
-            week_start_dt,
-            week_end_dt,
-            week_label,
+            u.week_start_dt,
+            u.week_end_dt,
+            u.week_label,
             CASE
-                WHEN avg_tryon_duration_ms > 0
-                    AND avg_tryon_duration_ms <= 30000 THEN '（0s,30s]'
-                WHEN avg_tryon_duration_ms > 30000
-                    AND avg_tryon_duration_ms <= 60000 THEN '（30s,60s]'
-                WHEN avg_tryon_duration_ms > 60000
-                    AND avg_tryon_duration_ms <= 120000 THEN '（60s,120s]'
-                WHEN avg_tryon_duration_ms > 120000
-                    AND avg_tryon_duration_ms <= 300000 THEN '（120s,300s]'
-                WHEN avg_tryon_duration_ms > 300000 THEN '（300s,+∞)'
-                ELSE '无有效时长'
+                WHEN u.weekly_success_duration_task_count = 0 THEN '无有效时长'
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 30000 THEN '（0s,30s]'
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 60000 THEN '（30s,60s]'
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 120000 THEN '（60s,120s]'
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 300000 THEN '（120s,300s]'
+                ELSE '（300s,+∞)'
             END AS metric_bucket,
             CASE
-                WHEN avg_tryon_duration_ms > 0
-                    AND avg_tryon_duration_ms <= 30000 THEN 1
-                WHEN avg_tryon_duration_ms > 30000
-                    AND avg_tryon_duration_ms <= 60000 THEN 2
-                WHEN avg_tryon_duration_ms > 60000
-                    AND avg_tryon_duration_ms <= 120000 THEN 3
-                WHEN avg_tryon_duration_ms > 120000
-                    AND avg_tryon_duration_ms <= 300000 THEN 4
-                WHEN avg_tryon_duration_ms > 300000 THEN 5
-                ELSE 9
+                WHEN u.weekly_success_duration_task_count = 0 THEN 9
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 30000 THEN 1
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 60000 THEN 2
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 120000 THEN 3
+                WHEN SAFE_DIVIDE(
+                    u.weekly_success_total_duration_ms,
+                    u.weekly_success_duration_task_count
+                ) <= 300000 THEN 4
+                ELSE 5
             END AS metric_bucket_order
-        FROM duration_distribution_daily_base
+        FROM user_weekly_distribution_base u
     ),
-    -- AI 试穿时长分桶周聚合：输出每周各分桶天数与周内天数占比。
+    -- AI 试穿时长分桶聚合：输出每周各桶用户数与用户占比。
     duration_distribution_metrics AS (
         SELECT
-            week_start_dt,
-            week_end_dt,
-            week_label,
-            metric_bucket_order,
-            metric_bucket,
+            b.week_start_dt,
+            b.week_end_dt,
+            b.week_label,
+            b.metric_bucket_order,
+            b.metric_bucket,
             COUNT(*) AS metric_day_count,
-            SAFE_DIVIDE(
-                COUNT(*),
-                SUM(COUNT(*)) OVER (PARTITION BY week_start_dt)
-            ) AS metric_value
-        FROM duration_distribution_daily
+            SAFE_DIVIDE(COUNT(*), d.unique_dau) AS metric_value
+        FROM duration_distribution_user b
+        JOIN weekly_unique_dau d USING (week_start_dt)
         GROUP BY
-            week_start_dt,
-            week_end_dt,
-            week_label,
-            metric_bucket_order,
-            metric_bucket
+            b.week_start_dt,
+            b.week_end_dt,
+            b.week_label,
+            b.metric_bucket_order,
+            b.metric_bucket,
+            d.unique_dau
     ),
-    -- 人均每日点击次数分桶：口径对齐 query.sql 指标 19，按商品点击 PV(raw_event_id 去重)/商品点击 UV 分桶。
-    click_distribution_daily AS (
+    -- 人均每日商品点击次数分桶：按用户周内日均点击次数分桶，DAU 为分母。
+    click_distribution_user AS (
         SELECT
-            week_start_dt,
-            week_end_dt,
-            week_label,
+            u.week_start_dt,
+            u.week_end_dt,
+            u.week_label,
             CASE
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 0
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 3 THEN '(0~3]'
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 3
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 5 THEN '(3~5]'
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 5
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 10 THEN '(5~10]'
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 10
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 15 THEN '(10~15]'
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 15 THEN '15次以上'
-                ELSE '0或无点击UV'
+                WHEN u.weekly_product_click_count = 0 THEN '0或无点击UV'
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 3
+                    THEN '(0~3]'
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 5
+                    THEN '(3~5]'
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 10
+                    THEN '(5~10]'
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 15
+                    THEN '(10~15]'
+                ELSE '15次以上'
             END AS metric_bucket,
             CASE
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 0
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 3 THEN 1
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 3
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 5 THEN 2
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 5
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 10 THEN 3
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 10
-                    AND SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) <= 15 THEN 4
-                WHEN SAFE_DIVIDE(product_click_pv_raw, NULLIF(product_click_uv, 0)) > 15 THEN 5
-                ELSE 9
+                WHEN u.weekly_product_click_count = 0 THEN 9
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 3
+                    THEN 1
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 5
+                    THEN 2
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 10
+                    THEN 3
+                WHEN SAFE_DIVIDE(u.weekly_product_click_count, w.day_count) <= 15
+                    THEN 4
+                ELSE 5
             END AS metric_bucket_order
-        FROM week_daily_fact
+        FROM user_weekly_distribution_base u
+        JOIN weekly_agg w
+            USING (week_start_dt, week_end_dt, week_label)
     ),
-    -- 点击次数分桶周聚合：按你的要求仅输出“次数”，不输出占比。
+    -- 点击次数分桶聚合：输出每周各桶用户数与用户占比。
     click_distribution_metrics AS (
         SELECT
-            week_start_dt,
-            week_end_dt,
-            week_label,
+            b.week_start_dt,
+            b.week_end_dt,
+            b.week_label,
             '人均商品点击次数分布' AS metric_type,
             '人均商品点击次数分布' AS metric_name,
-            metric_bucket_order,
-            metric_bucket,
+            b.metric_bucket_order,
+            b.metric_bucket,
             COUNT(*) AS metric_day_count,
-            CAST(COUNT(*) AS NUMERIC) AS metric_value
-        FROM click_distribution_daily
+            SAFE_DIVIDE(COUNT(*), d.unique_dau) AS metric_value
+        FROM click_distribution_user b
+        JOIN weekly_unique_dau d USING (week_start_dt)
         GROUP BY
-            week_start_dt,
-            week_end_dt,
-            week_label,
-            metric_bucket_order,
-            metric_bucket
+            b.week_start_dt,
+            b.week_end_dt,
+            b.week_label,
+            b.metric_bucket_order,
+            b.metric_bucket,
+            d.unique_dau
     ),
     -- 核心指标合集：复用 v1 已验证的 metric_name 计算结果，后续统一透视成字段。
     all_core_metrics AS (
@@ -1952,7 +2003,7 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
         FROM duration_distribution_metrics
         GROUP BY week_start_dt, week_end_dt, week_label
     ),
-    -- 商品点击次数分布宽表：v1 该分布的 metric_value 即周内桶天数。
+    -- 商品点击次数分布宽表：每个桶同时保留用户数和用户占比。
     pivoted_product_click_distribution AS (
         SELECT
             week_start_dt,
@@ -1960,16 +2011,28 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             week_label,
             MAX(IF(metric_bucket = '(0~3]', metric_day_count, NULL))
                 AS product_click_avg_daily_count_bucket_0_3_day_count,
+            MAX(IF(metric_bucket = '(0~3]', CAST(metric_value AS NUMERIC), NULL))
+                AS product_click_avg_daily_count_bucket_0_3_day_ratio,
             MAX(IF(metric_bucket = '(3~5]', metric_day_count, NULL))
                 AS product_click_avg_daily_count_bucket_3_5_day_count,
+            MAX(IF(metric_bucket = '(3~5]', CAST(metric_value AS NUMERIC), NULL))
+                AS product_click_avg_daily_count_bucket_3_5_day_ratio,
             MAX(IF(metric_bucket = '(5~10]', metric_day_count, NULL))
                 AS product_click_avg_daily_count_bucket_5_10_day_count,
+            MAX(IF(metric_bucket = '(5~10]', CAST(metric_value AS NUMERIC), NULL))
+                AS product_click_avg_daily_count_bucket_5_10_day_ratio,
             MAX(IF(metric_bucket = '(10~15]', metric_day_count, NULL))
                 AS product_click_avg_daily_count_bucket_10_15_day_count,
+            MAX(IF(metric_bucket = '(10~15]', CAST(metric_value AS NUMERIC), NULL))
+                AS product_click_avg_daily_count_bucket_10_15_day_ratio,
             MAX(IF(metric_bucket = '15次以上', metric_day_count, NULL))
                 AS product_click_avg_daily_count_bucket_gt_15_day_count,
+            MAX(IF(metric_bucket = '15次以上', CAST(metric_value AS NUMERIC), NULL))
+                AS product_click_avg_daily_count_bucket_gt_15_day_ratio,
             MAX(IF(metric_bucket = '0或无点击UV', metric_day_count, NULL))
-                AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_count
+                AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_count,
+            MAX(IF(metric_bucket = '0或无点击UV', CAST(metric_value AS NUMERIC), NULL))
+                AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio
         FROM click_distribution_metrics
         GROUP BY week_start_dt, week_end_dt, week_label
     )
@@ -2099,16 +2162,28 @@ def run_ads_weekly_ai_fashion_tryon_okr_v2(week_starts: list[date]) -> None:
             AS tryon_avg_daily_count_bucket_zero_or_null_uv_day_ratio,
         COALESCE(cd.product_click_avg_daily_count_bucket_0_3_day_count, 0)
             AS product_click_avg_daily_count_bucket_0_3_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_0_3_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_0_3_day_ratio,
         COALESCE(cd.product_click_avg_daily_count_bucket_3_5_day_count, 0)
             AS product_click_avg_daily_count_bucket_3_5_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_3_5_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_3_5_day_ratio,
         COALESCE(cd.product_click_avg_daily_count_bucket_5_10_day_count, 0)
             AS product_click_avg_daily_count_bucket_5_10_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_5_10_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_5_10_day_ratio,
         COALESCE(cd.product_click_avg_daily_count_bucket_10_15_day_count, 0)
             AS product_click_avg_daily_count_bucket_10_15_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_10_15_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_10_15_day_ratio,
         COALESCE(cd.product_click_avg_daily_count_bucket_gt_15_day_count, 0)
             AS product_click_avg_daily_count_bucket_gt_15_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_gt_15_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_gt_15_day_ratio,
         COALESCE(cd.product_click_avg_daily_count_bucket_zero_or_null_uv_day_count, 0)
             AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_count,
+        COALESCE(cd.product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio, 0)
+            AS product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio,
         CURRENT_TIMESTAMP() AS update_time
     FROM pivoted_core_metrics p
     JOIN weekly_agg w

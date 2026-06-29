@@ -199,9 +199,10 @@
   - YouTube 累计播放与点赞复用 Social Content v2 的 `yt_video_stats_log.view_count / like_count` 口径
 - AI-Fashion 试穿 OKR 链路：
   - `dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily`
+  - `dwd_event_log + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_user_daily`
   - `dwd_event_log + dws_user_daily + dws_user_activity_daily + dws_user_retention_feature_daily + dws_ai_fashion_tryon_okr_daily -> ads_daily_ai_fashion_tryon_okr_v2`
   - `dws_ai_fashion_tryon_okr_daily -> ads_weekly_ai_fashion_tryon_okr`
-  - `dws_ai_fashion_tryon_okr_daily + dws_user_activity_daily + dws_user_daily + dws_user_retention_feature_daily -> ads_weekly_ai_fashion_tryon_okr_v2`
+  - `dws_ai_fashion_tryon_okr_daily + dws_ai_fashion_tryon_okr_user_daily + dws_user_activity_daily + dws_user_daily + dws_user_retention_feature_daily -> ads_weekly_ai_fashion_tryon_okr_v2`
 - 视频编码转化链路：
   - `dwd_event_log + dim_user_first_active -> dws_video_code_search_user_daily`
   - `videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dws_video_code_search_user_daily -> dws_video_code_conversion_daily`

@@ -110,3 +110,11 @@ ADD COLUMN IF NOT EXISTS product_click_avg_count_per_click_user NUMERIC,
 ADD COLUMN IF NOT EXISTS new_user_next_day_retained_user_count NUMERIC,
 ADD COLUMN IF NOT EXISTS styleme_user_next_day_retention_rate NUMERIC,
 ADD COLUMN IF NOT EXISTS styleme_user_next_day_retained_user_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_weekly_ai_fashion_tryon_okr_v2`
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_0_3_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_3_5_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_5_10_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_10_15_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_gt_15_day_ratio NUMERIC,
+ADD COLUMN IF NOT EXISTS product_click_avg_daily_count_bucket_zero_or_null_uv_day_ratio NUMERIC;

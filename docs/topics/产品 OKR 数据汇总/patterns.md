@@ -23,3 +23,12 @@
 - `styleme试穿渗透率` 当前口径的分母是前端 `v_styleme_popup` / `v_styleme_page` UV
 - 在 `2026-06-08` 之前，这两个事件的历史量级明显偏低，容易出现周级分母很小、渗透率异常放大的现象
 - 排查时先同时核对周级 `styleme_uv` 与 `styleme_exposure_uv`，不要先怀疑 Superset 百分比格式
+
+## 周分布图改口径时先验收“是否已部署”再验数
+
+- 这次 AI-Fashion 3 个周分布图虽然代码已经改成“按用户分桶 + 周去重 DAU 分母”，但线上验收时发现新 DWS 表和 ADS 新列都还没有落库
+- 如果直接拿当前 dashboard 数字和新口径预期对比，很容易把“未部署”误判成“实现错误”
+- 正确顺序应是：
+  - 先查 `INFORMATION_SCHEMA.TABLES`，确认 `dws_ai_fashion_tryon_okr_user_daily` 已建表
+  - 再查 `INFORMATION_SCHEMA.COLUMNS`，确认 `ads_weekly_ai_fashion_tryon_okr_v2` 新增的商品点击 ratio 列已存在
+  - 最后再用源表重算一周，和 `ads_weekly_ai_fashion_tryon_okr_v2` 做桶人数/占比对比
