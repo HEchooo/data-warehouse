@@ -46,6 +46,15 @@
 - 因此内容展示量 / 点击量要按 `raw_event_id + item_key` 去重，其中 `item_key = product_code` 或 `post_code`
 - 只按 `raw_event_id` 统计会把同一次曝光里的多个 item 压成 1，导致人均内容展示量和内容点击率都偏低
 
+## 内容点击量突然高于内容展示量时，先查 detail 事件是否开始携带更多 item
+
+- `v_star_post_detail` / `v_magazine_post_detail` / `v_brand_post_detail` / `v_kol_post_detail` 都可能在同一个 `raw_event_id` 下同时带出 `args_post` 和 `args_spu`，经过 `dwd_event_log` 展开后，会形成多条 `post_code / product_code` 明细
+- 这类波动不能只看 ADS 总量；要先回到 `dwd_event_log`，按 `dt × event_name × raw_event_id` 统计 `COUNT(DISTINCT item_key)`，确认是不是从“1 次 detail 事件 = 1 个 item”变成了“1 次事件携带多个 item”
+- 2026-06-23 之后，`v_magazine_post_detail` 在 `2.4.5` 版本出现明显结构变化：同一事件开始同时携带 `1 个 post + 多个 spu`，`avg_items_per_event` 从 1.0 升到 2+，会直接抬高投资人报表里的 `人均内容点击量`
+- 同期 `v_magazine_post_feeds` 若未纳入 `registered_content_exposure_count`，会进一步压低展示分子；但这通常只是次要问题，不足以单独解释点击量突然反超展示量
+- 还要补查设备集中度。如果少数设备贡献了大部分 `v_magazine_post_detail` item 数，例如 top3 设备占当天 magazine detail item 的 60% 以上，说明除了口径变化，还可能叠加客户端异常行为或非自然流量
+- 这类问题不要直接假设“DWS 去重写错了”或“ADS 派生错了”；先区分是 `detail 事件 payload 结构变化`、`feeds 事件遗漏`，还是 `少数异常设备放大`，再决定是否要调整投资人口径
+
 ## 新增视频口径不能依赖“发布当天有播放增量”
 
 - 现有视频源的采集时间与发布时间存在明显滞后，很多视频在 `published_dt` 当天没有任何播放快照
