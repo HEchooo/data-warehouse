@@ -497,6 +497,19 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_ai_fashion_styleme_daily",
+      "stage": "DWS",
+      "name": "DWS AI-Fashion Style Me 日事实 ETL",
+      "script": "jobs/dws/dws_ai_fashion_styleme_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log",
+        "dws_user_daily"
+      ],
+      "schedule_group": "dws_ai_fashion_styleme_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_product_behavior_daily",
       "stage": "DWS",
       "name": "DWS 商品主题核心事实 ETL",
@@ -746,6 +759,18 @@
         "dws_makepod_order_daily"
       ],
       "schedule_group": "ads_daily_makepod"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_ai_fashion_styleme",
+      "stage": "ADS",
+      "name": "ADS AI-Fashion Style Me 日报 ETL",
+      "script": "jobs/ads/ads_daily_ai_fashion_styleme.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_ai_fashion_styleme_daily"
+      ],
+      "schedule_group": "ads_daily_ai_fashion_styleme"
     },
     {
       "layer": "ADS",

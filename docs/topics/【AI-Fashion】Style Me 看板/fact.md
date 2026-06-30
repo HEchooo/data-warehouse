@@ -1,0 +1,103 @@
+# 【AI-Fashion】Style Me 看板
+
+## 报表
+
+### 主题总览
+
+- 主题：Style Me 日报
+- 粒度：日（`dt`）
+- 表：`ads_daily_ai_fashion_styleme`
+- 明细展示：Chart 2 通过 Superset 虚拟 dataset `ads_daily_ai_fashion_styleme_scenario_detail` 将宽表转为长表
+- Dashboard：[121](https://bi.alvinclub.ca/superset/dashboard/121/)
+
+### Chart 1：Style Me 留存
+
+Style Me 用户的次日、第 7 日、第 30 日留存率。
+
+**Style Me 用户群组定义（OR 关系）：**
+1. 当日有 `c_styleme_try_btn` 埋点事件的用户
+2. 当日有 `v_styleme_page` 事件且后台有 STYLE_ME 任务的用户（`task_scene = 'STYLE_ME'`）
+
+**留存口径：** 群组用户在 dt+1 / dt+7 / dt+30 回到平台（出现在 `dws_user_daily`）。
+
+### Chart 2：Different Scenarios
+
+三种场景：Quick Mode、Plus Item、Plus Outfit。
+
+- 展示粒度：`dt + scenario`
+- 每日固定 3 行：`Quick Mode`、`Plus Item`、`Plus Outfit`
+
+## 字段
+
+| ADS 字段 | 含义 | 计算 |
+|---|---|---|
+| `styleme_user_uv` | Style Me 用户数（留存基数） | 群组定义 |
+| `next_day_retention_rate` | 次日留存率 | retained / (retained + not_retained) |
+| `next_day_retained_uv` | 次日留存人数 | - |
+| `day_7_retention_rate` | 第 7 日留存率 | 同上 |
+| `day_7_retained_uv` | 第 7 日留存人数 | - |
+| `day_30_retention_rate` | 第 30 日留存率 | 同上 |
+| `day_30_retained_uv` | 第 30 日留存人数 | - |
+| `popup_exposure_uv` | 弹窗曝光 UV（三场景共用） | `v_styleme_popup` UV |
+| `quick_try_btn_uv` | Quick Mode Try it 点击 UV | `c_styleme_try_btn && button_type='quick_signle'` |
+| `quick_penetration_rate` | Quick Mode 渗透率 | quick_try_btn_uv / popup_exposure_uv |
+| `quick_task_success_count` | Quick Mode 任务成功数 | `task_type='QUICK_TRY_ON' && task_scene='STYLE_ME' && status='SUCCESS'` |
+| `quick_add_closet_uv` | Quick Mode Add to Closet UV | `c_add_to_closet` join task（Quick Mode 条件） |
+| `quick_add_closet_calendar_uv` | Quick Mode Add to Closet & Calendar UV | `c_add_to_closet_calendar` join task |
+| `quick_result_success_uv` | Quick Mode 结果成功页曝光 UV | `v_result_success && page_key='quick_result'` |
+| `quick_add_closet_rate` | Quick Mode Add to Closet 率 | quick_add_closet_uv / quick_result_success_uv |
+| `quick_add_closet_calendar_rate` | Quick Mode Add to Closet & Calendar 率 | quick_add_closet_calendar_uv / quick_result_success_uv |
+| `plus_item_try_btn_uv` | Plus Item Try it 点击 UV | `c_styleme_try_btn && button_type='plus_single'` |
+| `plus_item_penetration_rate` | Plus Item 渗透率 | plus_item_try_btn_uv / popup_exposure_uv |
+| `plus_item_task_success_count` | Plus Item 任务成功数 | `task_scene='STYLE_ME' && referenceProducts 非空 && status='SUCCESS'` |
+| `plus_item_add_closet_uv` | Plus Item Add to Closet UV | `c_add_to_closet` join task（Plus Item 条件） |
+| `plus_item_add_closet_calendar_uv` | Plus Item Add to Closet & Calendar UV | `c_add_to_closet_calendar` join task |
+| `plus_result_success_uv` | Plus 结果成功页曝光 UV（Item 与 Outfit 共用） | `v_result_success && page_key='plus_result'` |
+| `plus_item_add_closet_rate` | Plus Item Add to Closet 率 | plus_item_add_closet_uv / plus_result_success_uv |
+| `plus_item_add_closet_calendar_rate` | Plus Item Add to Closet & Calendar 率 | plus_item_add_closet_calendar_uv / plus_result_success_uv |
+| `plus_outfit_try_btn_uv` | Plus Outfit Try it 点击 UV | `c_styleme_try_btn && button_type='plus_outfit'` |
+| `plus_outfit_penetration_rate` | Plus Outfit 渗透率 | plus_outfit_try_btn_uv / popup_exposure_uv |
+| `plus_outfit_task_success_count` | Plus Outfit 任务成功数 | `task_scene='STYLE_ME' && referenceProducts 空 && task_type!='QUICK_TRY_ON' && status='SUCCESS'` |
+| `plus_outfit_add_closet_uv` | Plus Outfit Add to Closet UV | `c_add_to_closet` join task（Plus Outfit 条件） |
+| `plus_outfit_add_closet_calendar_uv` | Plus Outfit Add to Closet & Calendar UV | `c_add_to_closet_calendar` join task |
+| `plus_outfit_add_closet_rate` | Plus Outfit Add to Closet 率 | plus_outfit_add_closet_uv / plus_result_success_uv |
+| `plus_outfit_add_closet_calendar_rate` | Plus Outfit Add to Closet & Calendar 率 | plus_outfit_add_closet_calendar_uv / plus_result_success_uv |
+
+## 依赖
+
+### 链路
+
+```
+dwd_event_log + v3_decom.common_ext_ai_task + dws_user_daily
+  → dws_ai_fashion_styleme_daily
+  → ads_daily_ai_fashion_styleme
+```
+
+### Superset
+
+- 物理 dataset：`ads_daily_ai_fashion_styleme`（id=269）
+- 虚拟 dataset：`ads_daily_ai_fashion_styleme_scenario_detail`（id=270）
+- chart：`Style Me 留存（日表）- 趋势`（id=675）、`Style Me Different Scenarios（日表）- 明细`（id=676）
+- dashboard：`【AI-Fashion】Style Me 看板`（id=121，默认日期 filter=`Last 30 days`）
+
+### 场景归属逻辑
+
+| 场景 | button_type | 任务成功数条件 | Add to Closet 条件 | 结果页 page_key |
+|---|---|---|---|---|
+| Quick Mode | `quick_signle` | `task_type='QUICK_TRY_ON'` | `task_type='QUICK_TRY_ON'` | `quick_result` |
+| Plus Item | `plus_single` | `referenceProducts` 非空 | `referenceProducts` 非空 | `plus_result` |
+| Plus Outfit | `plus_outfit` | `referenceProducts` 空且非 QUICK_TRY_ON | 同左 | `plus_result` |
+
+### 留存观察窗口
+
+- `is_next_day_observation_started`：`DATE_ADD(dt, INTERVAL 1 DAY) <= CURRENT_DATE('America/Toronto')`
+- 观察未到位时，留存率和留存数为 NULL
+
+## 已落地字段
+
+全部字段均已落地。
+
+## 当前状态
+
+- 截至 `2026-06-30`，已完成 `decom.dws_ai_fashion_styleme_daily`、`decom.ads_daily_ai_fashion_styleme` 建表
+- 截至 `2026-06-30`，已完成 `2026-06-01` 至 `2026-06-30` 的 DWS / ADS 历史回刷

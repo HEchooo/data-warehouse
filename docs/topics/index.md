@@ -35,3 +35,4 @@
 | push 数据看板 | `ads_daily_push` | [108](https://bi.alvinclub.ca/superset/dashboard/108/) | [fact.md](./push%20数据看板/fact.md) | [patterns.md](./push%20数据看板/patterns.md) |
 | Makepod 事件明细 | `dwd_makepod_event_log` | - | [fact.md](./Makepod%20事件明细/fact.md) | [patterns.md](./Makepod%20事件明细/patterns.md) |
 | Makepod 独立站日报 | `ads_daily_makepod` | [115](https://bi.alvinclub.ca/superset/dashboard/115/)（【Makepod】平台看板） | [fact.md](./Makepod%20独立站日报/fact.md) | [patterns.md](./Makepod%20独立站日报/patterns.md) |
+| 【AI-Fashion】Style Me 看板 | `ads_daily_ai_fashion_styleme` | [121](https://bi.alvinclub.ca/superset/dashboard/121/) | [fact.md](./【AI-Fashion】Style%20Me%20看板/fact.md) | [patterns.md](./【AI-Fashion】Style%20Me%20看板/patterns.md) |
