@@ -12,6 +12,7 @@ DATASET_ID = "decom"
 V3_DATASET_ID = "v3_decom"
 TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "dws_ai_fashion_tryon_okr_user_daily"
+USER_DAILY_SOURCE_TABLE_NAME = "dws_user_daily"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
@@ -62,6 +63,10 @@ def target_table_id() -> str:
     return f"{PROJECT_ID}.{DATASET_ID}.{TABLE_NAME}"
 
 
+def user_daily_source_table_id() -> str:
+    return f"{PROJECT_ID}.{DATASET_ID}.{USER_DAILY_SOURCE_TABLE_NAME}"
+
+
 def target_table_exists() -> bool:
     try:
         client.get_table(target_table_id())
@@ -106,6 +111,12 @@ def get_dates_to_process(
     if is_full_snapshot:
         query = f"""
         WITH
+        user_daily_dates AS (
+            SELECT DISTINCT dt
+            FROM `{user_daily_source_table_id()}`
+            WHERE prop_user_id IS NOT NULL
+                AND prop_user_id != ''
+        ),
         event_dates AS (
             SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
             FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
@@ -121,6 +132,8 @@ def get_dates_to_process(
         )
         SELECT DISTINCT dt
         FROM (
+            SELECT dt FROM user_daily_dates
+            UNION DISTINCT
             SELECT dt FROM event_dates
             UNION DISTINCT
             SELECT dt FROM tryon_dates
@@ -133,6 +146,13 @@ def get_dates_to_process(
 
     query = f"""
     WITH
+    changed_user_daily_dates AS (
+        SELECT DISTINCT dt
+        FROM `{user_daily_source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND prop_user_id IS NOT NULL
+            AND prop_user_id != ''
+    ),
     changed_event_dates AS (
         SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
@@ -150,6 +170,8 @@ def get_dates_to_process(
     )
     SELECT DISTINCT dt
     FROM (
+        SELECT dt FROM changed_user_daily_dates
+        UNION DISTINCT
         SELECT dt FROM changed_event_dates
         UNION DISTINCT
         SELECT dt FROM changed_tryon_dates
@@ -191,7 +213,17 @@ def run_dws(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 事件基础层：统一 Toronto 切天、统一 user_id。
+    -- 活跃用户基座：复用 dws_user_daily，排除被动触达事件带来的伪活跃。
+    active_users AS (
+        SELECT DISTINCT
+            dt,
+            prop_user_id AS user_id
+        FROM `{user_daily_source_table_id()}`
+        WHERE dt IN ({dates_str})
+            AND prop_user_id IS NOT NULL
+            AND prop_user_id != ''
+    ),
+    -- 事件基础层：统一 Toronto 切天、统一 user_id，仅用于商品点击 PV 计算。
     dwd_base AS (
         SELECT
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
@@ -203,11 +235,6 @@ def run_dws(dates: list[date]) -> None:
         WHERE DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
             AND prop_user_id IS NOT NULL
             AND CAST(prop_user_id AS STRING) != ''
-    ),
-    -- 每日活跃用户明细。
-    active_users AS (
-        SELECT DISTINCT dt, user_id
-        FROM dwd_base
     ),
     -- 服务端试穿任务用户日聚合。
     service_tryon_user_daily AS (

@@ -32,3 +32,9 @@
   - 先查 `INFORMATION_SCHEMA.TABLES`，确认 `dws_ai_fashion_tryon_okr_user_daily` 已建表
   - 再查 `INFORMATION_SCHEMA.COLUMNS`，确认 `ads_weekly_ai_fashion_tryon_okr_v2` 新增的商品点击 ratio 列已存在
   - 最后再用源表重算一周，和 `ads_weekly_ai_fashion_tryon_okr_v2` 做桶人数/占比对比
+
+## Day 分布图的 DAU 基座不能直接扫 `dwd_event_log`
+
+- `dws_ai_fashion_tryon_okr_user_daily` 如果直接从 `dwd_event_log` 按 `prop_user_id` 去重取 DAU，会把 `send_push`、`send_email` 这类被动触达用户也带进来
+- 这会导致 Day 看板里“0或无试穿UV / 0或无点击UV / 无有效时长”桶的人数膨胀到几千，而同日 `platform_dau` 只有几百，两个口径发生数量级冲突
+- 正确做法是先复用 `dws_user_daily` 活跃用户集合作为用户日基座，再 LEFT JOIN 试穿任务和商品点击行为
