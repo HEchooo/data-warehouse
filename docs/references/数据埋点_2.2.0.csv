@@ -1,5 +1,5 @@
 ﻿事件ID,事件描述,事件上报时机,事件上报参数,UI触发点位截图,数据结构,文字备注,web 测试,ios 测试,android 测试
-数据结构,,,,,"// 公参
+数据结构,,,,,"// 公参（logAt，单位毫秒）
 // 1. App
 {
     ""event_name"": ""xxx"",
@@ -68,7 +68,7 @@
     }
 }",,,,
 v_magazine_post_feeds,杂志帖子feeds曝光,进入杂志主页,"args.magazine
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""magazine"": ""magazine_id_1"",
         ""post"": [
@@ -78,8 +78,9 @@ args.post",image.png,"{
             ""post_code_4""
         ]
     }
-}",,,√,√
-c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,"image.png,image.png,image.png,image.png","// 1. 品牌商品页面
+}",,×,"""event_name"":""c_home_magazine""
+缺少post",√
+c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,,"// 1. 品牌商品页面
 {
     ""args"": {
         ""page_key"": ""brand_shop"",
@@ -109,10 +110,15 @@ c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,"image
 }","图四：args.page_key = magazine_feeds
 图三：args.page_key = kol_detail
 图二：args.page_key = brand_feeds
-图一：args.page_key = brand_shop",,√,√
+图一：args.page_key = brand_shop","图一：缺少page_key和brand
+图二：缺少page_key和brand
+图三：缺少brand
+图四：缺少brand，且page_key值错误","图一：page_key=creator_home_shop
+图四:参数不是magazine_id是brand","图一：page_key=creator_home_shop
+图二：""page_key"":""brand"""
 ,,,,,,,,,
 c_third_party_goods,,"打开第三方商品页面时进行上报；
-如这个弹窗勾选了不再显示，则点击跳转按钮后立即上报",,image.png,"{
+如这个弹窗勾选了不再显示，则点击跳转按钮后立即上报",,,"{
     ""args"": {
         ""page_key"": ""page_key_1"",
         ""spu"": ""spu_1"",
@@ -134,18 +140,21 @@ page_key：
 //""kol"", 
 //""brand"", 
 //""magazine"", 
-//""star"", ",,√,√
-v_tryon_result_detail,试穿结果曝光,进入具体某个试穿详情时上报,args.spu（只统计AI Match的商品）,image.png,"{
+//""star"", ","打开第三方商品页面时没有上报；
+弹窗里点击前往三方商品：page_key值错误，post没有值",×,"打开第三方商品页面：""page_key"":""product_detail""缺少 spu，post
+弹窗里点击前往三方商品：""page_key"":""product_detail""缺少 spu，post"
+v_tryon_result_detail,试穿结果曝光,进入具体某个试穿详情时上报,args.spu（只统计AI Match的商品）,,"{
     ""args"": {
         ""spu"": [""spu_id_1"",""spu_id_2""]
     }
-}",不需要区分styleme、tryOn，或者outfit,,√,√
-v_tryon_result_list,试穿结果列表曝光,,,image.png,,进入四个结果页的中间场景页面，都需要上报,,√,√
-c_tryon_result_list,点击查看试穿结果,点击具体某个试穿场景的时候常宝,,image.png,,,,√,√
-c_tryon_change_model,,在试穿结果页，点击更换模特后，进入模特选择页面，选择了某个模特，点击底部的“试穿”,,"image.png,image.png",,不需要区分styleme、tryOn，或者outfit,,√,√
+}",不需要区分styleme、tryOn，或者outfit,×,除ai match外的spu也统计了,除ai match外的spu也统计了
+v_tryon_result_list,试穿结果列表曝光,,,,,进入四个结果页的中间场景页面，都需要上报,×,√,√
+c_tryon_result_list,点击查看试穿结果,点击具体某个试穿场景的时候常宝,,,,,×,√,√
+c_tryon_change_model,,在试穿结果页，点击更换模特后，进入模特选择页面，选择了某个模特，点击底部的“试穿”,,,,不需要区分styleme、tryOn，或者outfit,√,"×
+这是什么意思？",√
 ,,,,,,,,,
-v_closet,衣橱首页曝光,,,image.png,,,,√,√
-c_add_item,添加衣橱,点击add的时候上报,,"image.png,image.png","{
+v_closet,衣橱首页曝光,,,,,,√,√,√
+c_add_item,添加衣橱,点击add的时候上报,,,"{
     ""args"": {
         ""page_key"": ""photo"", //""email"" //""search"" //""tryon_history"" //""closet_feed""//""tryon_result""
         ""quantity"": 1
@@ -153,9 +162,9 @@ c_add_item,添加衣橱,点击add的时候上报,,"image.png,image.png","{
 }","add的时候，加入数量是1个；
 add all的时候，需要上报加入的数量；
 
-tryon_result：试穿结果页加入衣橱",,√,√
-c_create_outfit,点击try on,在穿搭工作台进行试穿，点击底部的try On时上报,,"image.png,image.png,image.png",,本期增加closet，从衣橱里进行试穿,,√,√
-c_tryon_confirm,因为这个任务没有二次确认，所有合并到confirm的事件中,在穿搭工作台进行试穿，点击底部的try On时上报,,image.png,"// 1.1 首页 feeds 流（post）
+tryon_result：试穿结果页加入衣橱",×,"只有图片识别加入衣橱的""quantity""是正确的","""quantity""数量统计不对"
+c_create_outfit,点击try on,在穿搭工作台进行试穿，点击底部的try On时上报,,,,本期增加closet，从衣橱里进行试穿,c_create_outfit错了用的是c_tryon_confirm,没有c_create_outfit,√
+c_tryon_confirm,因为这个任务没有二次确认，所有合并到confirm的事件中,在穿搭工作台进行试穿，点击底部的try On时上报,,,"// 1.1 首页 feeds 流（post）
 {
     ""args"": {
         ""page_key"": ""home_feeds"",
@@ -210,18 +219,21 @@ c_tryon_confirm,因为这个任务没有二次确认，所有合并到confirm的
     ""args"": {
         ""page_key"": ""closet"",
     }
-}",本期增加closet，从衣橱里进行试穿,,√,√
-v_calendar,查看日历,,,image.png,,,,,
-c_add_calendar,添加穿搭到日历,,,"image.png,image.png","{
+}",本期增加closet，从衣橱里进行试穿,√,√,√
+v_calendar,查看日历,,,,,,√,√,√
+c_add_calendar,添加穿搭到日历,,,,"{
     ""args"": {
         ""page_key"": ""tryon_result"",
 //""outfit_detail"" 
     },
 }","图一：试穿结果页加入日历
-图二：outfit详情页加入日历",,√,√
+图二：outfit详情页加入日历","图一：√
+图二：√","图一：√
+图二：√","图1：没有爆batch接口
+图2：√"
 ,,,,,,,,,
 c_add_cart,从衣橱加入购物车,加购按钮点击,"args: page\module\spu\sku
-ext: quantity（新增）","image.png,image.png","{
+ext: quantity（新增）",,"{
     ""args"": {
         ""page_key"": ""home_feeds"", //""category"" //""product_detail"" //""tryon_result"" //""product_post""//""shop_feeds""//""creator_home_shop"", ""//""shop_style"", //""shop_occasion"", //""shop_crowd"", //""shop_brand"", //""shop_season"", //""closet"", 
         ""spu"": ""spu_1""
@@ -244,17 +256,17 @@ ext: quantity（新增）","image.png,image.png","{
 10、shop_crowd
 11、shop_brand
 12、shop_season
-13、closet（新增）",,√,√
-c_tryon_confirm,点击try on confirm,,args.spu,image.png,"{
+13、closet（新增）",√,√,√
+c_tryon_confirm,点击try on confirm,,args.spu,,"{
     ""args"": {
         ""post"": ""post_code_1""
         ""spu"": [""spu_id_1"",""spu_id_2""]
         ""sku"": [""sku_id_1"",""sku_id_2""]
     }
-}",试穿确认弹窗之前调整过了，需要确认这个埋点是否依旧有效,,√,√
+}",试穿确认弹窗之前调整过了，需要确认这个埋点是否依旧有效,√,√,√
 ,,,,,,,,,
 r_star_post_detail（删除该埋点）,明星帖子详情Feeds阅读,进入明星帖子页面,"args.star
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""star"": ""star_id_1"",
         ""topic: ""topic_1"",
@@ -262,13 +274,13 @@ args.post",image.png,"{
     }
 }",,,,
 r_magazine_post_detail（删除该埋点）,杂志帖子阅读,进入杂志帖子页面,"args.magazine
-args.post",专题主页样式1.png,"{
+args.post",,"{
     ""args"": {
         ""magazine"": ""magazine_id_1"",
         ""post"": ""post_code_1""
     }
 }",,,,
-r_brand_post_detail（删除该埋点）,品牌帖子详情Feeds阅读,进入页面,args: 品牌ID/帖子ID/主题ID,"image.png,品牌帖子.png","{
+r_brand_post_detail（删除该埋点）,品牌帖子详情Feeds阅读,进入页面,args: 品牌ID/帖子ID/主题ID,,"{
     ""args"": {
         ""brand"": ""brand_id_1"",
         ""post"": [
@@ -278,14 +290,14 @@ r_brand_post_detail（删除该埋点）,品牌帖子详情Feeds阅读,进入页
     }
 }",,,,
 r_kol_post_detail（删除该埋点）,KOL 帖子详情阅读,进入KOL帖子详情,"args.kol
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""blogger"": ""kol_id_1"",
         ""post"": [""post_code_1""]
     }
 }",,,,
 ,,,,,,,,,
-c_go_product_detail,,跳转至商详时进行上报,args: page\module\from\spu\sku,"img_v3_0210p_cca1b200-b3a0-44f3-88c4-d22355878fhu.jpg,image.png","{
+c_go_product_detail,,跳转至商详时进行上报,args: page\module\from\spu\sku,,"{
     ""args"": {
         ""page_key"": ""page_key_1"",
         ""spu"": ""spu_1"",
@@ -309,8 +321,9 @@ c_go_product_detail,,跳转至商详时进行上报,args: page\module\from\spu\s
 //""magazine"", 
 //""star"", 
 
-post：page_key =kol、brand、magazine、star时，位于帖子下方挂载的商品，点击需要带上postid",,√,√
-c_open_sku_popup,点击购物车按钮时，打开购物车弹窗,打开sku弹窗时进行上报,args: page\module\from\spu\sku,"img_v3_0210p_cca1b200-b3a0-44f3-88c4-d22355878fhu.jpg,image.png","{
+post：page_key =kol、brand、magazine、star时，位于帖子下方挂载的商品，点击需要带上postid",没有绑定,"帖子里的商详：没有module，from,sku
+shop页的商详：没有绑定此事件",shop页商详：没有post
+c_open_sku_popup,点击购物车按钮时，打开购物车弹窗,打开sku弹窗时进行上报,args: page\module\from\spu\sku,,"{
     ""args"": {
         ""page_key"": ""page_key_1"",
         ""spu"": ""spu_1"",
@@ -333,11 +346,11 @@ c_open_sku_popup,点击购物车按钮时，打开购物车弹窗,打开sku弹�
 //""magazine"", 
 //""star"", 
 
-post：page_key =kol、brand、magazine、star时，位于帖子下方挂载的商品，点击需要带上postid",,√,√
+post：page_key =kol、brand、magazine、star时，位于帖子下方挂载的商品，点击需要带上postid",没有上报,没有module，from，spu，post,没有module，from，spu，post
 v_shop_product,点击不同瓷片区，进入到对应feed流之后，曝光商品，上报feed流里的商品,在各个页面中，商详卡片曝光时上报,"args.spu
 ext.recommend.item_type
 ext.recommend.item_id
-ext.recommend.trace_info","image.png,image.png","{
+ext.recommend.trace_info",,"{
     ""args"": {
         ""page_key"": ""page_key_1"",
         ""spu"": [
@@ -375,11 +388,11 @@ ext.recommend.trace_info","image.png,image.png","{
 //""shop_occasion"",
 //""shop_crowd"", 
 //""shop_brand"", 
-//""shop_season"", ",,√,√
+//""shop_season"", ",没有爆batch接口,没有ext,没有recommend
 v_post_product,,在帖子中，点击帖子下方挂载的图片，弹窗展示该图片对应的商品信息；展示后上报对应的商品spu,"args.spu
 ext.recommend.item_type
 ext.recommend.item_id
-ext.recommend.trace_info",image.png,"{
+ext.recommend.trace_info",,"{
     ""args"": {
         ""page_key"": ""page_key_1"",
         ""spu"": [
@@ -416,11 +429,11 @@ ext.recommend.trace_info",image.png,"{
 //""kol"", 
 //""brand"", 
 //""magazine"", 
-//""star"", ",,√,√
+//""star"", ",没有上报,没有ext,没有recommend
 v_category_product,,在类目页面中，上报feed流里的商品,"args.spu
 ext.recommend.item_type
 ext.recommend.item_id
-ext.recommend.trace_info",image.png,"{
+ext.recommend.trace_info",,"{
     ""args"": {
         ""spu"": [
             ""spu_1"",
@@ -451,11 +464,11 @@ ext.recommend.trace_info",image.png,"{
             }
         ]
     }
-}",,,√,√
+}",,没有爆batch接口,没有ext,没有recommend
 v_creator_home_shop_product,,上品牌店铺里，上报shop里的商品,"args.spu
 ext.recommend.item_type
 ext.recommend.item_id
-ext.recommend.trace_info",image.png,"{
+ext.recommend.trace_info",,"{
     ""args"": {
         ""spu"": [
             ""spu_1"",
@@ -486,13 +499,13 @@ ext.recommend.trace_info",image.png,"{
             }
         ]
     }
-}",,,√,√
+}",,√,没有ext,没有recommend
 v_closet_feeds,closet的feeds曝光,"衣橱首页底部feed流
 添加item页面底部feed流","args.post
 args.spu
 ext.recommend.item_type
 ext.recommend.item_id
-ext.recommend.trace_info","image.png,image.png","{
+ext.recommend.trace_info",,"{
     ""args"": {
         ""post"": [
             ""post_code_1"",
@@ -527,7 +540,8 @@ ext.recommend.trace_info","image.png,image.png","{
             }
         ]
     }
-}",,,√,√
+}",,没有上报,"衣橱首页没有爆接口
+item流没有spu",√
 ,,,,,,,,,
 ,,,,,,,,,
 ,,,,,,,,,

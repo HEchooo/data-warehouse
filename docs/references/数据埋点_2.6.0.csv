@@ -1,0 +1,3605 @@
+﻿事件ID,事件描述,事件上报时机,事件上报参数,UI触发点位截图,数据结构,文字备注,web 测试,ios 测试,android 测试,ios测试结果备注,Android测试结果备注,服务端结果备注,web端测试结果备注
+v_search_result_feeds,搜索结果页曝光 feeds,搜索结果页曝光时触发,,"image.png,image.png,image.png","{
+    ""args"": {
+        ""page_key"": ""search_result"",
+        ""post"": [
+            ""post_code_1"",
+            ""post_code_2""
+        ],
+        ""spu"": [
+            ""spu_1"",
+            ""spu_2""
+        ]
+    }
+}",h5 应该有两种页面，但都归为统一事件,√,√,√,"{""properties"":{""language"":""zh"",""portal_code"":""US"",""device_id"":""6598d7c7-b823-4184-be26-87abb278f41e"",""version_type"":""ai_fashion"",""os_version"":""26.3.1"",""timezone"":""Asia\/Shanghai"",""screen_width"":414,""model"":""iPhone 11"",""user_id"":""2606221830731"",""brand"":""Apple"",""screen_height"":896,""network_id"":1,""app_version"":""2.4.5"",""os"":""iOS""},""session_id"":""1782205024322.819_2606221830731"",""args"":{""page_key"":""search_result"",""post"":[""POST2062092569744207872"",""POST2032365874116542464"",""POST2032366004228046848"",""POST2017128829802377216"",""POST2037367605032361984"",""POST2032359012780036096""]},""event_name"":""v_search_result_feeds"",""logAt"":1782205144055}","{
+  ""event_name"": ""v_search_result_feeds"",
+  ""args"": {
+    ""post"": [
+      ""POST2062092569744207872"",
+      ""POST2032365874116542464"",
+      ""POST2032366004228046848"",
+      ""POST2017128829802377216"",
+      ""POST2037367605032361984"",
+      ""POST2032359012780036096""
+    ]
+  },
+  ""ext"": {},
+  ""logAt"": 1782199665200,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""en_US"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""v_search_result_feeds"",
+  ""logAt"": ""1782130265540"",
+  ""args"": {
+    ""page_key"": ""search_result"",
+    ""spu"": [
+      ""SP01250695467"",
+      ""SP012506101896"",
+      ""SP01250693852"",
+      ""SP01250695465"",
+      ""SP01250349023"",
+      ""SP012506101884""
+    ]
+  },
+  ""session_id"": ""1782130265540_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/common-search"",
+    ""params"": ""?searchKey=%E6%8B%96%E9%9E%8B"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 11100,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}
+
+-----------------
+{
+  ""event_name"": ""v_search_result_feeds"",
+  ""logAt"": ""1782132316533"",
+  ""args"": {
+    ""page_key"": ""search_result"",
+    ""post"": [
+      ""POST2062092569744207872"",
+      ""POST2032366004228046848"",
+      ""POST2032365874116542464"",
+      ""POST2017128829802377216""
+    ],
+    ""spu"": []
+  },
+  ""session_id"": ""1782132316533_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/store/search-result"",
+    ""params"": ""?from=posts&words=%E7%A9%BF%E6%90%AD"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 1405,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_search_result_feeds,搜索结果页点击 feeds 卡片,搜索结果页点击 feeds 卡片时触发,,"image.png,image.png,image.png","// 点击的卡片是 post：
+{
+    ""args"": {
+        ""page_key"":""search_result"",
+        ""post"": ""post_code_1""
+    }
+// 点击的卡片是product：
+{
+    ""args"": {
+        ""page_key"":""search_result"",
+        ""spu"": ""spu_1""
+    }
+}",h5 应该有两种页面，但都归为统一事件,√,√,√,"{
+  ""event_name"": ""c_search_result_feeds"",
+  ""args"": {
+    ""post"": ""POST2032366004228046848"",
+    ""page_key"": ""search_result""
+  },
+  ""session_id"": ""1782205024322.819_2606221830731"",
+  ""logAt"": 1782205320489,
+  ""properties"": {
+    ""language"": ""zh"",
+    ""portal_code"": ""US"",
+    ""device_id"": ""6598d7c7-b823-4184-be26-87abb278f41e"",
+    ""version_type"": ""ai_fashion"",
+    ""os_version"": ""26.3.1"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_width"": 414,
+    ""model"": ""iPhone 11"",
+    ""user_id"": ""2606221830731"",
+    ""brand"": ""Apple"",
+    ""screen_height"": 896,
+    ""network_id"": 1,
+    ""app_version"": ""2.4.5"",
+    ""os"": ""iOS""
+  }
+}","{
+  ""event_name"": ""c_search_result_feeds"",
+  ""args"": {
+    ""page_key"": ""search_result"",
+    ""post"": ""POST2032359312542748672""
+  },
+  ""ext"": {},
+  ""logAt"": 1782228809618,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""v_product_detail"",
+  ""logAt"": ""1782184064521"",
+  ""args"": {
+    ""page_key"": ""product_detail"",
+    ""title"": ""商品详情"",
+    ""spu"": ""SP012506164068""
+  },
+  ""session_id"": ""1782184064521_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/detail"",
+    ""params"": ""?productCode=SP012506164068"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 1304,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}
+
+--------------------
+
+{
+  ""event_name"": ""v_search_result_feeds"",
+  ""logAt"": ""1782183758602"",
+  ""args"": {
+    ""page_key"": ""search_result"",
+    ""post"": [
+      ""POST2062092569744207872"",
+      ""POST2032366004228046848"",
+      ""POST2032365874116542464"",
+      ""POST2017128829802377216""
+    ],
+    ""spu"": []
+  },
+  ""session_id"": ""1782183758602_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/store/search-result"",
+    ""params"": ""?from=posts&words=%E7%A9%BF%E6%90%AD"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 1437,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_tryon,视频流页面点击tryon,点击视频流页面 tryon 按钮时触发,,image.png,"{
+    ""args"": {
+        ""page_key"": ""video_feeds"",
+        ""post"": ""post_code_1""
+    }
+}",,√,√,√,"{
+  ""event_name"": ""c_tryon"",
+  ""session_id"": ""1782097369814.6228_2606059624452"",
+  ""logAt"": 1782125643858,
+  ""args"": {
+    ""page_key"": ""video_feeds"",
+    ""post"": ""POST2031335691129356288""
+  },
+  ""properties"": {
+    ""model"": ""iPhone 12 Pro Max"",
+    ""os_version"": ""26.5"",
+    ""brand"": ""Apple"",
+    ""language"": ""zh"",
+    ""network_id"": 1,
+    ""user_id"": ""2606059624452"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_width"": 428,
+    ""app_version"": ""2.4.5"",
+    ""screen_height"": 926,
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""version_type"": ""ai_fashion"",
+    ""os"": ""iOS"",
+    ""portal_code"": ""US""
+  }
+}",,,"{
+  ""event_name"": ""c_tryon"",
+  ""logAt"": ""1782378526371"",
+  ""args"": {
+    ""page_key"": ""video_feeds"",
+    ""post"": ""POST2048698235795558400""
+  },
+  ""session_id"": ""1782378526371_1f108033-778d-42b9-8ffd-ef2f3fb4bf1d"",
+  ""properties"": {
+    ""device_id"": ""1f108033-778d-42b9-8ffd-ef2f3fb4bf1d"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/ai-video"",
+    ""params"": ""?id=2604242209215&postId=444&from=home"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 6914,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606253188631"",
+    ""share_code"": """"
+  }
+}"
+v_search_recommend,搜索中间页面推荐模块曝光,Recommended 模块曝光时触发,,image.png,"{
+    ""ext"": {
+        ""recommend"": [
+            ""xxx"",
+            ""xxx""
+        ]
+    }
+}",ext.recommend 传曝光词条内容,√,√,√,"{
+  ""event_name"": ""v_search_recommend"",
+  ""session_id"": ""1782216079776.624_2606236210616"",
+  ""properties"": {
+    ""language"": ""en"",
+    ""screen_height"": 896,
+    ""model"": ""iPhone 11"",
+    ""screen_width"": 414,
+    ""os"": ""iOS"",
+    ""os_version"": ""26.3.1"",
+    ""brand"": ""Apple"",
+    ""portal_code"": ""DE"",
+    ""device_id"": ""6598d7c7-b823-4184-be26-87abb278f41e"",
+    ""user_id"": ""2606236210616"",
+    ""version_type"": ""ai_fashion"",
+    ""app_version"": ""2.4.5"",
+    ""network_id"": 1,
+    ""timezone"": ""Asia/Shanghai""
+  },
+  ""logAt"": 1782217035634,
+  ""ext"": {
+    ""recommend"": [
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-23""
+    ]
+  }
+}","{
+  ""event_name"": ""v_search_recommend"",
+  ""args"": {},
+  ""ext"": {
+    ""recommend"": [
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-23""
+    ]
+  },
+  ""logAt"": 1782215539833,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""v_search_recommend"",
+  ""logAt"": ""1782212213416"",
+  ""args"": {},
+  ""session_id"": ""1782212213416_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-24"",
+      ""OOTD 2026-06-23"",
+      ""OOTD 2026-06-23""
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/store/search"",
+    ""params"": ""?from=posts&title=10%20%E7%A7%92%E8%AF%95%E7%A9%BF%E5%A4%A7%E7%89%8C&words=10%20%E7%A7%92%E8%AF%95%E7%A9%BF%E5%A4%A7%E7%89%8C"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 603,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_search_recommend,搜索中间页面推荐模块点击,用户点击推荐词或推荐标题时触发,,image.png,"{
+    ""ext"": {
+        ""recommend"": [
+            ""xxx""
+        ]
+    }
+}",ext.recommend 传点击词条内容,√,√,√,"{""event_name"":""c_search_recommend"",""args"":{},""ext"":{""recommend"":""OOTD 2026-06-24""},""logAt"":1782217667930,""session_id"":""0_2606231357957"",""properties"":{""user_id"":""2606231357957"",""language"":""zh_CN"",""network_id"":1,""device_id"":""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}","{""event_name"":""c_search_recommend"",""properties"":{""portal_code"":""DE"",""timezone"":""Asia\/Shanghai"",""screen_height"":896,""user_id"":""2606236210616"",""device_id"":""6598d7c7-b823-4184-be26-87abb278f41e"",""screen_width"":414,""model"":""iPhone 11"",""app_version"":""2.4.5"",""language"":""en"",""os"":""iOS"",""brand"":""Apple"",""version_type"":""ai_fashion"",""os_version"":""26.3.1"",""network_id"":1},""logAt"":1782217830927,""ext"":{""recommend"":[""OOTD 2026-06-24""]},""session_id"":""1782216079776.624_2606236210616""}",,"{
+  ""event_name"": ""c_search_recommend"",
+  ""logAt"": ""1782212320932"",
+  ""args"": {},
+  ""session_id"": ""1782212320932_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      ""OOTD 2026-06-24""
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/store/search"",
+    ""params"": ""?from=posts&title=10%20%E7%A7%92%E8%AF%95%E7%A9%BF%E5%A4%A7%E7%89%8C&words=10%20%E7%A7%92%E8%AF%95%E7%A9%BF%E5%A4%A7%E7%89%8C"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 108119,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_home_star,首页明星曝光,首页明星曝光时上报,,image.png,"{
+    ""args"": {
+        ""star"": [
+            ""star_id_1"",
+            ""star_id_2""
+        ]
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_2"",
+                ""trace_info"": ""xxx""
+            },
+        ]
+    }
+}",曝光的每个明星传recommend 数据,√,"√
+",√,"{
+  ""session_id"": ""1782226461853.878_2606232128835"",
+  ""logAt"": 1782226461856,
+  ""args"": {
+    ""star"": [
+      ""2601307681054""
+    ]
+  },
+  ""event_name"": ""v_home_star"",
+  ""properties"": {
+    ""portal_code"": ""GB"",
+    ""network_id"": 1,
+    ""brand"": ""Apple"",
+    ""app_version"": ""2.4.5"",
+    ""device_id"": ""2c8122da-2dd3-40f3-92c9-a90c45792ac5"",
+    ""os"": ""iOS"",
+    ""version_type"": ""ai_fashion"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_height"": 926,
+    ""language"": ""zh"",
+    ""user_id"": ""2606232128835"",
+    ""os_version"": ""26.5"",
+    ""screen_width"": 428
+  },
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": null,
+        ""item_id"": null,
+        ""trace_info"": null
+      }
+    ]
+  }
+}"," ""event_name"": ""v_home_star"",
+    ""args"": {
+      ""star"": [
+        ""2601307681054"",
+        ""2601307848537"",
+        ""2601305852656""
+      ]
+    },
+    ""ext"": {
+      ""recommend"": [
+        {
+          ""item_type"": null,
+          ""item_id"": null,
+          ""trace_info"": null
+        },
+        {
+          ""item_type"": null,
+          ""item_id"": null,
+          ""trace_info"": null
+        },
+        {
+          ""item_type"": null,
+          ""item_id"": null,
+          ""trace_info"": null
+        }",,"{
+  ""event_name"": ""v_home_star"",
+  ""logAt"": ""1782220878675"",
+  ""args"": {
+    ""star"": [
+      ""2601307681054"",
+      ""2601307848537""
+    ]
+  },
+  ""session_id"": ""1782220878675_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307681054"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307848537"",
+        ""trace_info"": """"
+      }
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 1393,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_home_star,首页明星点击,首页明星点击时上报,,image.png,"{
+    ""args"": {
+        ""star"": ""star_id_1""
+    }
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_1"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+    }
+}",点击的每个明星曝光传recommend 数据,√,√,√,"{
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""trace_info"": ""se=1782208280704_2606239137102;pos=1;src=curated_creator;tr=<curated>;re=500.0000;pre=0.8283;rank=0.8283;pr=lgb;uss=questionnaire;sm=-;amr=-"",
+        ""item_id"": ""2601307681054"",
+        ""item_type"": ""creator""
+      }
+    ]
+  },
+  ""event_name"": ""c_home_star"",
+  ""args"": {
+    ""star"": ""2601307681054""
+  },
+  ""logAt"": 1782215465805,
+  ""session_id"": ""1782208281453.6208_2606239137102"",
+  ""properties"": {
+    ""timezone"": ""Asia/Shanghai"",
+    ""device_id"": ""f7d875b8-4eaa-49a6-ba26-0fbb78524c53"",
+    ""os"": ""iOS"",
+    ""screen_height"": 926,
+    ""screen_width"": 428,
+    ""version_type"": ""ai_fashion"",
+    ""app_version"": ""2.4.5"",
+    ""user_id"": ""2606239137102"",
+    ""language"": ""zh"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""network_id"": 1,
+    ""os_version"": ""26.5"",
+    ""brand"": ""Apple"",
+    ""portal_code"": ""US""
+  }
+}"," {
+    ""event_name"": ""c_home_star"",
+    ""args"": {
+      ""star"": ""2601307681054""
+    },
+    ""ext"": {
+      ""recommend"": {
+        ""item_type"": null,
+        ""item_id"": null,
+        ""trace_info"": null
+      }
+    }",,"{
+  ""event_name"": ""c_home_star"",
+  ""logAt"": ""1782221124828"",
+  ""args"": {
+    ""star"": ""2601307681054""
+  },
+  ""session_id"": ""1782221124828_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307681054"",
+        ""trace_info"": """"
+      }
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 247546,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_home_brand,首页品牌曝光,首页品牌曝光时上报,,image.png,"{
+    ""args"": {
+        ""brand"": [
+            ""brand_id_1"",
+            ""brand_id_2""
+        ]
+    }
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_2"",
+                ""trace_info"": ""xxx""
+            },
+        ]
+    }
+}",曝光的每个品牌传recommend 数据,√,√,√,"{
+  ""session_id"": ""1782226461853.878_2606232128835"",
+  ""logAt"": 1782226461855,
+  ""args"": {
+    ""brand"": [
+      ""2604246193509""
+    ]
+  },
+  ""event_name"": ""v_home_brand"",
+  ""properties"": {
+    ""portal_code"": ""GB"",
+    ""network_id"": 1,
+    ""brand"": ""Apple"",
+    ""app_version"": ""2.4.5"",
+    ""device_id"": ""2c8122da-2dd3-40f3-92c9-a90c45792ac5"",
+    ""os"": ""iOS"",
+    ""version_type"": ""ai_fashion"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_height"": 926,
+    ""language"": ""zh"",
+    ""user_id"": ""2606232128835"",
+    ""os_version"": ""26.5"",
+    ""screen_width"": 428
+  },
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2604246193509"",
+        ""trace_info"": ""se=1782225663428_2606231861338;pos=2;src=curated_creator;tr=<curated>;re=479.0000;pre=383.2000;rank=383.2000;pr=legacy;uss=questionnaire;sm=-;amr=-""
+      }
+    ]
+  }
+}",,,"{
+  ""event_name"": ""v_home_brand"",
+  ""logAt"": ""1782220878678"",
+  ""args"": {
+    ""brand"": [
+      ""2604242209215"",
+      ""2604246193509""
+    ]
+  },
+  ""session_id"": ""1782220878678_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2604242209215"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2604246193509"",
+        ""trace_info"": """"
+      }
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 1396,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_home_brand,首页品牌点击,首页品牌点击时上报,,image.png,"{
+    ""args"": {
+        ""brand"": ""brand_id_1""
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_1"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+      }
+}",曝光的每个品牌传recommend 数据,√,√,√,"{
+  ""event_name"": ""c_home_brand"",
+  ""args"": {
+    ""brand"": ""2601217004958""
+  },
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_id"": ""2601217004958"",
+        ""item_type"": ""creator"",
+        ""trace_info"": ""se=1782208280704_2606239137102;pos=10;src=curated_creator;tr=<curated>;re=486.0000;pre=0.8143;rank=0.8143;pr=lgb;uss=questionnaire;sm=-;amr=-""
+      }
+    ]
+  },
+  ""session_id"": ""1782208281453.6208_2606239137102"",
+  ""properties"": {
+    ""network_id"": 1,
+    ""os_version"": ""26.5"",
+    ""version_type"": ""ai_fashion"",
+    ""screen_height"": 926,
+    ""brand"": ""Apple"",
+    ""portal_code"": ""US"",
+    ""user_id"": ""2606239137102"",
+    ""screen_width"": 428,
+    ""timezone"": ""Asia/Shanghai"",
+    ""language"": ""zh"",
+    ""device_id"": ""f7d875b8-4eaa-49a6-ba26-0fbb78524c53"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""os"": ""iOS"",
+    ""app_version"": ""2.4.5""
+  },
+  ""logAt"": 1782215701786
+}",,,"{
+  ""event_name"": ""c_home_brand"",
+  ""logAt"": ""1782221490640"",
+  ""args"": {
+    ""brand"": ""2601216904027""
+  },
+  ""session_id"": ""1782221490640_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601216904027"",
+        ""trace_info"": """"
+      }
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 27541,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_star_brand_page,明星品牌中间页面曝光,页面曝光时上报,,image.png,"{
+    ""args"": {
+        ""star"": [
+            ""star_id_1"",
+            ""star_id_2""
+        ],
+        ""brand"": [
+            ""brand_id_1"",
+            ""brand_id_2""
+        ]
+    },
+    ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_1"",
+                ""trace_info"": ""xxx""
+            },
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_2"",
+                ""trace_info"": ""xxx""
+            },
+             {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_3"",
+                ""trace_info"": ""xxx""
+            },
+             {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_4"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+}",曝光的每个明星/品牌传recommend 数据,√,√,√,"{
+  ""event_name"": ""v_star_brand_page"",
+  ""properties"": {
+    ""user_id"": ""2606232154083"",
+    ""version_type"": ""ai_fashion"",
+    ""screen_width"": 428,
+    ""app_version"": ""2.4.5"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""portal_code"": ""US"",
+    ""device_id"": ""aca05b38-d822-400b-a5ad-d8622ddccd2d"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""language"": ""zh"",
+    ""screen_height"": 926,
+    ""network_id"": 1,
+    ""brand"": ""Apple"",
+    ""os_version"": ""26.5"",
+    ""os"": ""iOS""
+  },
+  ""args"": {
+    ""star"": [
+      ""2601307681054"",
+      ""2601307848537"",
+      ""2601305852656"",
+      ""2601307541522""
+    ]
+  },
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307681054"",
+        ""trace_info"": ""se=1782199468110_2606232154083;pos=1;src=curated_creator;tr=<curated>;re=500.0000;pre=0.5782;rank=0.5782;pr=lgb;uss=default;sm=-;amr=-""
+      },
+      {
+        ""item_type"": ""creator"",
+        ""trace_info"": ""se=1782199468110_2606232154083;pos=3;src=curated_creator;tr=<curated>;re=499.0000;pre=0.5772;rank=0.5772;pr=lgb;uss=default;sm=-;amr=-"",
+        ""item_id"": ""2601307848537""
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601305852656"",
+        ""trace_info"": ""se=1782199468110_2606232154083;pos=5;src=curated_creator;tr=<curated>;re=498.0000;pre=0.5762;rank=0.5762;pr=lgb;uss=default;sm=-;amr=-""
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307541522"",
+        ""trace_info"": ""se=1782199468110_2606232154083;pos=7;src=curated_creator;tr=<curated>;re=497.0000;pre=0.5752;rank=0.5752;pr=lgb;uss=default;sm=-;amr=-""
+      }
+    ]
+  },
+  ""logAt"": 1782204028324,
+  ""session_id"": ""1782199468933.762_2606232154083""
+}
+-------------",,,"{
+  ""event_name"": ""v_star_brand_page"",
+  ""logAt"": ""1782221581134"",
+  ""args"": {
+    ""star"": [
+      ""2601307681054"",
+      ""2601307848537"",
+      ""2601305852656"",
+      ""2601307541522"",
+      ""2601307194850""
+    ],
+    ""brand"": [
+      ""2604242209215"",
+      ""2604246193509"",
+      ""2601216904027"",
+      ""2601283605656"",
+      ""2601280435393"",
+      ""2601306431661"",
+      ""2601217004958"",
+      ""2601303437223"",
+      ""2601117201158""
+    ]
+  },
+  ""session_id"": ""1782221581134_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2604242209215"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2604246193509"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601216904027"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601283605656"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601280435393"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601306431661"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601217004958"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601303437223"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601117201158"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307681054"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307848537"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601305852656"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307541522"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307194850"",
+        ""trace_info"": """"
+      }
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/fashion/hot"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 2447,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_star_brand_page,中间页的明星点击,中间页面的某个明星点击时上报,,image.png,"// 1. 点击的是明星
+{
+    ""args"": {
+        ""star"": ""star_id_1""
+    },
+     ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_1"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+      }
+}
+// 2.点击的是品牌
+{
+    ""args"": {
+        ""brand"": ""brand_id_1""
+    },
+     ""ext"": {
+        ""recommend"": [
+            {
+                ""item_type"": ""creator"",
+                ""item_id"": ""kol_user_id_1"",
+                ""trace_info"": ""xxx""
+            }
+        ]
+      }
+}",点击的每个明星/品牌传recommend 数据,√,√,√,"{
+  ""properties"": {
+    ""network_id"": 1,
+    ""os_version"": ""26.5"",
+    ""screen_width"": 428,
+    ""portal_code"": ""GB"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion"",
+    ""os"": ""iOS"",
+    ""app_version"": ""2.4.5"",
+    ""language"": ""zh"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""brand"": ""Apple"",
+    ""device_id"": ""2c8122da-2dd3-40f3-92c9-a90c45792ac5"",
+    ""user_id"": ""2606232128835"",
+    ""screen_height"": 926
+  },
+  ""event_name"": ""c_star_brand_page"",
+  ""session_id"": ""1782224059354.768_2606232128835"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_id"": null,
+        ""item_type"": null,
+        ""trace_info"": null
+      }
+    ]
+  },
+  ""args"": {
+    ""star"": ""2601306097545""
+  },
+  ""logAt"": 1782226122536
+}
+-------------------------
+{
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_id"": ""2604242209215"",
+        ""trace_info"": ""se=1782225663428_2606231861338;pos=1;src=curated_creator;tr=<curated>;re=480.0000;pre=384.0000;rank=384.0000;pr=legacy;uss=questionnaire;sm=-;amr=-"",
+        ""item_type"": ""creator""
+      }
+    ]
+  },
+  ""session_id"": ""1782224059354.768_2606232128835"",
+  ""logAt"": 1782225987955,
+  ""event_name"": ""c_star_brand_page"",
+  ""args"": {
+    ""brand"": ""2604242209215""
+  },
+  ""properties"": {
+    ""device_id"": ""2c8122da-2dd3-40f3-92c9-a90c45792ac5"",
+    ""version_type"": ""ai_fashion"",
+    ""user_id"": ""2606232128835"",
+    ""network_id"": 1,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""portal_code"": ""GB"",
+    ""app_version"": ""2.4.5"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""language"": ""zh"",
+    ""screen_height"": 926,
+    ""brand"": ""Apple"",
+    ""os"": ""iOS"",
+    ""screen_width"": 428,
+    ""os_version"": ""26.5""
+  }
+}","  {
+    ""event_name"": ""c_star_brand_page"",
+    ""args"": {
+      ""star"": ""2601307681054""
+    },
+    ""ext"": {
+      ""recommend"": {
+        ""item_type"": null,
+        ""item_id"": null,
+        ""trace_info"": null
+      }
+    },",,"{
+  ""event_name"": ""c_star_brand_page"",
+  ""logAt"": ""1782222406344"",
+  ""args"": {
+    ""star"": ""2601307681054""
+  },
+  ""session_id"": ""1782222406344_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""creator"",
+        ""item_id"": ""2601307681054"",
+        ""trace_info"": """"
+      }
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/fashion/hot"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 827657,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_star_brand_more,全部品牌入口more点击,点击品牌区 more 跳全部品牌页时触发,,image.png,,,√,√,√,"{
+  ""properties"": {
+    ""screen_height"": 926,
+    ""language"": ""zh"",
+    ""portal_code"": ""US"",
+    ""network_id"": 1,
+    ""brand"": ""Apple"",
+    ""device_id"": ""f7d875b8-4eaa-49a6-ba26-0fbb78524c53"",
+    ""app_version"": ""2.4.5"",
+    ""user_id"": ""2606239137102"",
+    ""os_version"": ""26.5"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""os"": ""iOS"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""screen_width"": 428,
+    ""version_type"": ""ai_fashion""
+  },
+  ""session_id"": ""1782208281453.6208_2606239137102"",
+  ""logAt"": 1782214283025,
+  ""event_name"": ""c_star_brand_more""
+}","  {
+    ""event_name"": ""c_star_brand_more"",
+    ""args"": {},
+    ""ext"": {},
+    ""logAt"": 1782223610252,
+    ""session_id"": ""0_2606232422317"",
+    ""properties"": {
+      ""user_id"": ""2606232422317"",
+      ""language"": ""zh_CN"",
+      ""network_id"": 1,
+      ""device_id"": ""6a8a95ac-1a2b-452e-9efb-885a31a031f1"",
+      ""app_version"": ""2.4.5-debug"",
+      ""screen_width"": 1080,
+      ""screen_height"": 2290,
+      ""portal_code"": ""AU"",
+      ""os"": ""Android"",
+      ""os_version"": ""15"",
+      ""model"": ""PJH110"",
+      ""brand"": ""OPPO"",
+      ""timezone"": ""Asia/Shanghai"",
+      ""version_type"": ""ai_fashion",,"{
+  ""event_name"": ""c_star_brand_more"",
+  ""logAt"": ""1782222575143"",
+  ""args"": {},
+  ""session_id"": ""1782222575143_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/fashion/hot"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 3019,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_feedback_entry,内容/商品负反馈入口曝光，需要区分时内容负反馈还是商品负反馈,内容负反馈入口曝光时触发,,"image.png,image.png","// 1. post
+{
+    ""args"": {
+        ""post"": ""post_code_1""
+    }
+}
+// 2. spu
+{
+    ""args"": {
+   ""spu"": ""spu_1""
+    }
+}",,√,√,√,"{
+  ""event_name"": ""v_feedback_entry"",
+  ""session_id"": ""1782097369814.6228_2604142657351"",
+  ""args"": {
+    ""post"": ""POST2036021031828135936""
+  },
+  ""logAt"": 1782109313770,
+  ""properties"": {
+    ""user_id"": ""2604142657351"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""portal_code"": ""US"",
+    ""screen_height"": 926,
+    ""version_type"": ""ai_fashion"",
+    ""network_id"": 1,
+    ""os_version"": ""26.5"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""screen_width"": 428,
+    ""language"": ""zh"",
+    ""app_version"": ""2.4.5"",
+    ""os"": ""iOS"",
+    ""brand"": ""Apple""
+  }
+}
+-----------------------
+{
+  ""session_id"": ""1782097369814.6228_2605156731986"",
+  ""args"": {
+    ""spu"": ""SP042604523539""
+  },
+  ""logAt"": 1782109647089,
+  ""event_name"": ""v_feedback_entry"",
+  ""properties"": {
+    ""language"": ""zh"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""os"": ""iOS"",
+    ""brand"": ""Apple"",
+    ""screen_height"": 926,
+    ""user_id"": ""2605156731986"",
+    ""os_version"": ""26.5"",
+    ""app_version"": ""2.4.5"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""portal_code"": ""FR"",
+    ""screen_width"": 428,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""network_id"": 1,
+    ""version_type"": ""ai_fashion""
+  }
+}","商品：
+{""event_name"":""v_feedback_entry"",""args"":{""spu"":""SP01250341557""},""ext"":{},""logAt"":1782287228524,""session_id"":""0_2606240006545"",""properties"":{""user_id"":""2606240006545"",""language"":""zh_CN"",""network_id"":1,""device_id"":""538256cb-a865-4ca7-9dfa-78569b2335cc"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}",,"{
+  ""event_name"": ""v_feedback_entry"",
+  ""logAt"": ""1782201996317"",
+  ""args"": {
+    ""post"": ""POST2067548204975730688""
+  },
+  ""session_id"": ""1782201996317_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 180779,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}
+---------
+{
+  ""event_name"": ""v_feedback_entry"",
+  ""logAt"": ""1782197510204"",
+  ""args"": {
+    ""spu"": ""SP01250361424""
+  },
+  ""session_id"": ""1782197510204_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/store"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 43543,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+c_feedback_entry,内容/商品负反馈入口点击，需要区分时内容负反馈还是商品负反馈,点击内容负反馈入口（dislike）时触发,,"image.png,image.png","// 1. post
+{
+    ""args"": {
+        ""post"": ""post_code_1""
+    }
+}
+// 2. spu
+{
+    ""args"": {
+        ""spu"": ""spu_1""
+    }
+}",,√,√,√,"{
+  ""args"": {
+    ""post"": ""POST2032358492065939456""
+  },
+  ""logAt"": 1782109729347,
+  ""event_name"": ""v_feedback_entry"",
+  ""session_id"": ""1782097369814.6228_2605156731986"",
+  ""properties"": {
+    ""language"": ""zh"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""os"": ""iOS"",
+    ""brand"": ""Apple"",
+    ""screen_height"": 926,
+    ""user_id"": ""2605156731986"",
+    ""os_version"": ""26.5"",
+    ""app_version"": ""2.4.5"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""portal_code"": ""FR"",
+    ""screen_width"": 428,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""network_id"": 1,
+    ""version_type"": ""ai_fashion""
+  }
+}
+-----------------------
+{
+  ""session_id"": ""1782097369814.6228_2605156731986"",
+  ""args"": {
+    ""spu"": ""SP042604523539""
+  },
+  ""logAt"": 1782109686823,
+  ""event_name"": ""c_feedback_entry"",
+  ""properties"": {
+    ""language"": ""zh"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""os"": ""iOS"",
+    ""brand"": ""Apple"",
+    ""screen_height"": 926,
+    ""user_id"": ""2605156731986"",
+    ""os_version"": ""26.5"",
+    ""app_version"": ""2.4.5"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""portal_code"": ""FR"",
+    ""screen_width"": 428,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""network_id"": 1,
+    ""version_type"": ""ai_fashion""
+  }
+}","商品：
+{""event_name"":""c_feedback_entry"",""args"":{""spu"":""SP01250341557""},""ext"":{},""logAt"":1782287297700,""session_id"":""0_2606240006545"",""properties"":{""user_id"":""2606240006545"",""language"":""zh_CN"",""network_id"":1,""device_id"":""538256cb-a865-4ca7-9dfa-78569b2335cc"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}",,"{
+  ""event_name"": ""c_feedback_entry"",
+  ""logAt"": ""1782202094618"",
+  ""args"": {
+    ""post"": ""POST2067548204975730688""
+  },
+  ""session_id"": ""1782202094618_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 279080,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}
+-------------
+{
+  ""event_name"": ""c_feedback_entry"",
+  ""logAt"": ""1782197369064"",
+  ""args"": {
+    ""spu"": ""SP01250361649""
+  },
+  ""session_id"": ""1782197369064_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/store"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 100077,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_feedback_popup,负反馈弹窗,反馈弹窗展示时触发,,image.png,,,√,√,√,"{
+  ""properties"": {
+    ""screen_height"": 926,
+    ""os"": ""iOS"",
+    ""os_version"": ""26.5"",
+    ""language"": ""zh"",
+    ""brand"": ""Apple"",
+    ""user_id"": ""2605156731986"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""app_version"": ""2.4.5"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""portal_code"": ""FR"",
+    ""screen_width"": 428,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""network_id"": 1,
+    ""version_type"": ""ai_fashion""
+  },
+  ""session_id"": ""1782097369814.6228_2605156731986"",
+  ""logAt"": 1782109574794,
+  ""event_name"": ""v_feedback_popup""
+}","{
+  ""event_name"": ""v_feedback_entry"",
+  ""args"": {
+    ""spu"": ""SP01250327559""
+  },
+  ""ext"": {},
+  ""logAt"": 1782202693600,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""en_US"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""v_feedback_popup"",
+  ""logAt"": ""1782194794514"",
+  ""args"": {},
+  ""session_id"": ""1782194794514_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/store"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 989330,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_tryon_survey_popup,问卷反馈弹窗曝光,问卷弹窗展示时触发,,image.png,,,,√,√,"{
+  ""logAt"": 1782109998905,
+  ""properties"": {
+    ""brand"": ""Apple"",
+    ""language"": ""zh"",
+    ""app_version"": ""2.4.5"",
+    ""screen_height"": 926,
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion"",
+    ""os"": ""iOS"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""os_version"": ""26.5"",
+    ""screen_width"": 428,
+    ""user_id"": ""2604220461700"",
+    ""portal_code"": ""US"",
+    ""network_id"": 1
+  },
+  ""session_id"": ""1782097369814.6228_2604220461700"",
+  ""event_name"": ""v_tryon_survey_popup""
+}"," ""event_name"": ""v_tryon_survey_popup"",
+    ""args"": {},
+    ""ext"": {},
+    ""logAt"": 1782231839106,
+    ""session_id"": ""0_2606123371030"",
+    ""properties"": {
+      ""user_id"": ""2606123371030"",
+      ""language"": ""zh_CN"",",,
+v_tryon_survey,问卷反馈填写页面曝光,问卷反馈填写页面曝光时上报,,image.png,,,,√,√,"{
+  ""properties"": {
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""language"": ""zh"",
+    ""user_id"": ""2604220461700"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""brand"": ""Apple"",
+    ""network_id"": 1,
+    ""version_type"": ""ai_fashion"",
+    ""os"": ""iOS"",
+    ""portal_code"": ""US"",
+    ""app_version"": ""2.4.5"",
+    ""screen_height"": 926,
+    ""os_version"": ""26.5"",
+    ""screen_width"": 428
+  },
+  ""logAt"": 1782110067037,
+  ""event_name"": ""v_tryon_survey"",
+  ""session_id"": ""1782097369814.6228_2604220461700""
+}",,,
+c_tryon_survey_submit,问卷反馈填写页面提交,问卷反馈填写页面提交按钮点击时上报,,image.png,,,,√,√,"{
+  ""logAt"": 1782111454442,
+  ""session_id"": ""1782097369814.6228_2606018763757"",
+  ""event_name"": ""c_tryon_survey_submit"",
+  ""properties"": {
+    ""network_id"": 1,
+    ""portal_code"": ""US"",
+    ""app_version"": ""2.4.5"",
+    ""language"": ""zh"",
+    ""os_version"": ""26.5"",
+    ""screen_width"": 428,
+    ""os"": ""iOS"",
+    ""version_type"": ""ai_fashion"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""brand"": ""Apple"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_height"": 926,
+    ""user_id"": ""2606018763757""
+  }
+}",,,
+v_tryon_survey_appstore,4 星或 5 星后跳 App Store 弹窗曝光,4 星或 5 星后跳 App Store 弹窗曝光时触发,,image.png,,,,√,√,"{
+  ""event_name"": ""v_tryon_survey_appstore"",
+  ""logAt"": 1782110113917,
+  ""properties"": {
+    ""user_id"": ""2604220461700"",
+    ""language"": ""zh"",
+    ""screen_width"": 428,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""brand"": ""Apple"",
+    ""network_id"": 1,
+    ""version_type"": ""ai_fashion"",
+    ""os"": ""iOS"",
+    ""portal_code"": ""US"",
+    ""app_version"": ""2.4.5"",
+    ""screen_height"": 926,
+    ""os_version"": ""26.5"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91""
+  },
+  ""session_id"": ""1782097369814.6228_2604220461700""
+}",,,
+c_tryon_survey_appstore,4 星或 5 星后跳 App Store 弹窗点击confirm,4 星或 5 星后跳 App Store 弹窗点击confirm时触发,,image.png,,,,√,√,"{
+  ""logAt"": 1782121613091,
+  ""event_name"": ""c_tryon_survey_appstore"",
+  ""session_id"": ""1782097369814.6228_2606059624452"",
+  ""properties"": {
+    ""network_id"": 1,
+    ""user_id"": ""2606059624452"",
+    ""app_version"": ""2.4.5"",
+    ""screen_width"": 428,
+    ""brand"": ""Apple"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""portal_code"": ""US"",
+    ""os"": ""iOS"",
+    ""os_version"": ""26.5"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion"",
+    ""language"": ""zh"",
+    ""device_id"": ""69aa9cc2-3d0a-488a-af31-cfdcf55f8c91"",
+    ""screen_height"": 926
+  }
+}","""event_name"": ""c_tryon_survey_appstore"",
+    ""args"": {},
+    ""ext"": {},
+    ""logAt"": 1782231974662,
+    ""session_id"": ""0_2606123371030"",
+    ""properties"": {
+      ""user_id"": ""2606123371030"",",,
+c_ootd_plus_upgrade,OOTD 点击升级 Plus ,OOTD 点击升级 Plus 按钮时触发,,image.png,,,√,√,√,"{
+  ""properties"": {
+    ""screen_height"": 896,
+    ""app_version"": ""2.4.5"",
+    ""screen_width"": 414,
+    ""timezone"": ""Asia/Shanghai"",
+    ""network_id"": 1,
+    ""portal_code"": ""US"",
+    ""brand"": ""Apple"",
+    ""device_id"": ""d18017e6-d2a1-42d0-9b66-4bf9865afdf2"",
+    ""user_id"": ""2606180291289"",
+    ""os"": ""iOS"",
+    ""language"": ""zh"",
+    ""version_type"": ""ai_fashion"",
+    ""model"": ""iPhone XR"",
+    ""os_version"": ""16.3""
+  },
+  ""session_id"": ""1782206613750.772_2606180291289"",
+  ""event_name"": ""c_ootd_plus_upgrade"",
+  ""logAt"": 1782214700259
+}","{
+  ""event_name"": ""c_ootd_plus_upgrade"",
+  ""args"": {},
+  ""ext"": {},
+  ""logAt"": 1782221591733,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""08203f3a-6ebd-4891-be47-ee45117799c7"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2285,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""13"",
+    ""model"": ""CPH2365"",
+    ""brand"": ""OPPO"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}
+
+",,"{
+  ""event_name"": ""c_ootd_plus_upgrade"",
+  ""logAt"": ""1782309357934"",
+  ""args"": {},
+  ""session_id"": ""1782309357934_4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+  ""properties"": {
+    ""device_id"": ""4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/ootd/issues"",
+    ""params"": ""?id=2606231357957"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 889303,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606231357957"",
+    ""share_code"": """"
+  }
+}"
+v_feedback_type,常驻反馈类型选择页面曝光,常驻反馈类型选择页面曝光时触发,,image.png,,,√,√,√,"{
+  ""session_id"": ""1782206613750.772_2606180291289"",
+  ""event_name"": ""v_feedback_type"",
+  ""logAt"": 1782214959516,
+  ""properties"": {
+    ""app_version"": ""2.4.5"",
+    ""brand"": ""Apple"",
+    ""portal_code"": ""US"",
+    ""device_id"": ""d18017e6-d2a1-42d0-9b66-4bf9865afdf2"",
+    ""model"": ""iPhone XR"",
+    ""language"": ""zh"",
+    ""screen_height"": 896,
+    ""user_id"": ""2606180291289"",
+    ""screen_width"": 414,
+    ""timezone"": ""Asia/Shanghai"",
+    ""network_id"": 1,
+    ""os_version"": ""16.3"",
+    ""os"": ""iOS"",
+    ""version_type"": ""ai_fashion""
+  }
+}
+
+","{
+  ""event_name"": ""v_feedback_type"",
+  ""args"": {},
+  ""ext"": {},
+  ""logAt"": 1782222458832,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""08203f3a-6ebd-4891-be47-ee45117799c7"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2285,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""13"",
+    ""model"": ""CPH2365"",
+    ""brand"": ""OPPO"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""v_feedback_type"",
+  ""logAt"": ""1782311098364"",
+  ""args"": {},
+  ""session_id"": ""1782311098364_4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+  ""properties"": {
+    ""device_id"": ""4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/u/feedback"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 403,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606231357957"",
+    ""share_code"": """"
+  }
+}"
+v_feedback_submit,反馈提交页面曝光,反馈提交页面曝光时触发,,image.png,,,√,√,√,"{
+  ""properties"": {
+    ""language"": ""zh"",
+    ""user_id"": ""2606247180826"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_height"": 896,
+    ""os_version"": ""16.3"",
+    ""version_type"": ""ai_fashion"",
+    ""device_id"": ""bb19f776-74a9-4350-9e8e-ccc4e9d35bc2"",
+    ""brand"": ""Apple"",
+    ""app_version"": ""2.4.5"",
+    ""portal_code"": ""US"",
+    ""network_id"": 1,
+    ""os"": ""iOS"",
+    ""model"": ""iPhone XR"",
+    ""screen_width"": 414
+  },
+  ""logAt"": 1782289074735,
+  ""session_id"": ""1782288876162.039_2606247180826"",
+  ""event_name"": ""v_feedback_submit""
+}","{
+  ""event_name"": ""v_feedback_submit"",
+  ""args"": {},
+  ""ext"": {},
+  ""logAt"": 1782291396356,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""46e0f69a-6407-498a-9683-da90d9c6e007"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1220,
+    ""screen_height"": 2590,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""23090RA98C"",
+    ""brand"": ""REDMI"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}
+
+",,"{
+  ""event_name"": ""v_feedback_submit"",
+  ""logAt"": ""1782311224585"",
+  ""args"": {},
+  ""session_id"": ""1782311224585_4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+  ""properties"": {
+    ""device_id"": ""4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/u/feedback-detail"",
+    ""params"": ""?questionCode=TRY_ON&questionTitle=Try-on%20Issue"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 2116,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606231357957"",
+    ""share_code"": """"
+  }
+}"
+v_cart_feeds,购物车底部信息流模块曝光,购物车页底部信息流进入可视区时触发,,image.png,"{
+    ""args"": {
+        ""spu"": [
+            ""spu_1"",
+            ""spu_2""
+        ]
+    }",,√,√,√,"{
+  ""session_id"": ""1782206613750.772_2606180291289"",
+  ""properties"": {
+    ""portal_code"": ""US"",
+    ""version_type"": ""ai_fashion"",
+    ""os"": ""iOS"",
+    ""os_version"": ""16.3"",
+    ""screen_width"": 414,
+    ""user_id"": ""2606180291289"",
+    ""language"": ""zh"",
+    ""device_id"": ""d18017e6-d2a1-42d0-9b66-4bf9865afdf2"",
+    ""model"": ""iPhone XR"",
+    ""network_id"": 1,
+    ""timezone"": ""Asia/Shanghai"",
+    ""app_version"": ""2.4.5"",
+    ""screen_height"": 896,
+    ""brand"": ""Apple""
+  },
+  ""args"": {
+    ""spu"": [
+      ""SP01250699844""
+    ]
+  },
+  ""event_name"": ""v_cart_feeds"",
+  ""logAt"": 1782215462703
+}","{
+  ""event_name"": ""v_cart_feeds"",
+  ""args"": {
+    ""spu"": [
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695"",
+      ""SP01250204695""
+    ]
+  },
+  ""ext"": {},
+  ""logAt"": 1782291083344,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""46e0f69a-6407-498a-9683-da90d9c6e007"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1220,
+    ""screen_height"": 2590,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""23090RA98C"",
+    ""brand"": ""REDMI"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""v_cart_feeds"",
+  ""logAt"": ""1782310473595"",
+  ""args"": {
+    ""spu"": [
+      ""SP01250404565"",
+      ""SP042507101880"",
+      ""SP042507102053"",
+      ""SP042507102122"",
+      ""SP012506231459"",
+      ""SP042507109763"",
+      ""SP042507109527"",
+      ""SP042507109128"",
+      ""SP012506415803"",
+      ""SP012506415838"",
+      ""SP01250509143"",
+      ""SP01250540876"",
+      ""SP01250509053"",
+      ""SP042507101781"",
+      ""SP04250779016"",
+      ""SP01250352925"",
+      ""SP01250344385"",
+      ""SP01250203830"",
+      ""SP01250360553"",
+      ""SP01250204929"",
+      ""SP01250363352"",
+      ""SP01250307703"",
+      ""SP01250327558"",
+      ""SP01250333977"",
+      ""SP01250415533"",
+      ""SP01250410715"",
+      ""SP01250205203"",
+      ""SP01250360063"",
+      ""SP01250203278"",
+      ""SP01250307705"",
+      ""SP01250381088"",
+      ""SP01250205273"",
+      ""SP01250204938"",
+      ""SP01250360116"",
+      ""SP01250352833"",
+      ""SP01250380539"",
+      ""SP01250380681"",
+      ""SP01250380367"",
+      ""SP01250360997"",
+      ""SP01250432392"",
+      ""SP01250381097"",
+      ""SP01250372316"",
+      ""SP01250415617"",
+      ""SP01250432386"",
+      ""SP01250380629"",
+      ""SP012504119138"",
+      ""SP01250402095"",
+      ""SP01250410647"",
+      ""SP01250514036"",
+      ""SP01250421874"",
+      ""SP01250381049"",
+      ""SP01250514047"",
+      ""SP01250432444"",
+      ""SP01250432394"",
+      ""SP01250432419"",
+      ""SP012504119145"",
+      ""SP01250432413"",
+      ""SP012504119164"",
+      ""SP012504119122"",
+      ""SP01250432420"",
+      ""SP012504119053"",
+      ""SP012504114268"",
+      ""SP01250522754"",
+      ""SP01250523582"",
+      ""SP012504119120"",
+      ""SP012504119117"",
+      ""SP01250442294"",
+      ""SP01250431485"",
+      ""SP01250514268"",
+      ""SP01250444428"",
+      ""SP01250514048"",
+      ""SP012504119128"",
+      ""SP01250434295"",
+      ""SP012504119123"",
+      ""SP012504119117"",
+      ""SP012504119120"",
+      ""SP01250523582"",
+      ""SP012504119122"",
+      ""SP012504119053"",
+      ""SP01250522754"",
+      ""SP01250432420"",
+      ""SP012504114268"",
+      ""SP012504119164"",
+      ""SP012504119145"",
+      ""SP01250432419"",
+      ""SP01250432413"",
+      ""SP01250432394"",
+      ""SP01250432444"",
+      ""SP01250514047"",
+      ""SP01250381049"",
+      ""SP01250514036"",
+      ""SP01250421874"",
+      ""SP012504119138"",
+      ""SP01250410647"",
+      ""SP01250402095"",
+      ""SP01250380629"",
+      ""SP01250432386"",
+      ""SP01250415617"",
+      ""SP01250372316"",
+      ""SP01250432392"",
+      ""SP01250381097"",
+      ""SP01250380681"",
+      ""SP01250380539"",
+      ""SP01250360997"",
+      ""SP01250380367"",
+      ""SP01250352833"",
+      ""SP01250204938"",
+      ""SP01250360116"",
+      ""SP01250205273"",
+      ""SP01250381088"",
+      ""SP01250307705"",
+      ""SP01250205203"",
+      ""SP01250203278"",
+      ""SP01250410715"",
+      ""SP01250360063"",
+      ""SP01250333977"",
+      ""SP01250415533"",
+      ""SP01250327558"",
+      ""SP01250307703"",
+      ""SP01250363352"",
+      ""SP01250204929"",
+      ""SP01250344385"",
+      ""SP01250352925"",
+      ""SP01250360553"",
+      ""SP01250203830"",
+      ""SP04250779016"",
+      ""SP01250509053"",
+      ""SP042507101781"",
+      ""SP012506415803"",
+      ""SP01250540876"",
+      ""SP042507109128"",
+      ""SP01250509143"",
+      ""SP042507109527"",
+      ""SP012506415838"",
+      ""SP042507102053"",
+      ""SP042507109763"",
+      ""SP042507101880"",
+      ""SP012506231459"",
+      ""SP01250404565"",
+      ""SP042507102122""
+    ]
+  },
+  ""session_id"": ""1782310473595_4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+  ""ext"": {
+    ""recommend"": [
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250404565"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507101880"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507102053"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507102122"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012506231459"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507109763"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507109527"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507109128"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012506415803"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012506415838"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250509143"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250540876"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250509053"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507101781"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP04250779016"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250352925"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250344385"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250203830"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360553"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250204929"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250363352"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250307703"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250327558"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250333977"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250415533"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250410715"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250205203"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360063"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250203278"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250307705"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250381088"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250205273"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250204938"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360116"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250352833"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380539"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380681"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380367"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360997"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432392"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250381097"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250372316"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250415617"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432386"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380629"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119138"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250402095"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250410647"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250514036"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250421874"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250381049"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250514047"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432444"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432394"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432419"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119145"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432413"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119164"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119122"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432420"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119053"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504114268"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250522754"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250523582"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119120"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119117"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250442294"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250431485"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250514268"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250444428"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250514048"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119128"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250434295"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119123"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119117"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119120"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250523582"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119122"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119053"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250522754"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432420"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504114268"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119164"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119145"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432419"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432413"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432394"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432444"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250514047"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250381049"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250514036"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250421874"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012504119138"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250410647"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250402095"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380629"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432386"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250415617"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250372316"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250432392"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250381097"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380681"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380539"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360997"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250380367"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250352833"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250204938"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360116"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250205273"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250381088"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250307705"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250205203"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250203278"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250410715"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360063"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250333977"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250415533"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250327558"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250307703"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250363352"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250204929"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250344385"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250352925"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250360553"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250203830"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP04250779016"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250509053"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507101781"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012506415803"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250540876"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507109128"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250509143"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507109527"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012506415838"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507102053"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507109763"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507101880"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP012506231459"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP01250404565"",
+        ""trace_info"": """"
+      },
+      {
+        ""item_type"": ""product"",
+        ""item_id"": ""SP042507102122"",
+        ""trace_info"": """"
+      }
+    ]
+  },
+  ""properties"": {
+    ""device_id"": ""4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/cart"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 811968,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606231357957"",
+    ""share_code"": """"
+  }
+}
+
+"
+c_cart_feeds,购物车底部信息流模块点击,,,image.png,"{
+    ""args"": {
+        ""spu"": [
+            ""spu_1""
+        ]
+    }",,√,√,√,"{
+  ""session_id"": ""1782288876162.039_2606247180826"",
+  ""properties"": {
+    ""app_version"": ""2.4.5"",
+    ""network_id"": 1,
+    ""screen_width"": 414,
+    ""portal_code"": ""US"",
+    ""os"": ""iOS"",
+    ""os_version"": ""16.3"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606247180826"",
+    ""screen_height"": 896,
+    ""brand"": ""Apple"",
+    ""model"": ""iPhone XR"",
+    ""language"": ""zh"",
+    ""version_type"": ""ai_fashion"",
+    ""device_id"": ""bb19f776-74a9-4350-9e8e-ccc4e9d35bc2""
+  },
+  ""event_name"": ""c_cart_feeds"",
+  ""logAt"": 1782288967223,
+  ""args"": {
+    ""spu"": [
+      ""SP042604523995""
+    ]
+  }
+}","{
+  ""event_name"": ""c_cart_feeds"",
+  ""args"": {
+    ""spu"": ""SP01250363352""
+  },
+  ""ext"": {},
+  ""logAt"": 1782291186318,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""46e0f69a-6407-498a-9683-da90d9c6e007"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1220,
+    ""screen_height"": 2590,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""23090RA98C"",
+    ""brand"": ""REDMI"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""c_cart_feeds"",
+  ""logAt"": ""1782389103564"",
+  ""args"": {
+    ""spu"": [
+      ""SP04260401016""
+    ]
+  },
+  ""session_id"": ""1782389103564_4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+  ""ext"": {
+    ""recommend"": {
+      ""item_type"": ""product"",
+      ""item_id"": ""SP04260401016"",
+      ""trace_info"": """"
+    }
+  },
+  ""properties"": {
+    ""device_id"": ""4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/cart"",
+    ""params"": """",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 387101,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606231357957"",
+    ""share_code"": """"
+  }
+}
+响应结果
+
+"
+v_star_post_detail,明星帖子详情Feeds曝光，包括帖子内的商品曝光，有spuid传spuid，无spuid传链接,进入明星帖子页面,"args.star
+args.post",4e0547c3c2e2973701271ab7d9071da0.jpg,"{
+    ""args"": {
+        ""star"": ""star_id_1"",
+        ""post"": [
+            ""post_code_1""
+        ],
+        ""spu"": [
+            ""spu_id_1"",
+            ""spu_id_2""
+        ]
+    }
+}",,,√,√,"{
+  ""logAt"": 1782212210805,
+  ""event_name"": ""v_star_post_detail"",
+  ""properties"": {
+    ""model"": ""iPhone 12 Pro Max"",
+    ""brand"": ""Apple"",
+    ""device_id"": ""f7d875b8-4eaa-49a6-ba26-0fbb78524c53"",
+    ""portal_code"": ""US"",
+    ""app_version"": ""2.4.5"",
+    ""os_version"": ""26.5"",
+    ""user_id"": ""2606239137102"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_height"": 926,
+    ""network_id"": 1,
+    ""os"": ""iOS"",
+    ""screen_width"": 428,
+    ""language"": ""zh"",
+    ""version_type"": ""ai_fashion""
+  },
+  ""session_id"": ""1782208281453.6208_2606239137102"",
+  ""args"": {
+    ""star"": ""2601307681054"",
+    ""post"": ""POST2037366832663863296"",
+    ""spu"": [
+      ""SP04250908718""
+    ]
+  }
+}","{
+  ""event_name"": ""v_star_post_detail"",
+  ""args"": {
+    ""star"": ""2601307681054"",
+    ""topic"": -1,
+    ""post"": ""POST2037365738156040192"",
+    ""spu"": [
+      ""https://www.reversible.com/shopping/men/item/celine-loose-t-shirt-in-cotton-jersey-567895586""
+    ]
+  },
+  ""ext"": {},
+  ""logAt"": 1782232710582,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,
+v_magazine_post_detail,杂志帖子曝光；包括帖子内的商品曝光，有spuid传spuid，无spuid传链接,进入杂志帖子页面,"args.magazine
+args.post",fb7f866e5a6c70773c6d91485b6ee35c.jpg,"{
+    ""args"": {
+        ""magazine"": ""magazine_id_1"",
+        ""post"": ""post_code_1"",
+        ""spu"": [
+            ""spu_id_1"",
+            ""spu_id_2""
+        ]
+    }
+}",,√,√,√,"{
+  ""session_id"": ""1782224059354.768_2606235299451"",
+  ""event_name"": ""v_magazine_post_detail"",
+  ""properties"": {
+    ""os_version"": ""26.5"",
+    ""screen_height"": 926,
+    ""app_version"": ""2.4.5"",
+    ""os"": ""iOS"",
+    ""portal_code"": ""US"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""brand"": ""Apple"",
+    ""device_id"": ""2c8122da-2dd3-40f3-92c9-a90c45792ac5"",
+    ""network_id"": 1,
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_width"": 428,
+    ""language"": ""zh"",
+    ""version_type"": ""ai_fashion"",
+    ""user_id"": ""2606235299451""
+  },
+  ""args"": {
+    ""post"": ""POST2062092382841827328"",
+    ""magazine"": ""2605213724295"",
+    ""spu"": [
+      ""SP04250843728""
+    ]
+  },
+  ""logAt"": 1782224952712
+}","{""event_name"":""v_magazine_post_detail"",""args"":{""magazine"":""2602265522381"",""post"":""POST2032359743642058752"",""spu"":[""https:\/\/www.zara.com\/us\/en\/satin-balloon-bomber-jacket-p04387175.html"",""https:\/\/andrea.is\/en\/products\/cocouture-sophie-sequin-pant?variant=49017728434413"",""https:\/\/www.nordstromrack.com\/s\/dolce-vita-korene-mule-pump-women\/8564739""]},""ext"":{},""logAt"":1782232862859,""session_id"":""0_2606231357957"",""properties"":{""user_id"":""2606231357957"",""language"":""zh_CN"",""network_id"":1,""device_id"":""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}{""event_name"":""v_magazine_post_detail"",""args"":{""magazine"":""2602265522381"",""post"":""POST2032359743642058752"",""spu"":[""https:\/\/www.edikted.com\/products\/s21947_navy"",""https:\/\/www.vince.com\/product\/chimi-12-sunglasses-X400040109GREEN.html"",""https:\/\/www.everlane.com\/products\/womens-way-high-drape-pant-navy"",""https:\/\/www.allbirds.com\/products\/womens-cruiser-tweed-hazy-indigo""]},""ext"":{},""logAt"":1782232862869,""session_id"":""0_2606231357957"",""properties"":{""user_id"":""2606231357957"",""language"":""zh_CN"",""network_id"":1,""device_id"":""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}",,"{
+  ""event_name"": ""v_magazine_post_detail"",
+  ""logAt"": ""1782223711313"",
+  ""args"": {
+    ""magazine"": ""2603023386573"",
+    ""post"": ""POST2029107210410094592"",
+    ""spu"": [
+      ""https://img.alvinclub.com/decom/pub/2026-03-04/2864793aae9d10326579d4bd258797a510.webp?format=webp&quality=90"",
+      ""https://img.alvinclub.com/decom/pub/2026-03-04/16115c16239367ea8c6021da2094ccf1.webp?format=webp&quality=90""
+    ]
+  },
+  ""session_id"": ""1782223711313_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/topic/magazine"",
+    ""params"": ""?id=2603023386573&sid=277&assetCode=ASSET2029112519356841984"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 2808,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_brand_post_detail,品牌帖子详情Feeds曝光；包括帖子内的商品曝光，有spuid传spuid，无spuid传链接,进入页面,args: 品牌ID/帖子ID/主题ID,d94a3d4084f33f1dc3bcc97f4d8a8529.jpg,"{
+    ""args"": {
+        ""brand"": ""brand_id_1"",
+        ""post"": ""post_code_1"",
+        ""spu"": [
+            ""spu_id_1"",
+            ""spu_id_2""
+        ]
+    }
+}",,√,√,√,"{
+  ""session_id"": ""1782224059354.768_2606235299451"",
+  ""properties"": {
+    ""os_version"": ""26.5"",
+    ""screen_height"": 926,
+    ""app_version"": ""2.4.5"",
+    ""os"": ""iOS"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""portal_code"": ""US"",
+    ""brand"": ""Apple"",
+    ""device_id"": ""2c8122da-2dd3-40f3-92c9-a90c45792ac5"",
+    ""network_id"": 1,
+    ""timezone"": ""Asia/Shanghai"",
+    ""screen_width"": 428,
+    ""language"": ""zh"",
+    ""version_type"": ""ai_fashion"",
+    ""user_id"": ""2606235299451""
+  },
+  ""args"": {
+    ""post"": ""POST2048698235795558400"",
+    ""brand"": ""2604242209215"",
+    ""spu"": [
+      """"
+    ]
+  },
+  ""event_name"": ""v_brand_post_detail"",
+  ""logAt"": 1782224790625
+}","{""event_name"":""v_brand_post_detail"",""args"":{""brand"":""2606150778127"",""topic"":""looks"",""post"":""POST2069456975356485632"",""spu"":[""https:\/\/www.baidu.com""]},""ext"":{},""logAt"":1782233130333,""session_id"":""0_2606231357957"",""properties"":{""user_id"":""2606231357957"",""language"":""zh_CN"",""network_id"":1,""device_id"":""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}{""event_name"":""v_brand_post_detail"",""args"":{""brand"":""2606150778127"",""topic"":""looks"",""post"":""POST2069456886877642752"",""spu"":[""https:\/\/www.baidu.com""]},""ext"":{},""logAt"":1782233134750,""session_id"":""0_2606231357957"",""properties"":{""user_id"":""2606231357957"",""language"":""zh_CN"",""network_id"":1,""device_id"":""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}{""event_name"":""v_brand_post_detail"",""args"":{""brand"":""2606150778127"",""topic"":""looks"",""post"":""POST2069456811925278720"",""spu"":[""https:\/\/www.baidu.com""]},""ext"":{},""logAt"":1782233136203,""session_id"":""0_2606231357957"",""properties"":{""user_id"":""2606231357957"",""language"":""zh_CN"",""network_id"":1,""device_id"":""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",""app_version"":""2.4.5-debug"",""screen_width"":1080,""screen_height"":2268,""portal_code"":""US"",""os"":""Android"",""os_version"":""16"",""model"":""Pixel 6a"",""brand"":""GOOGLE"",""timezone"":""Asia\/Shanghai"",""version_type"":""ai_fashion""}}",,"{
+  ""event_name"": ""v_brand_post_detail"",
+  ""logAt"": ""1782223774900"",
+  ""args"": {
+    ""topic"": """",
+    ""brand"": ""2606150778127"",
+    ""post"": [
+      ""POST2067548204975730688""
+    ],
+    ""spu"": [
+      ""https://img.alvinclub.com/decom/pub/2026-06-03/6ffaf4d46cc574faad4694d5ca9c3f65.png?format=webp&quality=90"",
+      ""https://img.alvinclub.com/decom/pub/2026-06-03/30e100cd233ba14eacf692045d44c2d21.png?format=webp&quality=90"",
+      ""https://img.alvinclub.com/decom/pub/2026-06-03/758e475eeab55b548f169ddfc584ae91.png?format=webp&quality=90""
+    ]
+  },
+  ""session_id"": ""1782223774900_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/brand/post"",
+    ""params"": ""?brandUserId=2606150778127&postId=1073&sortType=2"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 1046,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606167286089"",
+    ""share_code"": """"
+  }
+}"
+v_kol_post_detail,kol 商详页；包括帖子内的商品曝光，有spuid传spuid，无spuid传链接,进入kol帖子详情页,"args.kol
+args.post",image.png,"{
+    ""args"": {
+        ""kol"": ""kol_id_1"",
+        ""post"": ""post_code_1"",
+        ""spu"": [
+            ""spu_id_1"",
+            ""spu_id_2""
+        ]
+    }
+}",,√,√,√,"{
+  ""session_id"": ""1782208281453.6208_2606239137102"",
+  ""args"": {
+    ""post"": ""POST2030880524660985856"",
+    ""spu"": [
+      """"
+    ],
+    ""kol"": ""2603091663839""
+  },
+  ""properties"": {
+    ""os_version"": ""26.5"",
+    ""device_id"": ""f7d875b8-4eaa-49a6-ba26-0fbb78524c53"",
+    ""os"": ""iOS"",
+    ""screen_width"": 428,
+    ""timezone"": ""Asia/Shanghai"",
+    ""language"": ""zh"",
+    ""network_id"": 1,
+    ""screen_height"": 926,
+    ""user_id"": ""2606239137102"",
+    ""portal_code"": ""US"",
+    ""app_version"": ""2.4.5"",
+    ""brand"": ""Apple"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""version_type"": ""ai_fashion""
+  },
+  ""event_name"": ""v_kol_post_detail"",
+  ""logAt"": 1782213476879
+}",,,"{
+  ""event_name"": ""v_kol_post_detail"",
+  ""logAt"": ""1782225196040"",
+  ""args"": {
+    ""kol"": ""2603091663839"",
+    ""post"": [
+      ""POST2031287182354821120""
+    ],
+    ""spu"": [
+      ""SP04250908718""
+    ]
+  },
+  ""session_id"": ""1782225196040_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/vibe/detail"",
+    ""params"": ""?kolUserId=2603091663839&postId=291"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 2254,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606238280473"",
+    ""share_code"": """"
+  }
+}
+原始请求体"
+c_product,点击商品；帖子内的商品点击，有spuid传spuid，无spuid传链接,点击商品,,,"{
+    ""args"": {
+        ""page_key"": ""star_detail"",
+        ""spu"": ""spu_id_1""
+    }
+}
+
+{
+    ""args"": {
+        ""page_key"": ""brand_detail"",
+        ""spu"": ""spu_id_1""
+    }
+}
+
+{
+    ""args"": {
+        ""page_key"": ""magazine_detail"",
+        ""spu"": ""spu_id_1""
+    }
+}
+
+{
+    ""args"": {
+        ""page_key"": ""kol_detail"",
+        ""spu"": ""spu_id_1""
+    }
+}",,√,√,√,"{
+  ""session_id"": ""1782227634452.89_2606147333089"",
+  ""logAt"": 1782228227912,
+  ""args"": {
+    ""spu"": ""SP04250908718"",
+    ""page_key"": ""star_detail""
+  },
+  ""properties"": {
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07"",
+    ""screen_height"": 926,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""portal_code"": ""US"",
+    ""app_version"": ""2.4.5"",
+    ""version_type"": ""ai_fashion"",
+    ""os_version"": ""26.5"",
+    ""screen_width"": 428,
+    ""brand"": ""Apple"",
+    ""network_id"": 1,
+    ""user_id"": ""2606147333089"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""os"": ""iOS"",
+    ""language"": ""zh""
+  },
+  ""event_name"": ""c_product""
+}
+-----------------------
+{
+  ""event_name"": ""c_product"",
+  ""args"": {
+    ""spu"": ""SP04260300016"",
+    ""page_key"": ""brand_detail""
+  },
+  ""session_id"": ""1782227634452.89_2606147333089"",
+  ""properties"": {
+    ""brand"": ""Apple"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""network_id"": 1,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606147333089"",
+    ""screen_width"": 428,
+    ""os"": ""iOS"",
+    ""screen_height"": 926,
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07"",
+    ""os_version"": ""26.5"",
+    ""portal_code"": ""US"",
+    ""app_version"": ""2.4.5"",
+    ""language"": ""zh"",
+    ""version_type"": ""ai_fashion""
+  },
+  ""logAt"": 1782228870307
+}
+----------------------
+{
+  ""logAt"": 1782228929480,
+  ""session_id"": ""1782227634452.89_2606147333089"",
+  ""args"": {
+    ""spu"": ""https://www.aritzia.com/us/en/product/coupe-pant/128790023.html"",
+    ""page_key"": ""magazin_detail""
+  },
+  ""properties"": {
+    ""user_id"": ""2606147333089"",
+    ""os"": ""iOS"",
+    ""app_version"": ""2.4.5"",
+    ""screen_width"": 428,
+    ""portal_code"": ""US"",
+    ""os_version"": ""26.5"",
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07"",
+    ""language"": ""zh"",
+    ""brand"": ""Apple"",
+    ""screen_height"": 926,
+    ""network_id"": 1,
+    ""version_type"": ""ai_fashion"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""timezone"": ""Asia/Shanghai""
+  },
+  ""event_name"": ""c_product""
+}
+-----------------------
+{
+  ""logAt"": 1782229036792,
+  ""session_id"": ""1782227634452.89_2606147333089"",
+  ""properties"": {
+    ""timezone"": ""Asia/Shanghai"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""user_id"": ""2606147333089"",
+    ""screen_height"": 926,
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07"",
+    ""os_version"": ""26.5"",
+    ""os"": ""iOS"",
+    ""version_type"": ""ai_fashion"",
+    ""portal_code"": ""US"",
+    ""screen_width"": 428,
+    ""language"": ""zh"",
+    ""network_id"": 1,
+    ""app_version"": ""2.4.5"",
+    ""brand"": ""Apple""
+  },
+  ""args"": {
+    ""page_key"": ""kol_detail"",
+    ""spu"": ""SP04250908718""
+  },
+  ""event_name"": ""c_product""
+}","{
+  ""event_name"": ""c_product"",
+  ""logAt"": ""1782226101040"",
+  ""args"": {
+    ""page_key"": ""star_detail"",
+    ""spu"": ""https://img.alvinclub.com/decom/pub/2026-03-26/221bdfb10fda322f5bc11d4dba1d56bd2.avif?format=webp&quality=90""
+  },
+  ""session_id"": ""1782226101040_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/star/combination"",
+    ""params"": ""?starUserId=2601307681054&topPostId=207&name=Camille%20Charri%C3%A8re"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 119683,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606238280473"",
+    ""share_code"": """"
+  }
+}
+--------------
+{
+  ""event_name"": ""c_product"",
+  ""args"": {
+    ""page_key"": ""brand_detail"",
+    ""spu"": ""https://jxrge.com/products/airbrush-cross-low-rise-flares""
+  },
+  ""ext"": {},
+  ""logAt"": 1782229053838,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}
+----------------
+{
+  ""event_name"": ""c_product"",
+  ""args"": {
+    ""page_key"": ""magazine_detail"",
+    ""spu"": ""https://www.beginningboutique.com/products/floyd-white-collar-top""
+  },
+  ""ext"": {},
+  ""logAt"": 1782229128343,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}
+-----------
+{
+  ""event_name"": ""c_product"",
+  ""args"": {
+    ""page_key"": ""kol_detail"",
+    ""spu"": ""SP04250908718""
+  },
+  ""ext"": {},
+  ""logAt"": 1782229220375,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""156a0cf2-a55d-46ae-9408-83a6eafe26ea"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1080,
+    ""screen_height"": 2268,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""Pixel 6a"",
+    ""brand"": ""GOOGLE"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}
+",,"{
+  ""event_name"": ""c_product"",
+  ""logAt"": ""1782225985205"",
+  ""args"": {
+    ""page_key"": ""star_detail"",
+    ""spu"": ""https://img.alvinclub.com/decom/pub/2026-03-26/221bdfb10fda322f5bc11d4dba1d56bd2.avif?format=webp&quality=90""
+  },
+  ""session_id"": ""1782225985205_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/star/combination"",
+    ""params"": ""?starUserId=2601307681054&topPostId=207&name=Camille%20Charri%C3%A8re"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 3848,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606238280473"",
+    ""share_code"": """"
+  }
+}
+-----------
+{
+  ""event_name"": ""c_product"",
+  ""logAt"": ""1782228263969"",
+  ""args"": {
+    ""page_key"": ""brand_detail"",
+    ""spu"": ""https://img.alicdn.com/imgextra/i4/3037071464/O1CN01uBDfda1MgYxK2eSMr_!!4611686018427381864-0-item_pic.jpg_460x460q90.jpg_.webp""
+  },
+  ""session_id"": ""1782228263969_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/brand/post"",
+    ""params"": ""?brandUserId=2601216904027&postId=126"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 6144,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606238280473"",
+    ""share_code"": """"
+  }
+}
+----------
+{
+  ""event_name"": ""c_product"",
+  ""logAt"": ""1782228352684"",
+  ""args"": {
+    ""page_key"": ""magazine_detail"",
+    ""spu"": ""SP04250843728""
+  },
+  ""session_id"": ""1782228352684_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/topic/magazine"",
+    ""params"": ""?id=2605213724295"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 17562,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606238280473"",
+    ""share_code"": """"
+  }
+}
+--------------
+{
+  ""event_name"": ""c_product"",
+  ""logAt"": ""1782228407913"",
+  ""args"": {
+    ""page_key"": ""kol_detail"",
+    ""spu"": ""SP04250908718""
+  },
+  ""session_id"": ""1782228407913_2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+  ""properties"": {
+    ""device_id"": ""2e44c51b-3a0e-4b00-9ebd-fb8f120fc558"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/zh-cn/m/vibe/detail"",
+    ""params"": ""?kolUserId=2603091663839&postId=291"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 6344,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": ""2606238280473"",
+    ""share_code"": """"
+  }
+}"
+,,,,,,,,,,,,,
+v_image_view,点击查看大图的页面曝光,进入查看大图,,image.png,,,,√,√,"{
+  ""properties"": {
+    ""user_id"": ""2606147333089"",
+    ""os"": ""iOS"",
+    ""portal_code"": ""US"",
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07"",
+    ""network_id"": 1,
+    ""os_version"": ""26.5"",
+    ""app_version"": ""2.4.5"",
+    ""screen_height"": 926,
+    ""model"": ""iPhone 12 Pro Max"",
+    ""brand"": ""Apple"",
+    ""language"": ""zh"",
+    ""screen_width"": 428,
+    ""version_type"": ""ai_fashion"",
+    ""timezone"": ""Asia/Shanghai""
+  },
+  ""event_name"": ""v_image_view"",
+  ""logAt"": 1782227799110,
+  ""session_id"": ""1782227634452.89_2606147333089""
+}"," {
+    ""event_name"": ""v_image_view"",
+    ""args"": {},
+    ""ext"": {},
+    ""logAt"": 1782288554435,
+    ""session_id"": ""0_2604282669437"",
+    ""properties"": {
+      ""user_id"": ""2604282669437"",
+      ""language"": ""zh_CN"",
+      ""network_id"": 1,",,
+c_image_click,点击查看大图的tryon按钮点击,点击查看大图的按钮,,image.png,,,,√,√,"{
+  ""session_id"": ""1782227634452.89_2606147333089"",
+  ""properties"": {
+    ""model"": ""iPhone 12 Pro Max"",
+    ""language"": ""zh"",
+    ""network_id"": 1,
+    ""brand"": ""Apple"",
+    ""screen_width"": 428,
+    ""screen_height"": 926,
+    ""timezone"": ""Asia/Shanghai"",
+    ""app_version"": ""2.4.5"",
+    ""version_type"": ""ai_fashion"",
+    ""os_version"": ""26.5"",
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07"",
+    ""user_id"": ""2606147333089"",
+    ""os"": ""iOS"",
+    ""portal_code"": ""US""
+  },
+  ""logAt"": 1782227835731,
+  ""event_name"": ""c_image_click""
+}","""event_name"": ""c_image_click"",
+    ""args"": {},
+    ""ext"": {},
+    ""logAt"": 1782288597703,
+    ""session_id"": ""0_2604282669437"",
+    ""properties"": {
+      ""user_id"": ""2604282669437"",
+      ""language"": ""zh_CN"",",,
+c_ootdmagazine_image_plusbutton_click,点击升级plus,点击升级plus,,image.png,,,√,√,√,"{
+  ""logAt"": 1782229952949,
+  ""properties"": {
+    ""timezone"": ""Asia/Shanghai"",
+    ""language"": ""zh"",
+    ""brand"": ""Apple"",
+    ""screen_width"": 428,
+    ""os"": ""iOS"",
+    ""screen_height"": 926,
+    ""app_version"": ""2.4.5"",
+    ""user_id"": ""2604142657351"",
+    ""os_version"": ""26.5"",
+    ""version_type"": ""ai_fashion"",
+    ""network_id"": 1,
+    ""portal_code"": ""US"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07""
+  },
+  ""event_name"": ""c_ootdmagazine_image_plusbutton_click"",
+  ""session_id"": ""1782227634452.89_2604142657351""
+}","{
+  ""event_name"": ""c_ootdmagazine_image_plusbutton_click"",
+  ""args"": {},
+  ""ext"": {},
+  ""logAt"": 1782290785816,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""46e0f69a-6407-498a-9683-da90d9c6e007"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1220,
+    ""screen_height"": 2590,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""23090RA98C"",
+    ""brand"": ""REDMI"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}",,"{
+  ""event_name"": ""c_ootdmagazine_image_plusbutton_click"",
+  ""logAt"": ""1782308949299"",
+  ""args"": {},
+  ""session_id"": ""1782308949299_4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+  ""properties"": {
+    ""device_id"": ""4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/ootd/issues"",
+    ""params"": ""?id=2606231357957"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 480668,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606231357957"",
+    ""share_code"": """"
+  }
+}
+
+"
+c_ootdmagazine_image_calanerbutton_click,点击添加到日历按钮,点击添加到日历按钮,,image.png,,,√,√,√,"{
+  ""session_id"": ""1782227634452.89_2604142657351"",
+  ""event_name"": ""c_ootdmagazine_image_calanerbutton_click"",
+  ""logAt"": 1782230150557,
+  ""properties"": {
+    ""os"": ""iOS"",
+    ""os_version"": ""26.5"",
+    ""app_version"": ""2.4.5"",
+    ""user_id"": ""2604142657351"",
+    ""screen_width"": 428,
+    ""timezone"": ""Asia/Shanghai"",
+    ""network_id"": 1,
+    ""screen_height"": 926,
+    ""device_id"": ""518edd3e-4fd3-4053-be98-f637b75a4c07"",
+    ""portal_code"": ""US"",
+    ""language"": ""zh"",
+    ""version_type"": ""ai_fashion"",
+    ""model"": ""iPhone 12 Pro Max"",
+    ""brand"": ""Apple""
+  }
+}","{
+  ""event_name"": ""c_ootdmagazine_image_calanerbutton_click"",
+  ""args"": {},
+  ""ext"": {},
+  ""logAt"": 1782290833962,
+  ""session_id"": ""0_2606231357957"",
+  ""properties"": {
+    ""user_id"": ""2606231357957"",
+    ""language"": ""zh_CN"",
+    ""network_id"": 1,
+    ""device_id"": ""46e0f69a-6407-498a-9683-da90d9c6e007"",
+    ""app_version"": ""2.4.5-debug"",
+    ""screen_width"": 1220,
+    ""screen_height"": 2590,
+    ""portal_code"": ""US"",
+    ""os"": ""Android"",
+    ""os_version"": ""16"",
+    ""model"": ""23090RA98C"",
+    ""brand"": ""REDMI"",
+    ""timezone"": ""Asia/Shanghai"",
+    ""version_type"": ""ai_fashion""
+  }
+}
+
+",,"{
+  ""event_name"": ""c_ootdmagazine_image_calanerbutton_click"",
+  ""logAt"": ""1782309307336"",
+  ""args"": {},
+  ""session_id"": ""1782309307336_4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+  ""properties"": {
+    ""device_id"": ""4d631ba2-f9d3-4113-93a8-c3270cf23160"",
+    ""os"": ""ios"",
+    ""url"": ""https://ai.decom.valleysound.xyz/en-us/m/ootd/issues"",
+    ""params"": ""?id=2606231357957"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 838705,
+    ""timezone"": ""Asia/Shanghai"",
+    ""user_id"": ""2606231357957"",
+    ""share_code"": """"
+  }
+}
+
+"
+,,,,,,,,,,,,,
+v_kol_post_detail_page,进入kol详情页曝光，需要带上从第三方link进入的参数,进入页面就上报一次，不需要上报feeds流,,image.png,"{
+    ""args"": {
+        ""kol"": ""kol_id_1"",
+        ""app_name"": ""tiktok"",
+        ""sf"": ""channel_tiktok_01"",
+        ""current_url"": ""https://xxx.com/xxx?sf=channel_tiktok_01""
+    }
+}",,√,,,,,,"{
+  ""event_name"": ""v_kol_post_detail_page"",
+  ""logAt"": ""1782446432440"",
+  ""args"": {
+    ""kol"": ""2929880667407"",
+    ""app_name"": ""tiktok"",
+    ""sf"": ""us_tiktok"",
+    ""current_url"": ""https://www.alvinclub.ai/zh-cn/m/vibe/detail?kolUserId=2929880667407&postId=16702&sf=us_tiktok""
+  },
+  ""session_id"": ""1782446432440_dc7aac8f-2891-4cd9-9c4e-ed246694e340"",
+  ""properties"": {
+    ""device_id"": ""dc7aac8f-2891-4cd9-9c4e-ed246694e340"",
+    ""os"": ""ios"",
+    ""url"": ""https://www.alvinclub.ai/zh-cn/m/vibe/detail"",
+    ""params"": ""?kolUserId=2929880667407&postId=16702&sf=us_tiktok"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 27881,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": """",
+    ""share_code"": """"
+  }
+}"
+c_third_party_goods,点击从外链进入详情页帖子下方商品时上报,"打开第三方商品页面时进行上报；
+如这个弹窗勾选了不再显示，则点击跳转按钮后立即上报",,image.png,"{
+    ""args"": {
+        ""page_key"": ""page_key_1"",
+        ""spu"": ""spu_1"",
+        ""post"":""post_code_1"",
+        ""app_name"": ""tiktok"",
+        ""sf"": ""channel_tiktok_01"",
+        ""current_url"": ""https://xxx.com/xxx?sf=channel_tiktok_01""
+    }
+}",,√,,,,,,"{
+  ""event_name"": ""c_third_party_goods"",
+  ""logAt"": ""1782446510535"",
+  ""args"": {
+    ""page_key"": ""kol_detail"",
+    ""spu"": ""https://www.trueclassictees.com/products/heather-gray-crew-neck-tee"",
+    ""post"": ""16702"",
+    ""app_name"": ""tiktok"",
+    ""sf"": ""us_tiktok"",
+    ""current_url"": ""https://www.alvinclub.ai/zh-cn/m/vibe/detail?kolUserId=2929880667407&postId=16702&sf=us_tiktok""
+  },
+  ""session_id"": ""1782446510535_dc7aac8f-2891-4cd9-9c4e-ed246694e340"",
+  ""properties"": {
+    ""device_id"": ""dc7aac8f-2891-4cd9-9c4e-ed246694e340"",
+    ""os"": ""ios"",
+    ""url"": ""https://www.alvinclub.ai/zh-cn/m/vibe/detail"",
+    ""params"": ""?kolUserId=2929880667407&postId=16702&sf=us_tiktok"",
+    ""app_type"": ""h5"",
+    ""ua"": ""Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1"",
+    ""version_type"": ""ai_fashion"",
+    ""duration"": 105976,
+    ""timezone"": ""Etc/GMT-8"",
+    ""user_id"": """",
+    ""share_code"": """"
+  }
+}
+原始请求体
+"

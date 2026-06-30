@@ -1,5 +1,5 @@
 ﻿事件ID,事件描述,事件上报时机,事件上报参数,UI触发点位截图,数据结构,文字备注,web 测试,ios 测试,android 测试
-数据结构,,,,,"// 公参
+数据结构,,,,,"// 公参（logAt，单位毫秒）
 // 1. App
 {
     ""event_name"": ""xxx"",
@@ -74,12 +74,12 @@ app_launch,,冷 / 热 启动,,,"{
     }
 }","数据类型 int
 单位 毫秒",,☑️,☑️
-c_home_search,首页点击搜索按钮,,ext.search_content,"image.png,image.png","{
+c_home_search,首页点击搜索按钮,,ext.search_content,,"{
     ""ext"": {
         ""search_content"": ""xxx""
     }
 }",,,☑️,☑️
-c_shop_search,shop页面点击搜索按钮,,ext.search_content,"image.png,image.png,image (1).png,image.png","{
+c_shop_search,shop页面点击搜索按钮,,ext.search_content,,"{
     ""ext"": {
         ""search_content"": ""xxx""
     }
@@ -88,7 +88,7 @@ v_shop_feeds,shop页中feeds曝光,,"args.spu
 ext.recommend.item_type
 ext.recommend.item_id
 ext.recommend.trace_info
-",image.png,"{
+",,"{
     ""args"": {
         ""spu"": [
             ""spu_1"",
@@ -137,7 +137,7 @@ ext.recommend.trace_info",,"// 点击的卡片是product：
     }
 }",,,☑️,☑️
 c_add_cart,商品加购,加购按钮点击,"args: page\module\spu\sku
-ext: quantity（新增）",image.png,"{
+ext: quantity（新增）",,"{
     ""args"": {
         ""page_key"": ""home_feeds"", //""category"" //""product_detail"" //""tryon_rusult"" //""product_post""//""shop_feeds""//""creator_home_shop"", ""//""shop_style"", //""shop_occasion"", //""shop_crowd"", //""shop_brand"", //""shop_season"", 
         ""spu"": ""spu_1""
@@ -163,10 +163,10 @@ v_product_detail,商详页曝光,,,,"{
         ""spu"": ""spu_1""
         ""sku"": ""sku_1""
     }
-}",,,☑️,☑️
+} ",,,☑️,☑️
 c_tryon,点击try on,,"args.page_key
 args.post
-args.spu",专题主页-2.png,"// 1.1 首页 feeds 流（post）
+args.spu",,"// 1.1 首页 feeds 流（post）
 {
     ""args"": {
         ""page_key"": ""home_feeds"",
@@ -226,7 +226,7 @@ c_tryon_confirm,点击try on confirm,,args.spu,,"{
 }","
 1、增加了KOL帖子的try on",,☑️,☑️
 v_kol_post_feeds,KOL主页曝光,进入KOL帖子页面,"args.kol
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""KOL"": ""kol_id_1"",
         ""post"": [
@@ -237,7 +237,7 @@ args.post",image.png,"{
         ]
     }
 }",,,☑️,☑️
-c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,image.png,"// 1. 明星帖子feed流
+c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,,"// 1. 明星帖子feed流
 {
     ""args"": {
         ""page_key"": ""star_feeds"",
@@ -279,7 +279,7 @@ c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,image.
         ""KOL"": ""kol_id""
     }
 }",增加KOL关注统计,,☑️,☑️
-c_like,喜欢帖子,点击like的时候,args: page\模块ID\专栏ID\帖子ID,"image.png,image.png","// 1. KOL帖子详情页
+c_like,喜欢帖子,点击like的时候,args: page\模块ID\专栏ID\帖子ID,,"// 1. KOL帖子详情页
 {
     ""args"": {
         ""page_key"": ""kol_detail"",
@@ -299,7 +299,7 @@ c_like,喜欢帖子,点击like的时候,args: page\模块ID\专栏ID\帖子ID,"i
 图二：KOL帖子详情",,☑️,☑️
 ,,,,,,,,,
 r_star_post_detail,明星帖子详情Feeds阅读,进入明星帖子页面,"args.star
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""star"": ""star_id_1"",
         ""topic: ""topic_1"",
@@ -307,13 +307,13 @@ args.post",image.png,"{
     }
 }",post曝光两秒的时候，上报阅读时间,,☑️,☑️
 r_magazine_post_detail,杂志帖子阅读,进入杂志帖子页面,"args.magazine
-args.post",专题主页样式1.png,"{
+args.post",,"{
     ""args"": {
         ""magazine"": ""magazine_id_1"",
         ""post"": ""post_code_1""
     }
 }",post曝光两秒的时候，上报阅读时间,,☑️,☑️
-r_brand_post_detail,品牌帖子详情Feeds阅读,进入页面,args: 品牌ID/帖子ID/主题ID,"image.png,品牌帖子.png","{
+r_brand_post_detail,品牌帖子详情Feeds阅读,进入页面,args: 品牌ID/帖子ID/主题ID,,"{
     ""args"": {
         ""brand"": ""brand_id_1"",
         ""post"": [
@@ -323,7 +323,7 @@ r_brand_post_detail,品牌帖子详情Feeds阅读,进入页面,args: 品牌ID/�
     }
 }",post曝光两秒的时候，上报阅读时间,,☑️,☑️
 r_kol_post_detail,KOL 帖子详情阅读,进入KOL帖子详情,"args.kol
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""blogger"": ""kol_id_1"",
         ""post"": [""post_code_1""]

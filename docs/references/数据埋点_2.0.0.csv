@@ -1,5 +1,5 @@
-事件ID,事件描述,事件上报时机,事件上报参数,UI触发点位截图,数据结构,文字备注,web 测试,ios 测试,android 测试
-数据结构,,,,,"// 公参
+﻿事件ID,事件描述,事件上报时机,事件上报参数,UI触发点位截图,数据结构,文字备注,web 测试,ios 测试,android 测试
+数据结构,,,,,"// 公参（logAt，单位毫秒）
 // 1. App
 {
     ""event_name"": ""xxx"",
@@ -68,12 +68,12 @@
     }
 }",,,,
 ,,,,,,,,,
-c_home_search,首页点击搜索按钮,,ext.search_content,image.png,"{
+c_home_search,首页点击搜索按钮,,ext.search_content,,"{
     ""ext"": {
         ""search_content"": ""xxx""
     }
 }",,☑️,☑️,☑️
-v_home_star,明星曝光,,args.star,image.png,"{
+v_home_star,明星曝光,,args.star,,"{
     ""args"": {
         ""star"": [
             ""star_id_1"",
@@ -85,12 +85,12 @@ v_home_star,明星曝光,,args.star,image.png,"{
     }
 }","1、首页的曝光
 2、列表页的曝光",☑️,☑️,☑️
-c_home_star,首页明星点击,,args.star,image.png,"{
+c_home_star,首页明星点击,,args.star,,"{
     ""args"": {
         ""star"": ""star_id_1""
     }
 }",,☑️,☑️,☑️
-v_home_magazine,杂志曝光,,args.magazine,image.png,"{
+v_home_magazine,杂志曝光,,args.magazine,,"{
     ""args"": {
         ""magazine"": ""magazine_id""
     }
@@ -101,7 +101,7 @@ c_home_magazine,首页杂志点击,,args.magazine,,"{
         ""magazine"": ""magazine_id""
     }
 }",,☑️,☑️,☑️
-v_home_brand,品牌曝光,,args.brand,image.png,"{
+v_home_brand,品牌曝光,,args.brand,,"{
     ""args"": {
         ""brand"": [
             ""brand_id_1"",
@@ -123,7 +123,7 @@ args.spu
 ext.recommend.item_type
 ext.recommend.item_id
 ext.recommend.trace_info
-","image.png,image.png","{
+",,"{
     ""args"": {
         ""post"": [
             ""post_code_1"",
@@ -243,7 +243,7 @@ v_product_detail,商详页曝光,,,,"{
     }
 }",,☑️,☑️,☑️
 v_star_post_feeds,明星主页曝光,进入明星帖子页面,"args.star
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""star"": ""star_id_1"",
         ""post"": [
@@ -255,7 +255,7 @@ args.post",image.png,"{
     }
 }",,☑️,☑️,☑️
 v_star_post_detail,明星帖子详情Feeds曝光,进入明星帖子页面,"args.star
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""star"": ""star_id_1"",
         ""topic: ""topic_1"",
@@ -271,13 +271,13 @@ args.post",,"{
     }
 }",,,,
 v_magazine_post_detail,杂志帖子曝光,进入杂志帖子页面,"args.magazine
-args.post",专题主页样式1.png,"{
+args.post",,"{
     ""args"": {
         ""magazine"": ""magazine_id_1"",
         ""post"": ""post_code_1""
     }
 }",事件名从 v_magazine_post 改为了 v_magazine_post_detail,☑️,☑️,☑️
-v_brand_post_feeds,品牌帖子feeds曝光,进入页面,args: 品牌ID/帖子ID/主题ID,品牌shop.png,"{
+v_brand_post_feeds,品牌帖子feeds曝光,进入页面,args: 品牌ID/帖子ID/主题ID,,"{
     ""args"": {
         ""topic"": ""looks"", // ""pieces""
         ""brand"": ""brand_id_1"",
@@ -287,7 +287,7 @@ v_brand_post_feeds,品牌帖子feeds曝光,进入页面,args: 品牌ID/帖子ID/
         ]
     }
 }",事件名从 v_brand_post 改为了 v_brand_post_feeds,☑️,☑️,☑️
-v_brand_post_detail,品牌帖子详情Feeds曝光,进入页面,args: 品牌ID/帖子ID/主题ID,"image.png,品牌帖子.png","{
+v_brand_post_detail,品牌帖子详情Feeds曝光,进入页面,args: 品牌ID/帖子ID/主题ID,,"{
     ""args"": {
         ""topic"": ""looks"", // ""pices""
         ""brand"": ""brand_id_1"",
@@ -300,7 +300,7 @@ v_brand_post_detail,品牌帖子详情Feeds曝光,进入页面,args: 品牌ID/�
 事件名从 v_brand_post_feed 改为了v_brand_post_detail",☑️,☑️,☑️
 c_tryon,点击try on,,"args.page_key
 args.post
-args.spu",专题主页-2.png,"// 1.1 首页 feeds 流（post）
+args.spu",,"// 1.1 首页 feeds 流（post）
 {
     ""args"": {
         ""page_key"": ""home_feeds"",
@@ -351,10 +351,10 @@ c_tryon_confirm,点击try on confirm,,args.spu,,"{
         ""sku"": [""sku_id_1"",""sku_id_2""]
     }
 }",,☑️,☑️,☑️
-c_styleme,点击穿搭,点击style me的时候上报,,"image.png,image.png",,"左边：H5新版本
+c_styleme,点击穿搭,点击style me的时候上报,,,,"左边：H5新版本
 右边：APP 老版本",☑️,☑️,☑️
-c_regenerate,点击再次生成,点击regenerate的时候上报,,image.png,,,☑️,☑️,☑️
-c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,"img_v3_02uk_20f80269-3821-4743-8233-775e28cfffhu.png,img_v3_02uk_8df9fc4a-b8a4-4e88-8a93-759b18509dhu.png,img_v3_02uk_5adcf941-067f-4661-b2bb-bfc4514c04hu.png,img_v3_02uk_efb56746-666d-4437-bb83-8528e7a34fhu.png,img_v3_02uk_0109cab9-7f34-4469-a482-64f583c894hu.png","// 1. 明星帖子feed流
+c_regenerate,点击再次生成,点击regenerate的时候上报,,,,,☑️,☑️,☑️
+c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,,"// 1. 明星帖子feed流
 {
     ""args"": {
         ""page_key"": ""star_feeds"",
@@ -393,7 +393,7 @@ c_follow,关注专栏,点击follow按钮,args: 模块ID\专栏ID\帖子ID,"img_v
 图三：args.page_key = magazine
 图二：args.page_key = brand_feeds
 图一：args.page_key = brand_detail",☑️,☑️,☑️
-c_like,喜欢帖子,点击like的时候,args: page\模块ID\专栏ID\帖子ID,"image.png,image.png,image.png,image.png,image.png","// 1. 首页 feeds 流
+c_like,喜欢帖子,点击like的时候,args: page\模块ID\专栏ID\帖子ID,,"// 1. 首页 feeds 流
 {
     ""args"": {
         ""page_key"": ""home_feeds"",
@@ -434,7 +434,7 @@ c_like,喜欢帖子,点击like的时候,args: page\模块ID\专栏ID\帖子ID,"i
 图二：args.page_key = brand_feeds
 图一：args.page_key = brand_detail","star 改为star_detail
 brand 需要区分brand_feeds 和 brand_detail",☑️,☑️
-c_cart_submit,购物车进入结算页面,购物车结算按钮点击,,image.png,"{
+c_cart_submit,购物车进入结算页面,购物车结算按钮点击,,,"{
     ""ext"": {
         ""skuList"": [
             {
@@ -450,13 +450,13 @@ c_cart_submit,购物车进入结算页面,购物车结算按钮点击,,image.png
         ]
     }
 }",,☑️,☑️,☑️
-c_cheakbox,结算页面下单,结算页面点击提交订单,,image.png,"{
+c_cheakbox,结算页面下单,结算页面点击提交订单,,,"{
     ""ext"": {
         ""orderId"": ""order_id_1""
     }
 }",,☑️,☑️,☑️
 v_kol_post_detail,视频帖子详情Feeds曝光,进入视频帖子页面,"args.kol
-args.post",image.png,"{
+args.post",,"{
     ""args"": {
         ""blogger"": ""kol_id_1"",
         ""post"": [""post_code_1""]
