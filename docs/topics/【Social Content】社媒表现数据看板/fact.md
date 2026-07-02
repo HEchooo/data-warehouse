@@ -53,6 +53,15 @@
 - 首次生产回填范围：`2026-03-13 ~ 2026-06-12`
 - 首次回填完成后，v2 独立编排任务已启用
 
+### Lark ECN 数据发布推送
+
+- 脚本：`jobs/ads/ads_daily_ecn_lark_push.py`
+- 推送日期：默认查询 `DATE_SUB(CURRENT_DATE('America/Toronto'), INTERVAL 1 DAY)`，仅发送单个 `dt` 对应的当日 / 昨日对比
+- 运行模式：线上 `remote` 模式读取 `env/lark_webhook.json` 的 `remote_ecn`；本地测试必须设置 `PATH_MODE_OVERRIDE=local`
+- 发布统计：来自 `videos.video_publish_daily_stats`，按 `stat_date` 聚合三端 platform 后展示活跃运营账号数、API / RPA 发布数、API / RPA 发布成功数
+- 社媒读数：`new_video_count` 来自 `decom.ads_daily_investor`，在推送中展示为“新增视频数（社媒读到的）”
+- 同卡片还展示发布时间 cohort 平均播放和第三方渠道外链跳转数据，分别复用 `decom.ads_daily_social_content_v2` 与 `decom.ads_daily_thirdapp_channel_uv`
+
 ## 字段
 
 | 需求字段 | 定义 |
@@ -178,6 +187,8 @@
 - `T+3` 视频分桶图与周维度账号分桶图的展示顺序统一按高桶到低桶排列：`(10000,+∞)`、`(3000,10000]`、`(1000,3000]`、`(500,1000]`、`(100,500]`、`(0,100]`、`0`
 - 周维度账号分桶图的分母为“该账号该周发布视频数”（`COUNT(DISTINCT video_key)`），不再固定除以 `7`；仍只展示完整成熟自然周，不展示半周样本
 - “账号周均 T+3 Views”当前语义已是“账号该周单条视频平均 T+3 Views”（篇均），但按用户要求图表标题、metric label、字段名 `avg_daily_view_count` 均保持不变；`全部渠道` 因账号仍按 `channel + creator_id` 拆分，跨平台同一视频不会落入同一账号样本，故“视频跨平台去重”在该口径下无作用点
+- Lark ECN 数据发布推送中的总量比例为：账号发视频率 = 发布总视频数 / 活跃运营账号数，视频发布成功率 = 发布成功总视频数 / 发布总视频数，社媒平台发布视频数读数成功率 = 新增视频数 / 发布总视频数
+- Lark ECN 数据发布推送的主指标表使用原生 table 组件分页展示：第 1 页展示核心总量和比例，第 2 页展示 API / RPA 明细；比例不保留小数，当日比例用黄色斜体突出
 - `jobs/dws/dws_social_video_state_daily.py` 直接维护视频日状态层，再由渠道层按需做 `LAG` 和新增视频派生
 - “博主总数”按发布时间判断，不依赖是否已经采集到播放快照
 - “最新 3 条”不是先取发布时间最新 3 条再判断有没有数据，而是先限定截至 `dt` 已有采集数据的视频，再从这些视频里按发布时间倒序取最新 3 条
@@ -187,13 +198,13 @@
 
 ## 依赖
 
-- 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`
+- 上游：`videos.yt_videos`, `videos.yt_video_analytics_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `videos.video_publish_daily_stats`
 - 中间表：`decom.dim_video`, `decom.dim_auto_publish_video_task`, `decom.dws_social_video_snapshot_daily`, `decom.dws_social_video_state_daily`, `decom.dws_social_channel_daily`
-- 报表表：`decom.ads_daily_social_content`
+- 报表表：`decom.ads_daily_social_content`, `decom.ads_daily_social_content_v2`, `decom.ads_daily_thirdapp_channel_uv`, `decom.ads_daily_investor`
 - Superset：主物理 dataset `ads_daily_social_content`（id=230），chart `Social Content（日表）-每日新增 Views 趋势`（id=575）、`Social Content（日表）-每日新增 Likes 趋势`（id=576）、`Social Content（日表）-前一天新增 Views / 博主总数趋势`（id=577）、`Social Content（日表）-每个博主最新 3 条平均赞播率趋势`（id=578）、`Social Content（日表）-每天新增视频数趋势`（id=579）、`Social Content（日表）-新增视频平均播放数趋势`（id=580）、`Social Content（日表）-新视频7天平均播放数趋势`（id=586），dashboard `【Social Content】社媒表现数据看板`（id=102）
 - 脚本：`jobs/dim/dim_video.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_social_video_snapshot_daily.py`, `jobs/dws/dws_social_video_state_daily.py`, `jobs/dws/dws_social_channel_daily.py`, `jobs/ads/ads_daily_social_content.py`
 - DDL：`ddl/dim/dim_video.sql`, `ddl/dim/dim_auto_publish_video_task.sql`, `ddl/dws/dws_social_video_snapshot_daily.sql`, `ddl/dws/dws_social_video_state_daily.sql`, `ddl/dws/dws_social_channel_daily.sql`, `ddl/ads/ads_daily_social_content.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`
-- v2 脚本：`jobs/dws/dws_social_video_snapshot_daily_v2.py`, `jobs/dws/dws_social_video_state_daily_v2.py`, `jobs/dws/dws_social_channel_daily_v2.py`, `jobs/ads/ads_daily_social_content_v2.py`, `jobs/ads/ads_daily_social_content_published_day3_view_bucket_v2.py`
+- v2 脚本：`jobs/dws/dws_social_video_snapshot_daily_v2.py`, `jobs/dws/dws_social_video_state_daily_v2.py`, `jobs/dws/dws_social_channel_daily_v2.py`, `jobs/ads/ads_daily_social_content_v2.py`, `jobs/ads/ads_daily_social_content_published_day3_view_bucket_v2.py`, `jobs/ads/ads_daily_ecn_lark_push.py`
 - v2 DDL：`ddl/dws/dws_social_video_snapshot_daily_v2.sql`, `ddl/dws/dws_social_video_state_daily_v2.sql`, `ddl/dws/dws_social_channel_daily_v2.sql`, `ddl/ads/ads_daily_social_content_v2.sql`, `ddl/ads/ads_daily_social_content_published_day3_view_bucket_v2.sql`
 - v2 Superset：物理 dataset `ads_daily_social_content_v2`（id=262），virtual dataset `virtual_social_content_v2_published_horizon_views`（id=264）、`virtual_social_content_v2_published_day3_view_bucket_sorted`（id=266）、`virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted`（id=267），dashboard `【Social Content】社媒表现数据看板v2`（id=116），copy dashboard `【Social Content】社媒表现数据看板v2 copy`（id=119）；chart id `637 / 638 / 639 / 640 / 641 / 642 / 643 / 664 / 665 / 666 / 667 / 668`

@@ -323,97 +323,171 @@ def calc_rate(numerator, denominator):
     return float(numerator) / float(denominator)
 
 
+def format_eastern_date_label(value: date) -> str:
+    return f"美东{value.month}月{value.day}日"
+
+
+def bold_value(value: str) -> str:
+    if not value:
+        return value
+    return f"**{value}**"
+
+
+def italic_value(value: str) -> str:
+    if not value:
+        return value
+    return f"*{value}*"
+
+
+def yellow_italic_value(value: str) -> str:
+    if not value:
+        return value
+    return f"*<font color='yellow'>{value}</font>*"
+
+
+def blank_metrics_row() -> dict:
+    return {"metric": "", "today": "", "yesterday": ""}
+
+
+def bold_metrics_row(metric: str, today: str, yesterday: str) -> dict:
+    return {
+        "metric": bold_value(metric),
+        "today": bold_value(today),
+        "yesterday": bold_value(yesterday),
+    }
+
+
+def detail_metrics_row(metric: str, today: str, yesterday: str) -> dict:
+    return {
+        "metric": italic_value(f"- {metric}"),
+        "today": italic_value(today),
+        "yesterday": italic_value(yesterday),
+    }
+
+
+def rate_metrics_row(metric: str, today: str, yesterday: str) -> dict:
+    return {
+        "metric": italic_value(metric),
+        "today": yellow_italic_value(today),
+        "yesterday": italic_value(yesterday),
+    }
+
+
 def build_table_rows(row: dict) -> list[dict]:
     return [
-        {
-            "metric": "活跃运营账号数",
-            "today": format_int(row["active_account_count"]),
-            "yesterday": format_int(row["previous_active_account_count"]),
-        },
-        {
-            "metric": "API 发布视频数",
-            "today": format_int(row["api_task_total"]),
-            "yesterday": format_int(row["previous_api_task_total"]),
-        },
-        {
-            "metric": "RPA 发布视频数",
-            "today": format_int(row["rpa_task_total"]),
-            "yesterday": format_int(row["previous_rpa_task_total"]),
-        },
-        {
-            "metric": "发布总视频数",
-            "today": format_int(row["publish_task_total"]),
-            "yesterday": format_int(row["previous_publish_task_total"]),
-        },
-        {
-            "metric": "账号发视频率",
-            "today": format_percent(
+        bold_metrics_row(
+            "活跃运营账号数",
+            format_int(row["active_account_count"]),
+            format_int(row["previous_active_account_count"]),
+        ),
+        blank_metrics_row(),
+        bold_metrics_row(
+            "发布总视频数",
+            format_int(row["publish_task_total"]),
+            format_int(row["previous_publish_task_total"]),
+        ),
+        rate_metrics_row(
+            "账号发视频率",
+            format_percent(
                 calc_rate(
                     row["publish_task_total"],
                     row["active_account_count"],
-                )
+                ),
+                scale=0,
             ),
-            "yesterday": format_percent(
+            format_percent(
                 calc_rate(
                     row["previous_publish_task_total"],
                     row["previous_active_account_count"],
-                )
+                ),
+                scale=0,
             ),
-        },
-        {
-            "metric": "API 发布成功视频数",
-            "today": format_int(row["api_task_success_count"]),
-            "yesterday": format_int(row["previous_api_task_success_count"]),
-        },
-        {
-            "metric": "RPA 发布成功视频数",
-            "today": format_int(row["rpa_task_success_count"]),
-            "yesterday": format_int(row["previous_rpa_task_success_count"]),
-        },
-        {
-            "metric": "发布成功总视频数",
-            "today": format_int(row["publish_task_success_count"]),
-            "yesterday": format_int(row["previous_publish_task_success_count"]),
-        },
-        {
-            "metric": "视频发布成功率",
-            "today": format_percent(
+        ),
+        blank_metrics_row(),
+        bold_metrics_row(
+            "发布成功总视频数",
+            format_int(row["publish_task_success_count"]),
+            format_int(row["previous_publish_task_success_count"]),
+        ),
+        rate_metrics_row(
+            "视频发布成功率",
+            format_percent(
                 calc_rate(
                     row["publish_task_success_count"],
                     row["publish_task_total"],
-                )
+                ),
+                scale=0,
             ),
-            "yesterday": format_percent(
+            format_percent(
                 calc_rate(
                     row["previous_publish_task_success_count"],
                     row["previous_publish_task_total"],
-                )
+                ),
+                scale=0,
             ),
-        },
-        {
-            "metric": "新增视频数",
-            "today": format_int(row["new_video_count"]),
-            "yesterday": format_int(row["previous_new_video_count"]),
-        },
-        {
-            "metric": "社媒平台发布视频数读数成功率",
-            "today": format_percent(
+        ),
+        blank_metrics_row(),
+        bold_metrics_row(
+            "新增视频数（社媒读到的）",
+            format_int(row["new_video_count"]),
+            format_int(row["previous_new_video_count"]),
+        ),
+        rate_metrics_row(
+            "社媒平台发布视频数读数成功率",
+            format_percent(
                 calc_rate(
                     row["new_video_count"],
                     row["publish_task_total"],
-                )
+                ),
+                scale=0,
             ),
-            "yesterday": format_percent(
+            format_percent(
                 calc_rate(
                     row["previous_new_video_count"],
                     row["previous_publish_task_total"],
-                )
+                ),
+                scale=0,
             ),
-        },
+        ),
+        detail_metrics_row(
+            "API 发布视频数",
+            format_int(row["api_task_total"]),
+            format_int(row["previous_api_task_total"]),
+        ),
+        detail_metrics_row(
+            "RPA 发布视频数",
+            format_int(row["rpa_task_total"]),
+            format_int(row["previous_rpa_task_total"]),
+        ),
+        bold_metrics_row(
+            "发布总视频数",
+            format_int(row["publish_task_total"]),
+            format_int(row["previous_publish_task_total"]),
+        ),
+        blank_metrics_row(),
+        detail_metrics_row(
+            "API 发布成功视频数",
+            format_int(row["api_task_success_count"]),
+            format_int(row["previous_api_task_success_count"]),
+        ),
+        detail_metrics_row(
+            "RPA 发布成功视频数",
+            format_int(row["rpa_task_success_count"]),
+            format_int(row["previous_rpa_task_success_count"]),
+        ),
+        bold_metrics_row(
+            "发布成功总视频数",
+            format_int(row["publish_task_success_count"]),
+            format_int(row["previous_publish_task_success_count"]),
+        ),
     ]
 
 
-def build_metrics_table(rows: list[dict], element_id: str) -> dict:
+def build_metrics_table(
+    rows: list[dict],
+    element_id: str,
+    target_date: date,
+) -> dict:
     return {
         "tag": "table",
         "element_id": element_id,
@@ -432,23 +506,25 @@ def build_metrics_table(rows: list[dict], element_id: str) -> dict:
             {
                 "name": "metric",
                 "display_name": "Metrics",
-                "data_type": "text",
+                "data_type": "lark_md",
                 "horizontal_align": "center",
                 "vertical_align": "top",
                 "width": "45%",
             },
             {
                 "name": "today",
-                "display_name": "Today",
-                "data_type": "text",
+                "display_name": format_eastern_date_label(target_date),
+                "data_type": "lark_md",
                 "horizontal_align": "center",
                 "vertical_align": "top",
                 "width": "27.5%",
             },
             {
                 "name": "yesterday",
-                "display_name": "Yesterday",
-                "data_type": "text",
+                "display_name": format_eastern_date_label(
+                    target_date - timedelta(days=1)
+                ),
+                "data_type": "lark_md",
                 "horizontal_align": "center",
                 "vertical_align": "top",
                 "width": "27.5%",
@@ -653,6 +729,7 @@ def build_card_payload(
                     build_metrics_table(
                         metrics_rows,
                         element_id="publish_metrics",
+                        target_date=publish_row["dt"],
                     ),
                     {
                         "tag": "markdown",
