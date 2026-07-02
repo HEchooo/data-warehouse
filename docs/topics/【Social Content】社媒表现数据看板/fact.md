@@ -68,7 +68,7 @@
 | 当天发布新视频在发布后1天（T+1）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 1 天日末的累计播放总和；未满 `T+1` 的近期 cohort 返回空值 |
 | 当天发布新视频在发布后3天（T+3）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 3 天日末的累计播放总和；未满 `T+3` 的近期 cohort 返回空值 |
 | 3天全量 view count 分桶视频数量占比 | 以 `published_dt = dt` 的视频作为 cohort，取这些视频在发布后第 3 天日末的累计播放值做严格开闭区间分桶：`0`、`(0,100]`、`(100,500]`、`(500,1000]`、`(1000,3000]`、`(3000,10000]`、`(10000,+∞)`；单渠道按原始视频统计，`全部渠道` 按统一视频全历史最早发布时间对齐 cohort，并把同一统一视频在 `T+3` 的各平台累计播放汇总后落到唯一分桶 |
-| 账号周均 T+3 Views 分桶账号占比 | 以自然周内每天 `published_dt` 的视频为样本，先取每条视频在 `T+3` 观察日的累计播放值，再按 `账号-自然周` 汇总该周发布视频的 `T+3` 播放总和，并固定除以 `7` 得到账号周均 `T+3 Views`；然后按同一套分桶：`0`、`(0,100]`、`(100,500]`、`(500,1000]`、`(1000,3000]`、`(3000,10000]`、`(10000,+∞)` 统计账号样本占比；`全部渠道` 按 `channel + creator_id` 区分账号，不做跨平台账号合并 |
+| 账号周均 T+3 Views 分桶账号占比 | 以自然周内每天 `published_dt` 的视频为样本，先取每条视频在 `T+3` 观察日的累计播放值，再按 `账号-自然周` 汇总该周发布视频的 `T+3` 播放总和，并除以该账号该周发布视频数（`COUNT(DISTINCT video_key)`）得到账号周均 `T+3 Views`；然后按同一套分桶：`0`、`(0,100]`、`(100,500]`、`(500,1000]`、`(1000,3000]`、`(3000,10000]`、`(10000,+∞)` 统计账号样本占比；`全部渠道` 按 `channel + creator_id` 区分账号，不做跨平台账号合并 |
 | 账号周均 T+3 Views 分桶贡献占比 | 与上一条使用同一批 `账号-自然周` 样本和同一分桶；贡献分子为各 bucket 内账号周均 `T+3 Views` 之和，分母为当周全量账号周均 `T+3 Views` 之和 |
 | 当天发布新视频在发布后7天（T+7）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 7 天日末的累计播放总和；未满 `T+7` 的近期 cohort 返回空值 |
 | 当天发布新视频在发布后14天（T+14）的总播放数据 | 以 `published_dt = dt` 的视频作为 cohort，统计这些视频在发布后第 14 天日末的累计播放总和；未满 `T+14` 的近期 cohort 返回空值 |
@@ -148,8 +148,8 @@
 | 账号周均 T+3 Views 分桶名称 | Superset 虚拟 dataset `virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted` | `published_day3_view_bucket` | 展示层直接使用的账号周均 `T+3 Views` 分桶标签 |
 | 账号周均 T+3 Views 分桶排序标签 | Superset 虚拟 dataset `virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted` | `published_day3_view_bucket_sort_label` | 用不可见控制字符前缀保证 Superset legend / tooltip / 堆积顺序稳定 |
 | 分桶账号样本数 | Superset 虚拟 dataset `virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted` | `creator_week_count` | 每个 `week_start_dt + channel + bucket` 下的 `账号-自然周` 样本数 |
-| 分桶账号周均 T+3 Views 总和 | Superset 虚拟 dataset `virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted` | `avg_daily_view_count` | 每个账号先按“该周发布视频的 T+3 播放总和 / 7”得到账号周均值，再按 bucket 汇总求和 |
-| 分桶账号周内 T+3 Views 总和 | Superset 虚拟 dataset `virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted` | `view_count` | 每个账号周样本在除以 `7` 之前的周内 `T+3 Views` 总和；当前主要用于调试与校验 |
+| 分桶账号周均 T+3 Views 总和 | Superset 虚拟 dataset `virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted` | `avg_daily_view_count` | 每个账号先按“该周发布视频的 T+3 播放总和 / 该周发布视频数”得到账号周均值，再按 bucket 汇总求和 |
+| 分桶账号周内 T+3 Views 总和 | Superset 虚拟 dataset `virtual_social_content_v2_weekly_creator_day3_view_bucket_sorted` | `view_count` | 每个账号周样本在除以发布视频数之前的周内 `T+3 Views` 总和；当前主要用于调试与校验 |
 
 补充说明：
 - 当前周维度账号分桶只落在 Superset 虚拟 dataset，不新增 BigQuery 物理 ADS 表；原因是本次需求未要求生产回填
@@ -176,7 +176,8 @@
 - `T+3` 播放分桶图当前有两张：`视频占比` 以 `video_count / SUM(video_count)` 计算；`Views 贡献占比` 以 `view_count / SUM(view_count)` 计算
 - 周维度账号分桶图当前也有两张：`账号占比` 以 `creator_week_count / SUM(creator_week_count)` 计算；`贡献占比` 以 `avg_daily_view_count / SUM(avg_daily_view_count)` 计算
 - `T+3` 视频分桶图与周维度账号分桶图的展示顺序统一按高桶到低桶排列：`(10000,+∞)`、`(3000,10000]`、`(1000,3000]`、`(500,1000]`、`(100,500]`、`(0,100]`、`0`
-- 周维度账号分桶图的分母固定为 `7`，不是“该账号该周有发视频的天数”；因此只展示完整成熟自然周，不展示半周样本
+- 周维度账号分桶图的分母为“该账号该周发布视频数”（`COUNT(DISTINCT video_key)`），不再固定除以 `7`；仍只展示完整成熟自然周，不展示半周样本
+- “账号周均 T+3 Views”当前语义已是“账号该周单条视频平均 T+3 Views”（篇均），但按用户要求图表标题、metric label、字段名 `avg_daily_view_count` 均保持不变；`全部渠道` 因账号仍按 `channel + creator_id` 拆分，跨平台同一视频不会落入同一账号样本，故“视频跨平台去重”在该口径下无作用点
 - `jobs/dws/dws_social_video_state_daily.py` 直接维护视频日状态层，再由渠道层按需做 `LAG` 和新增视频派生
 - “博主总数”按发布时间判断，不依赖是否已经采集到播放快照
 - “最新 3 条”不是先取发布时间最新 3 条再判断有没有数据，而是先限定截至 `dt` 已有采集数据的视频，再从这些视频里按发布时间倒序取最新 3 条
