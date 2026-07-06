@@ -1,11 +1,11 @@
-# 第三方渠道曝光 UV 看板
+# 第三方渠道外链跳转数据
 
 ## 报表
 
 - 表：`ads_daily_thirdapp_channel_uv`
 - 粒度：`dt × channel`
-- Dashboard：[【AI-Fashion】第三方渠道外链跳转数据 ](https://bi.alvinclub.ca/superset/dashboard/111/)（id=111）
-- Superset：物理 dataset `ads_daily_thirdapp_channel_uv`（id=244），chart `第三方渠道曝光 UV（日表）- 曝光 UV 趋势`（id=607）、`第三方渠道曝光 UV（日表）- 明细表`（id=608）
+- Dashboard：[【AI-Fashion】第三方渠道外链跳转数据](https://bi.alvinclub.ca/superset/dashboard/111/)（id=111）
+- Superset：物理 dataset `ads_daily_thirdapp_channel_uv`（id=244），chart `第三方渠道曝光 UV（日表）- 曝光 UV 趋势`（id=607）、`第三方渠道曝光 UV（日表）- 视频详情页曝光 PV 趋势`（id=677）、`第三方渠道曝光 UV（日表）- 商品点击个数趋势`（id=678）、`第三方渠道曝光 UV（日表）- 明细表`（id=608）
 
 ### `dws_thirdapp_channel_device_daily`
 
@@ -58,4 +58,4 @@
 - 脚本：`jobs/dws/dws_thirdapp_channel_device_daily.py`, `jobs/ads/ads_daily_thirdapp_channel_uv.py`
 - DDL：`ddl/dws/dws_thirdapp_channel_device_daily.sql`, `ddl/ads/ads_daily_thirdapp_channel_uv.sql`
 - 编排：`env/etl_config.json`, `etl_run.py`, `jobs/ads/ads_daily_thirdapp_channel_uv.py`
-- Superset：物理 dataset `ads_daily_thirdapp_channel_uv`（id=244），chart `第三方渠道曝光 UV（日表）- 曝光 UV 趋势`（id=607）、`第三方渠道曝光 UV（日表）- 明细表`（id=608），dashboard `【AI-Fashion】第三方渠道曝光 UV`（id=111）
+- Superset：物理 dataset `ads_daily_thirdapp_channel_uv`（id=244），chart `第三方渠道曝光 UV（日表）- 曝光 UV 趋势`（id=607）、`第三方渠道曝光 UV（日表）- 视频详情页曝光 PV 趋势`（id=677）、`第三方渠道曝光 UV（日表）- 商品点击个数趋势`（id=678）、`第三方渠道曝光 UV（日表）- 明细表`（id=608），dashboard `【AI-Fashion】第三方渠道外链跳转数据`（id=111）
