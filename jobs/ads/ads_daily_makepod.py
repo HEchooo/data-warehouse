@@ -22,6 +22,8 @@ MAKEPOD_REPORT_CHANNELS = [
     "TikTok",
     "Google",
     "Facebook",
+    "TK-ELSA-AI",
+    "YOUTUBE-ELSA-AI",
     "Other Channel",
     "Organic",
     "Overall",
@@ -185,7 +187,7 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 5 个渠道分类。
+    -- 渠道枚举：固定产出 8 个渠道分类。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel

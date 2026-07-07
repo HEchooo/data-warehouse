@@ -26,6 +26,8 @@ MAKEPOD_REPORT_CHANNELS = [
     "TikTok",
     "Google",
     "Facebook",
+    "TK-ELSA-AI",
+    "YOUTUBE-ELSA-AI",
     "Other Channel",
     MAKEPOD_ORGANIC_CHANNEL,
     "Overall",
@@ -307,7 +309,7 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 5 个互斥渠道和 1 个 Overall 汇总渠道。
+    -- 渠道枚举：固定产出 7 个互斥渠道和 1 个 Overall 汇总渠道。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel

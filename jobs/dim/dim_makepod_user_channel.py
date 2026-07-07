@@ -93,6 +93,8 @@ def build_makepod_user_channel_case_sql(field_expr: str) -> str:
         WHEN CAST({field_expr} AS STRING) = '2606091027981' THEN 'TikTok'
         WHEN CAST({field_expr} AS STRING) = '2606090368095' THEN 'Google'
         WHEN CAST({field_expr} AS STRING) = '2606093799415' THEN 'Facebook'
+        WHEN CAST({field_expr} AS STRING) = '2607062764531' THEN 'TK-ELSA-AI'
+        WHEN CAST({field_expr} AS STRING) = '2607063062524' THEN 'YOUTUBE-ELSA-AI'
         WHEN NULLIF(CAST({field_expr} AS STRING), '') IS NOT NULL
             THEN 'Other Channel'
         ELSE 'Organic'

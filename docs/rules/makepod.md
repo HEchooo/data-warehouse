@@ -12,8 +12,8 @@
 - `invite_user_id` 是邀请用户 id，其中包含达人
 ## 渠道映射
 
-- 当前 Makepod 已知映射渠道固定为：`Facebook`、`Google`、`TikTok`
-- 报表展示渠道固定为：`TikTok`、`Google`、`Facebook`、`Other Channel`、`Organic`、`Overall`
+- 当前 Makepod 已知映射渠道固定为：`Facebook`、`Google`、`TikTok`、`TK-ELSA-AI`、`YOUTUBE-ELSA-AI`
+- 报表展示渠道固定为：`TikTok`、`Google`、`Facebook`、`TK-ELSA-AI`、`YOUTUBE-ELSA-AI`、`Other Channel`、`Organic`、`Overall`
 - `Other Channel`：未命中已知映射，但存在 `share_code` 或 `invite_user_id`
 - `Organic`：不存在 `share_code` 且不存在 `invite_user_id`
 - `Overall`：全站去重汇总；不是前面各渠道直接相加，跨渠道重复主体在 `Overall` 中只记 1 次
@@ -21,6 +21,8 @@
   - `AAACXvNZSVQ -> 2606093799415 -> Facebook`
   - `AAACXvMF8vw -> 2606090368095 -> Google`
   - `AAACXvMzgK4 -> 2606091027981 -> TikTok`
+  - `AAACXzUeDVA -> 2607062764531 -> TK-ELSA-AI`
+  - `AAACXzUDkV8 -> 2607063062524 -> YOUTUBE-ELSA-AI`
 
 ## 注册相关
 

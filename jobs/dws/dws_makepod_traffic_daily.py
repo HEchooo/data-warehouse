@@ -27,6 +27,8 @@ MAKEPOD_REPORT_CHANNELS = [
     "TikTok",
     "Google",
     "Facebook",
+    "TK-ELSA-AI",
+    "YOUTUBE-ELSA-AI",
     "Other Channel",
     "Organic",
     "Overall",
@@ -77,6 +79,12 @@ def build_makepod_event_channel_case_sql(
         WHEN CAST({share_code_expr} AS STRING) = 'AAACXvNZSVQ'
             OR CAST({invite_user_id_expr} AS STRING) = '2606093799415'
             THEN 'Facebook'
+        WHEN CAST({share_code_expr} AS STRING) = 'AAACXzUeDVA'
+            OR CAST({invite_user_id_expr} AS STRING) = '2607062764531'
+            THEN 'TK-ELSA-AI'
+        WHEN CAST({share_code_expr} AS STRING) = 'AAACXzUDkV8'
+            OR CAST({invite_user_id_expr} AS STRING) = '2607063062524'
+            THEN 'YOUTUBE-ELSA-AI'
         WHEN NULLIF(CAST({share_code_expr} AS STRING), '') IS NOT NULL
             OR NULLIF(CAST({invite_user_id_expr} AS STRING), '') IS NOT NULL
             THEN 'Other Channel'
@@ -278,7 +286,7 @@ def run_dws_makepod_traffic_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 渠道枚举：固定产出 5 个互斥渠道和 1 个 Overall 汇总渠道。
+    -- 渠道枚举：固定产出 7 个互斥渠道和 1 个 Overall 汇总渠道。
     channel_list AS (
         SELECT channel
         FROM UNNEST([{channels_array_sql}]) AS channel
