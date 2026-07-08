@@ -267,7 +267,7 @@ def build_value_rows(row: dict) -> tuple[list[dict], list[dict], list[dict], lis
             "value": format_int(row["new_video_view_count"]),
         },
         {
-            "metric": "新增视频平均播放数",
+            "metric": "新增视频次日平均播放数",
             "value": format_rounded_int(row["avg_new_video_view_count"]),
         },
         {

@@ -333,6 +333,18 @@ def run_ads_daily_investor(dates: list[date]) -> None:
                 AS new_video_contributed_view_count,
             COUNT(
                 DISTINCT IF(
+                    f.first_positive_view_dt = DATE_SUB(v.dt, INTERVAL 1 DAY),
+                    v.investor_video_key,
+                    NULL
+                )
+            ) AS published_t1_cohort_video_count,
+            COALESCE(SUM(IF(
+                f.first_positive_view_dt = DATE_SUB(v.dt, INTERVAL 1 DAY),
+                v.day_end_views,
+                0
+            )), 0) AS published_t1_cohort_view_count,
+            COUNT(
+                DISTINCT IF(
                     f.first_positive_view_dt = DATE_SUB(v.dt, INTERVAL 6 DAY),
                     v.investor_video_key,
                     NULL
@@ -409,10 +421,10 @@ def run_ads_daily_investor(dates: list[date]) -> None:
         COALESCE(v.new_video_contributed_view_count, 0)
             AS new_video_contributed_view_count,
         CAST(CASE
-            WHEN COALESCE(v.new_video_count, 0) = 0 THEN 0
+            WHEN COALESCE(v.published_t1_cohort_video_count, 0) = 0 THEN 0
             ELSE ROUND(
-                CAST(COALESCE(v.new_video_contributed_view_count, 0) AS NUMERIC)
-                / CAST(v.new_video_count AS NUMERIC),
+                CAST(COALESCE(v.published_t1_cohort_view_count, 0) AS NUMERIC)
+                / CAST(v.published_t1_cohort_video_count AS NUMERIC),
                 4
             )
         END AS NUMERIC) AS avg_new_video_view_count,
