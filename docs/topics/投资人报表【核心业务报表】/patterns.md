@@ -97,6 +97,7 @@
 - 因此分子不能复用 `SUM(daily_view_increment)`，也不能继续复用首日累计播放辅助字段 `new_video_contributed_view_count`
 - 正确做法是按 `first_positive_view_dt = dt-1` 找到新增 cohort，分子取这些视频在 `dt` 的 `day_end_views`，分母取 cohort 统一视频键去重数
 - 如果误用“新增视频播放数”做分子，结果会变成“全量视频日增播放 / 次日 cohort 视频数”，口径和“次日累计播放均值”不是一回事
+- 新展示字段应使用 `new_video_next_day_avg_view_count`；`avg_new_video_view_count` 仅为旧引用兼容字段，避免字段名继续误导新开发
 
 ## 人均停留时长分母不能包含 `h5`
 

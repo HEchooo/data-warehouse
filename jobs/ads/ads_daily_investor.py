@@ -206,6 +206,7 @@ def run_ads_daily_investor(dates: list[date]) -> None:
         new_video_view_count,
         new_video_contributed_view_count,
         avg_new_video_view_count,
+        new_video_next_day_avg_view_count,
         new_video_7d_avg_view_count,
         video_production_cost_usd,
         cost_per_thousand_views_usd,
@@ -428,6 +429,14 @@ def run_ads_daily_investor(dates: list[date]) -> None:
                 4
             )
         END AS NUMERIC) AS avg_new_video_view_count,
+        CAST(CASE
+            WHEN COALESCE(v.published_t1_cohort_video_count, 0) = 0 THEN 0
+            ELSE ROUND(
+                CAST(COALESCE(v.published_t1_cohort_view_count, 0) AS NUMERIC)
+                / CAST(v.published_t1_cohort_video_count AS NUMERIC),
+                4
+            )
+        END AS NUMERIC) AS new_video_next_day_avg_view_count,
         CAST(CASE
             WHEN COALESCE(v.published_7d_cohort_video_count, 0) = 0 THEN 0
             ELSE ROUND(

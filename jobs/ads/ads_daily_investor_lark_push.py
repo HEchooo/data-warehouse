@@ -145,7 +145,7 @@ def fetch_investor_row(target_date: date) -> dict:
         prev.new_video_count AS previous_new_video_count,
         t.active_video_count,
         t.new_video_view_count,
-        t.avg_new_video_view_count,
+        t.new_video_next_day_avg_view_count,
         t.new_video_7d_avg_view_count,
         t.video_production_cost_usd,
         t.cost_per_thousand_views_usd,
@@ -268,7 +268,7 @@ def build_value_rows(row: dict) -> tuple[list[dict], list[dict], list[dict], lis
         },
         {
             "metric": "新增视频次日平均播放数",
-            "value": format_rounded_int(row["avg_new_video_view_count"]),
+            "value": format_rounded_int(row["new_video_next_day_avg_view_count"]),
         },
         {
             "metric": "新增视频 7 日播放数",
