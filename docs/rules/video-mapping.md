@@ -2,6 +2,23 @@
 
 ## dataset: videos
 
+## 视频与账号展示字段
+
+以下映射是三端视频与账号展示属性的统一来源。主题报表需要视频链接、视频标题、账号名称或账号 URL 时，直接引用本节，不在各主题重复维护字段映射。
+
+| 平台 | 视频 ID | 视频标题 | 账号 ID | 账号展示名称 | 账号用户名 / Handle | 视频 URL | 账号 URL | 主表连接条件 |
+|------|------|------|------|------|------|------|------|------|
+| YouTube | `videos.yt_videos.video_id` | `videos.yt_videos.title` | `videos.yt_videos.channel_id` | `videos.yt_channels.channel_name` | `videos.yt_channels.custom_url` | `CONCAT('https://www.youtube.com/watch?v=', videos.yt_videos.video_id)` | `CONCAT('https://www.youtube.com/', videos.yt_channels.custom_url)` | `videos.yt_videos.channel_id = videos.yt_channels.channel_id` |
+| TikTok | `videos.videos.id` | `videos.videos.title` | `videos.videos.user_id` | `videos.users.display_name` | `videos.users.username` | `videos.videos.embed_link` | `videos.users.profile_deep_link` | `videos.videos.user_id = videos.users.id` |
+| Instagram | `videos.ig_media.media_id` | `videos.ig_media.caption`；Instagram 当前没有独立标题字段 | `videos.ig_media.account_id` | `videos.ig_channels.account_name` | `videos.ig_channels.username` | `videos.ig_media.permalink` | `CONCAT('https://www.instagram.com/', videos.ig_channels.account_name, '/reels/')` | `videos.ig_media.account_id = videos.ig_channels.account_id` |
+
+补充规则：
+
+- 三端视频标题统一下沉为 `decom.dim_video.video_title`；YouTube / TikTok 取 `title`，Instagram 取 `caption`
+- URL 必须使用表中字段或上表固定表达式，不自行猜测其他平台路径
+- `TikTok embed_link`、`profile_deep_link` 或其他源字段为空时保留空值；除非业务明确确认，不使用其他 URL 字段兜底
+- `Instagram caption` 是视频文案，不等同于平台提供的独立视频标题
+
 ## youtube
 
 ### 发布时间

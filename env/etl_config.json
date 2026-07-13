@@ -1115,6 +1115,19 @@
     },
     {
       "layer": "ADS",
+      "table_name": "ads_daily_social_video_monitor_rankings_v2",
+      "stage": "ADS",
+      "name": "ADS Social Content 视频监控日榜 v2 ETL",
+      "script": "jobs/ads/ads_daily_social_video_monitor_rankings_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video",
+        "dws_social_video_state_daily_v2"
+      ],
+      "schedule_group": "ads_daily_social_video_monitor_rankings_v2"
+    },
+    {
+      "layer": "ADS",
       "table_name": "ads_daily_formal_video_increment",
       "stage": "ADS",
       "name": "ADS 正式号视频发布增量日报 ETL",

@@ -14,3 +14,21 @@ ADD COLUMN IF NOT EXISTS is_formal_video BOOL;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
 ADD COLUMN IF NOT EXISTS formal_tag_created_ts_utc TIMESTAMP;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+ADD COLUMN IF NOT EXISTS video_title STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+ADD COLUMN IF NOT EXISTS video_link STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+ADD COLUMN IF NOT EXISTS account_name STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+ADD COLUMN IF NOT EXISTS account_handle STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+ADD COLUMN IF NOT EXISTS account_url STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+ADD COLUMN IF NOT EXISTS is_social_content_video BOOL;

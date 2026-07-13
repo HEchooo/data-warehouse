@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 
 
 PROJECT_ID = "my-project-8584-jetonai"
@@ -63,6 +64,14 @@ def strings_to_sql_list(values: list[str]) -> str:
     return ", ".join([f"'{value}'" for value in values])
 
 
+def target_table_exists() -> bool:
+    try:
+        client.get_table(target_table_id())
+        return True
+    except NotFound:
+        return False
+
+
 def build_select_sql() -> str:
     excluded_channel_ids_sql = strings_to_sql_list(YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS)
     return f"""
@@ -86,14 +95,22 @@ def build_select_sql() -> str:
     raw_video_union AS (
         SELECT
             'youtube' AS channel,
-            CAST(channel_id AS STRING) AS creator_id,
-            CAST(video_id AS STRING) AS video_id,
-            CONCAT('youtube:', CAST(video_id AS STRING)) AS video_key,
-            TIMESTAMP(published_at, 'UTC') AS published_ts_utc,
+            CAST(v.channel_id AS STRING) AS creator_id,
+            CAST(v.video_id AS STRING) AS video_id,
+            CONCAT('youtube:', CAST(v.video_id AS STRING)) AS video_key,
+            TIMESTAMP(v.published_at, 'UTC') AS published_ts_utc,
+            v.title AS video_title,
+            CONCAT('https://www.youtube.com/watch?v=', v.video_id) AS video_link,
+            c.channel_name AS account_name,
+            c.custom_url AS account_handle,
+            CONCAT('https://www.youtube.com/', c.custom_url) AS account_url,
+            v.channel_id NOT IN ({excluded_channel_ids_sql}) AS is_social_content_video,
             1 AS source_priority
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos`
-        WHERE channel_id NOT IN ({excluded_channel_ids_sql})
-            OR CONCAT('youtube:', CAST(video_id AS STRING)) IN (
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos` v
+        LEFT JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_channels` c
+            ON v.channel_id = c.channel_id
+        WHERE v.channel_id NOT IN ({excluded_channel_ids_sql})
+            OR CONCAT('youtube:', CAST(v.video_id AS STRING)) IN (
                 SELECT video_key FROM formal_video_tag
             )
 
@@ -101,23 +118,39 @@ def build_select_sql() -> str:
 
         SELECT
             'tiktok' AS channel,
-            CAST(user_id AS STRING) AS creator_id,
-            CAST(id AS STRING) AS video_id,
-            CONCAT('tiktok:', CAST(id AS STRING)) AS video_key,
-            TIMESTAMP_SECONDS(SAFE_CAST(create_time AS INT64)) AS published_ts_utc,
+            CAST(v.user_id AS STRING) AS creator_id,
+            CAST(v.id AS STRING) AS video_id,
+            CONCAT('tiktok:', CAST(v.id AS STRING)) AS video_key,
+            TIMESTAMP_SECONDS(SAFE_CAST(v.create_time AS INT64)) AS published_ts_utc,
+            v.title AS video_title,
+            v.embed_link AS video_link,
+            u.display_name AS account_name,
+            u.username AS account_handle,
+            u.profile_deep_link AS account_url,
+            TRUE AS is_social_content_video,
             1 AS source_priority
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos`
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos` v
+        LEFT JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.users` u
+            ON v.user_id = u.id
 
         UNION ALL
 
         SELECT
             'ins' AS channel,
-            CAST(account_id AS STRING) AS creator_id,
-            CAST(media_id AS STRING) AS video_id,
-            CONCAT('ins:', CAST(media_id AS STRING)) AS video_key,
-            TIMESTAMP(published_at, 'UTC') AS published_ts_utc,
+            CAST(m.account_id AS STRING) AS creator_id,
+            CAST(m.media_id AS STRING) AS video_id,
+            CONCAT('ins:', CAST(m.media_id AS STRING)) AS video_key,
+            TIMESTAMP(m.published_at, 'UTC') AS published_ts_utc,
+            m.caption AS video_title,
+            m.permalink AS video_link,
+            c.account_name,
+            c.username AS account_handle,
+            CONCAT('https://www.instagram.com/', c.account_name, '/reels/') AS account_url,
+            TRUE AS is_social_content_video,
             1 AS source_priority
-        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media`
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media` m
+        LEFT JOIN `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_channels` c
+            ON m.account_id = c.account_id
 
         UNION ALL
 
@@ -127,6 +160,15 @@ def build_select_sql() -> str:
             video_id,
             video_key,
             formal_tag_created_ts_utc AS published_ts_utc,
+            CAST(NULL AS STRING) AS video_title,
+            CAST(NULL AS STRING) AS video_link,
+            CAST(NULL AS STRING) AS account_name,
+            CAST(NULL AS STRING) AS account_handle,
+            CAST(NULL AS STRING) AS account_url,
+            NOT (
+                channel = 'youtube'
+                AND creator_id IN ({excluded_channel_ids_sql})
+            ) AS is_social_content_video,
             2 AS source_priority
         FROM formal_video_tag
     ),
@@ -137,7 +179,13 @@ def build_select_sql() -> str:
             creator_id,
             video_id,
             video_key,
-            published_ts_utc
+            published_ts_utc,
+            video_title,
+            video_link,
+            account_name,
+            account_handle,
+            account_url,
+            is_social_content_video
         FROM raw_video_union
         WHERE published_ts_utc IS NOT NULL
         QUALIFY ROW_NUMBER() OVER (
@@ -152,6 +200,12 @@ def build_select_sql() -> str:
         deduped_video.video_key,
         deduped_video.published_ts_utc,
         DATE(deduped_video.published_ts_utc, '{TORONTO_TZ}') AS published_dt,
+        deduped_video.video_title,
+        deduped_video.video_link,
+        deduped_video.account_name,
+        deduped_video.account_handle,
+        deduped_video.account_url,
+        deduped_video.is_social_content_video,
         formal_video_tag.formal_tag_created_ts_utc IS NOT NULL AS is_formal_video,
         formal_video_tag.formal_tag_created_ts_utc,
         CURRENT_TIMESTAMP() AS update_time
@@ -162,10 +216,12 @@ def build_select_sql() -> str:
 
 
 def run_dim_video() -> None:
-    staging_table_id = (
-        f"{target_table_id()}_tmp_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-    )
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    staging_table_id = f"{target_table_id()}_tmp_{run_id}"
+    changed_table_id = f"{target_table_id()}_changed_{run_id}"
     select_sql = build_select_sql()
+    target_dropped = False
+    swap_completed = False
 
     logging.info("开始处理: %s", TABLE_NAME)
 
@@ -183,6 +239,7 @@ def run_dim_video() -> None:
             COUNT(*) AS total_rows,
             COUNT(DISTINCT video_key) AS distinct_video_keys,
             COUNTIF(video_key IS NULL OR video_key = '') AS invalid_video_key_rows,
+            COUNTIF(is_social_content_video IS NULL) AS invalid_social_content_flag_rows,
             COUNTIF(is_formal_video AND formal_tag_created_ts_utc IS NULL)
                 AS invalid_formal_video_rows
         FROM `{staging_table_id}`
@@ -192,19 +249,35 @@ def run_dim_video() -> None:
             raise RuntimeError("dim_video 校验失败：video_key 未做到一键一行")
         if validation_row.invalid_video_key_rows != 0:
             raise RuntimeError("dim_video 校验失败：存在空 video_key")
+        if validation_row.invalid_social_content_flag_rows != 0:
+            raise RuntimeError("dim_video 校验失败：存在空 Social Content 范围标记")
         if validation_row.invalid_formal_video_rows != 0:
             raise RuntimeError("dim_video 校验失败：正式号视频缺少 tag 创建时间")
 
         client.query(
             f"""
-            CREATE OR REPLACE TABLE `{target_table_id()}`
+            CREATE TABLE `{changed_table_id}`
             CLUSTER BY channel, creator_id, video_key AS
             SELECT *
             FROM `{staging_table_id}`
             """
         ).result()
+
+        if target_table_exists():
+            client.query(f"DROP TABLE `{target_table_id()}`").result()
+            target_dropped = True
+        client.query(
+            f"ALTER TABLE `{changed_table_id}` RENAME TO {TABLE_NAME}"
+        ).result()
+        swap_completed = True
         client.delete_table(staging_table_id, not_found_ok=True)
     except Exception:
+        if target_dropped and not swap_completed:
+            client.query(
+                f"ALTER TABLE `{changed_table_id}` RENAME TO {TABLE_NAME}"
+            ).result()
+        elif not swap_completed:
+            client.delete_table(changed_table_id, not_found_ok=True)
         client.delete_table(staging_table_id, not_found_ok=True)
         raise
 
