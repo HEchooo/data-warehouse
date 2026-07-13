@@ -201,7 +201,7 @@
 - 社媒视频监控日榜链路：
   - `videos.* -> dim_video`
   - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_social_video_monitor_rankings_v2`
-  - 日榜 `dt=D` 固定读取 `target_dt=D-1` 与 `D-2` 两个视频状态分区，分别产出 `D-1` 发布和 `D-1` 前发布视频的增量 Views Top 10
+  - 日榜 `dt=D` 固定读取 D 与 `target_dt=D-1` 两个完整视频日末状态分区，分别产出 `D-1` 发布和 `D-1` 前发布视频在 D 当日的增量 Views Top 10
 - 正式号视频发布增量链路：
   - `videos.platform_video_tags -> dim_video`
   - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2`

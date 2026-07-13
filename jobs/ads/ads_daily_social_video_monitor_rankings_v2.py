@@ -43,7 +43,7 @@ def configure_logging() -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="构建 Social Content 视频监控日榜（D 日展示 D-1 两类视频池）"
+        description="构建 Social Content 视频监控日榜（统计 D 日完整日末播放增量）"
     )
     parser.add_argument(
         "--full-refresh",
@@ -84,20 +84,20 @@ def get_target_row_count() -> int:
 def get_full_dates_to_process() -> list[date]:
     query = f"""
     SELECT
-        DATE_ADD(MIN(dt), INTERVAL 1 DAY) AS min_report_dt,
-        DATE_ADD(MAX(dt), INTERVAL 1 DAY) AS max_report_dt
+        DATE_ADD(MIN(dt), INTERVAL 1 DAY) AS min_stat_dt,
+        MAX(dt) AS max_stat_dt
     FROM `{source_table_id()}`
     WHERE dt < CURRENT_DATE('{TORONTO_TZ}')
     """
     rows = list(client.query(query).result())
-    if not rows or rows[0].min_report_dt is None or rows[0].max_report_dt is None:
+    if not rows or rows[0].min_stat_dt is None or rows[0].max_stat_dt is None:
         return []
 
-    min_report_dt = rows[0].min_report_dt
-    max_report_dt = rows[0].max_report_dt
+    min_stat_dt = rows[0].min_stat_dt
+    max_stat_dt = rows[0].max_stat_dt
     return [
-        min_report_dt + timedelta(days=offset)
-        for offset in range((max_report_dt - min_report_dt).days + 1)
+        min_stat_dt + timedelta(days=offset)
+        for offset in range((max_stat_dt - min_stat_dt).days + 1)
     ]
 
 
@@ -108,32 +108,74 @@ def get_dates_to_process(
         return get_full_dates_to_process()
 
     query = f"""
-    SELECT DISTINCT DATE_ADD(dt, INTERVAL 1 DAY) AS report_dt
-    FROM `{source_table_id()}`
-    WHERE dt < CURRENT_DATE('{TORONTO_TZ}')
-        AND update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-    ORDER BY report_dt
+    WITH
+    -- 找出最近变更的视频日末状态分区。
+    changed_dates AS (
+        SELECT DISTINCT dt
+        FROM `{source_table_id()}`
+        WHERE update_time >= TIMESTAMP_SUB(
+            CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR
+        )
+    ),
+    -- 分区 P 变更会影响统计日 P 及以 P 为对比基准的 P+1。
+    candidate_dates AS (
+        SELECT DATE_ADD(dt, INTERVAL day_offset DAY) AS stat_dt
+        FROM changed_dates
+        CROSS JOIN UNNEST([0, 1]) AS day_offset
+    ),
+    -- 读取目标表水位，确保跨日后补齐尚未生成的完整统计日。
+    target_boundary AS (
+        SELECT MAX(dt) AS max_dt
+        FROM `{target_table_id()}`
+    ),
+    -- 目标水位之后的成熟源分区不依赖 update_time 窗口也必须处理。
+    missing_dates AS (
+        SELECT DISTINCT source.dt AS stat_dt
+        FROM `{source_table_id()}` source
+        CROSS JOIN target_boundary
+        WHERE source.dt > target_boundary.max_dt
+            AND source.dt < CURRENT_DATE('{TORONTO_TZ}')
+    ),
+    -- 合并最近修正影响日期与目标表缺失日期。
+    dates_to_process AS (
+        SELECT stat_dt FROM candidate_dates
+        UNION DISTINCT
+        SELECT stat_dt FROM missing_dates
+    ),
+    -- 最早源分区没有前一日基准，不生成日榜。
+    source_boundary AS (
+        SELECT MIN(dt) AS min_dt
+        FROM `{source_table_id()}`
+    )
+    SELECT DISTINCT stat_dt
+    FROM dates_to_process
+    CROSS JOIN source_boundary
+    WHERE stat_dt > min_dt
+        AND stat_dt < CURRENT_DATE('{TORONTO_TZ}')
+    ORDER BY stat_dt
     """
-    return [row.report_dt for row in client.query(query).result()]
+    return [row.stat_dt for row in client.query(query).result()]
 
 
 def dates_to_array_sql(dates: list[date]) -> str:
-    return ", ".join(f"DATE '{report_dt}'" for report_dt in dates)
+    return ", ".join(f"DATE '{stat_dt}'" for stat_dt in dates)
 
 
 def build_select_sql(dates: list[date]) -> str:
-    report_dates_sql = dates_to_array_sql(dates)
-    min_source_dt = min(dates) - timedelta(days=2)
-    max_source_dt = max(dates) - timedelta(days=1)
+    stat_dates_sql = dates_to_array_sql(dates)
+    min_source_dt = min(dates) - timedelta(days=1)
+    max_source_dt = max(dates)
 
     return f"""
     WITH
-    report_dates AS (
+    -- 构造已完整结束的播放统计日 D 及对比基准日 D-1。
+    stat_dates AS (
         SELECT
             dt,
             DATE_SUB(dt, INTERVAL 1 DAY) AS target_dt
-        FROM UNNEST([{report_dates_sql}]) AS dt
+        FROM UNNEST([{stat_dates_sql}]) AS dt
     ),
+    -- 只读取计算增量所需的 D 与 D-1 视频状态分区。
     social_video_state AS (
         SELECT
             dt,
@@ -145,6 +187,7 @@ def build_select_sql(dates: list[date]) -> str:
         FROM `{source_table_id()}`
         WHERE dt BETWEEN DATE '{min_source_dt}' AND DATE '{max_source_dt}'
     ),
+    -- 以 D 日末累计减 D-1 日末累计，计算 D 当日播放增量。
     video_daily AS (
         SELECT
             d.dt,
@@ -156,13 +199,14 @@ def build_select_sql(dates: list[date]) -> str:
             current_state.day_end_views
                 - COALESCE(previous_state.day_end_views, 0) AS view_increment,
             current_state.day_end_views AS total_view_count
-        FROM report_dates d
+        FROM stat_dates d
         INNER JOIN social_video_state current_state
-            ON current_state.dt = d.target_dt
+            ON current_state.dt = d.dt
         LEFT JOIN social_video_state previous_state
-            ON previous_state.dt = DATE_SUB(d.target_dt, INTERVAL 1 DAY)
+            ON previous_state.dt = d.target_dt
             AND previous_state.video_key = current_state.video_key
     ),
+    -- 补齐视频展示属性，并按 D-1 发布或 D-1 前发布划分互斥视频池。
     video_enriched AS (
         SELECT
             v.dt,
@@ -190,6 +234,7 @@ def build_select_sql(dates: list[date]) -> str:
         WHERE dim.is_social_content_video
             AND dim.published_dt <= v.target_dt
     ),
+    -- 在每个统计日和视频池内按 D 当日播放增量排名。
     ranked AS (
         SELECT
             *,
@@ -224,7 +269,10 @@ def build_select_sql(dates: list[date]) -> str:
     """
 
 
-def run_ads_daily_social_video_monitor_rankings(dates: list[date]) -> None:
+def run_ads_daily_social_video_monitor_rankings(
+    dates: list[date],
+    full_refresh: bool = False,
+) -> None:
     if not dates:
         logging.info("%s 无待处理日期，跳过", TABLE_NAME)
         return
@@ -248,7 +296,9 @@ def run_ads_daily_social_video_monitor_rankings(dates: list[date]) -> None:
         validation_row = list(
             client.query(
                 f"""
-                WITH ranking_groups AS (
+                WITH
+                -- 汇总每个统计日和视频池的排名行数及边界。
+                ranking_groups AS (
                     SELECT dt, ranking_type, COUNT(*) AS row_count
                     FROM `{staging_table}`
                     GROUP BY dt, ranking_type
@@ -263,6 +313,26 @@ def run_ads_daily_social_video_monitor_rankings(dates: list[date]) -> None:
                      FROM `{staging_table}`) AS invalid_rank_rows,
                     (SELECT COUNTIF(target_dt != DATE_SUB(dt, INTERVAL 1 DAY))
                      FROM `{staging_table}`) AS invalid_target_dt_rows,
+                    (SELECT COUNTIF(
+                        (ranking_type = 't1_published_video_top'
+                            AND published_dt != target_dt)
+                        OR (ranking_type = 'historical_video_top'
+                            AND published_dt >= target_dt)
+                     ) FROM `{staging_table}`) AS invalid_pool_rows,
+                    (SELECT COUNTIF(
+                        staging.view_increment
+                            != current_state.day_end_views
+                                - COALESCE(previous_state.day_end_views, 0)
+                        OR staging.total_view_count != current_state.day_end_views
+                     )
+                     FROM `{staging_table}` staging
+                     INNER JOIN `{source_table_id()}` current_state
+                        ON current_state.dt = staging.dt
+                        AND current_state.video_key = staging.video_key
+                     LEFT JOIN `{source_table_id()}` previous_state
+                        ON previous_state.dt = staging.target_dt
+                        AND previous_state.video_key = staging.video_key
+                    ) AS invalid_metric_rows,
                     COUNTIF(row_count > 10) AS invalid_ranking_group_count
                 FROM ranking_groups
                 """
@@ -274,30 +344,44 @@ def run_ads_daily_social_video_monitor_rankings(dates: list[date]) -> None:
             raise RuntimeError("视频监控日榜校验失败：排名超出 1-10")
         if validation_row.invalid_target_dt_rows != 0:
             raise RuntimeError("视频监控日榜校验失败：target_dt 不是 dt 的前一日")
+        if validation_row.invalid_pool_rows != 0:
+            raise RuntimeError("视频监控日榜校验失败：视频池与发布日期不匹配")
+        if validation_row.invalid_metric_rows != 0:
+            raise RuntimeError("视频监控日榜校验失败：增量或累计播放量公式不正确")
         if validation_row.dt_count != len(dates):
             raise RuntimeError(
-                "视频监控日榜校验失败：存在未产出数据的报表日期，"
+                "视频监控日榜校验失败：存在未产出数据的统计日期，"
                 f"expected={len(dates)}, actual={validation_row.dt_count}"
             )
         if validation_row.invalid_ranking_group_count != 0:
             raise RuntimeError("视频监控日榜校验失败：存在超过 10 条的视频池")
 
         if target_table_exists():
-            report_dates_sql = dates_to_array_sql(dates)
-            client.query(
-                f"""
-                CREATE TABLE `{changed_table}`
-                PARTITION BY dt
-                CLUSTER BY ranking_type, channel, video_key AS
-                SELECT *
-                FROM `{target_table}`
-                WHERE dt NOT IN UNNEST([{report_dates_sql}])
+            if full_refresh:
+                client.query(
+                    f"""
+                    CREATE TABLE `{changed_table}`
+                    PARTITION BY dt
+                    CLUSTER BY ranking_type, channel, video_key AS
+                    SELECT * FROM `{staging_table}`
+                    """
+                ).result()
+            else:
+                stat_dates_sql = dates_to_array_sql(dates)
+                client.query(
+                    f"""
+                    CREATE TABLE `{changed_table}`
+                    PARTITION BY dt
+                    CLUSTER BY ranking_type, channel, video_key AS
+                    SELECT *
+                    FROM `{target_table}`
+                    WHERE dt NOT IN UNNEST([{stat_dates_sql}])
 
-                UNION ALL
+                    UNION ALL
 
-                SELECT * FROM `{staging_table}`
-                """
-            ).result()
+                    SELECT * FROM `{staging_table}`
+                    """
+                ).result()
             client.query(f"DROP TABLE `{target_table}`").result()
             target_dropped = True
             client.query(f"ALTER TABLE `{changed_table}` RENAME TO {TABLE_NAME}").result()
@@ -313,13 +397,20 @@ def run_ads_daily_social_video_monitor_rankings(dates: list[date]) -> None:
 
         client.query(f"DROP TABLE IF EXISTS `{staging_table}`").result()
     except Exception:
-        if not target_dropped:
+        if target_dropped:
+            try:
+                client.get_table(target_table)
+            except NotFound:
+                client.query(
+                    f"ALTER TABLE `{changed_table}` RENAME TO {TABLE_NAME}"
+                ).result()
+        else:
             client.query(f"DROP TABLE IF EXISTS `{staging_table}`").result()
             client.query(f"DROP TABLE IF EXISTS `{changed_table}`").result()
         raise
 
     logging.info(
-        "%s 刷新完成，处理日期: %s ~ %s，共 %s 天",
+        "%s 刷新完成，处理统计日期: %s ~ %s，共 %s 天",
         TABLE_NAME,
         min(dates),
         max(dates),
@@ -334,6 +425,6 @@ if __name__ == "__main__":
     args = parse_args()
     dates = get_full_dates_to_process() if args.full_refresh else get_dates_to_process()
     logging.info("待处理日期: %s", dates if dates else "[]")
-    run_ads_daily_social_video_monitor_rankings(dates)
+    run_ads_daily_social_video_monitor_rankings(dates, full_refresh=args.full_refresh)
     elapsed = (datetime.now(ZoneInfo(TORONTO_TZ)) - start_time).total_seconds()
     logging.info("%s 完成，耗时: %.1f 秒", TABLE_NAME, elapsed)
