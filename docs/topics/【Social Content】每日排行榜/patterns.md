@@ -1,4 +1,4 @@
-# 【Social Content】视频监控看板踩坑记录
+# 【Social Content】每日排行榜踩坑记录
 
 ## `dt=D` 与对比基准日期 D-1 不应混淆
 
