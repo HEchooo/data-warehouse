@@ -9,7 +9,7 @@
 - 其他榜单 Superset 虚拟 dataset：`virtual_social_content_video_monitor_rankings_v2`（id=271，主时间列 `dt`）
 - 视频日榜粒度：`dt + ranking_type + rank_no`
 - 视频日榜：每天固定产出 2 类榜单，每类 10 行
-- Lark 日报推送：两类视频 Top 10 榜单均以原生 table 展示视频链接和增量播放量
+- Lark 日报推送：两类视频榜单均取 Top 5，以原生 table 展示视频链接和增量播放量；更新时间使用美东时间，卡片底部链接至本 Dashboard
 
 ## 字段
 
@@ -67,8 +67,8 @@
 
 | 榜单 | 推送字段 |
 |------|------|
-| T-1 发布视频增量 Views Top 10 | 视频链接、增量播放量 |
-| T-1 前发布视频增量 Views Top 10 | 视频链接、增量播放量 |
+| T-1 发布视频增量 Views Top 5 | 视频链接、增量播放量 |
+| T-1 前发布视频增量 Views Top 5 | 视频链接、增量播放量 |
 
 ## 依赖
 

@@ -6,6 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from google.cloud import bigquery
 import requests
@@ -24,6 +25,9 @@ TORONTO_TZ = "America/Toronto"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ETL_CONFIG_PATH = PROJECT_ROOT / "env" / "etl_config.json"
 LARK_WEBHOOK_CONFIG_PATH = PROJECT_ROOT / "env" / "lark_webhook.json"
+DASHBOARD_URL = (
+    "https://bi.alvinclub.ca/superset/dashboard/social-content-video-monitor"
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -281,6 +285,7 @@ def fetch_social_video_rankings(target_date: date) -> dict:
         update_time
     FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_social_video_monitor_rankings_v2`
     WHERE dt = @target_date
+        AND rank_no <= 5
         AND ranking_type IN (
             't1_published_video_top',
             'historical_video_top'
@@ -662,7 +667,7 @@ def build_social_video_ranking_table(
         "tag": "table",
         "element_id": element_id,
         "margin": "8px 0px 0px 0px",
-        "page_size": 10,
+        "page_size": 5,
         "row_height": "low",
         "header_style": {
             "text_align": "center",
@@ -677,7 +682,7 @@ def build_social_video_ranking_table(
                 "name": "video_link",
                 "display_name": "视频链接",
                 "data_type": "lark_md",
-                "horizontal_align": "left",
+                "horizontal_align": "center",
                 "vertical_align": "top",
                 "width": "70%",
             },
@@ -685,7 +690,7 @@ def build_social_video_ranking_table(
                 "name": "view_increment",
                 "display_name": "增量播放量",
                 "data_type": "text",
-                "horizontal_align": "right",
+                "horizontal_align": "center",
                 "vertical_align": "top",
                 "width": "30%",
             },
@@ -747,7 +752,8 @@ def build_thirdapp_table(row: dict, element_id: str) -> dict:
 
 def format_update_time(value) -> str:
     if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M:%S UTC")
+        eastern_time = value.astimezone(ZoneInfo(TORONTO_TZ))
+        return eastern_time.strftime("%Y-%m-%d %H:%M:%S（美东）")
     return "--"
 
 
@@ -828,7 +834,7 @@ def build_card_payload(
                     {
                         "tag": "markdown",
                         "content": (
-                            "#### 昨天发布的视频中，播放数增量 Top 10（过去24小时）\n"
+                            "#### 昨天发布的视频中，播放数增量 Top 5（过去24小时）\n"
                             f"**更新时间**：{ranking_update_time_text}"
                         ),
                         "text_align": "left",
@@ -842,7 +848,7 @@ def build_card_payload(
                     {
                         "tag": "markdown",
                         "content": (
-                            "#### 过去发布的所有视频中，播放数增量 Top 10（过去24小时）\n"
+                            "#### 过去发布的所有视频中，播放数增量 Top 5（过去24小时）\n"
                             f"**更新时间**：{ranking_update_time_text}"
                         ),
                         "text_align": "left",
@@ -867,6 +873,23 @@ def build_card_payload(
                         thirdapp_row,
                         element_id="thirdapp_metrics",
                     ),
+                    {
+                        "tag": "button",
+                        "text": {
+                            "tag": "plain_text",
+                            "content": "每日排行榜",
+                        },
+                        "type": "primary",
+                        "width": "default",
+                        "size": "medium",
+                        "behaviors": [
+                            {
+                                "type": "open_url",
+                                "default_url": DASHBOARD_URL,
+                            }
+                        ],
+                        "margin": "16px 0px 0px 0px",
+                    },
                 ],
             },
         },
