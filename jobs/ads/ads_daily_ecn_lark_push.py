@@ -271,6 +271,35 @@ def fetch_social_content_metrics(target_date: date) -> dict:
     }
 
 
+def fetch_social_video_rankings(target_date: date) -> dict:
+    query = f"""
+    SELECT
+        ranking_type,
+        rank_no,
+        video_link,
+        view_increment,
+        update_time
+    FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_social_video_monitor_rankings_v2`
+    WHERE dt = @target_date
+        AND ranking_type IN (
+            't1_published_video_top',
+            'historical_video_top'
+        )
+    ORDER BY ranking_type, rank_no
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("target_date", "DATE", target_date)
+        ]
+    )
+    rows = list(client.query(query, job_config=job_config).result())
+    if not rows:
+        raise RuntimeError(f"未找到 dt={target_date} 的 Social Content 视频排行榜数据")
+    return {
+        "rows": [dict(row.items()) for row in rows],
+    }
+
+
 def fetch_thirdapp_metrics(target_date: date) -> dict:
     query = f"""
     SELECT
@@ -616,6 +645,55 @@ def build_social_content_table(
     }
 
 
+def build_social_video_ranking_table(
+    ranking_metrics: dict,
+    ranking_type: str,
+    element_id: str,
+) -> dict:
+    rows = [
+        {
+            "video_link": f"[{row['video_link']}]({row['video_link']})",
+            "view_increment": format_int(row["view_increment"]),
+        }
+        for row in ranking_metrics["rows"]
+        if row["ranking_type"] == ranking_type
+    ]
+    return {
+        "tag": "table",
+        "element_id": element_id,
+        "margin": "8px 0px 0px 0px",
+        "page_size": 10,
+        "row_height": "low",
+        "header_style": {
+            "text_align": "center",
+            "text_size": "normal",
+            "background_style": "grey",
+            "text_color": "default",
+            "bold": True,
+            "lines": 1,
+        },
+        "columns": [
+            {
+                "name": "video_link",
+                "display_name": "视频链接",
+                "data_type": "lark_md",
+                "horizontal_align": "left",
+                "vertical_align": "top",
+                "width": "70%",
+            },
+            {
+                "name": "view_increment",
+                "display_name": "增量播放量",
+                "data_type": "text",
+                "horizontal_align": "right",
+                "vertical_align": "top",
+                "width": "30%",
+            },
+        ],
+        "rows": rows,
+    }
+
+
 def build_thirdapp_table(row: dict, element_id: str) -> dict:
     rows = [
         {
@@ -693,12 +771,14 @@ def get_latest_update_time_text(*rows_or_metrics: dict) -> str:
 def build_card_payload(
     publish_row: dict,
     social_metrics: dict,
+    ranking_metrics: dict,
     thirdapp_row: dict,
 ) -> dict:
     dt_text = publish_row["dt"].isoformat()
     metrics_rows = build_table_rows(publish_row)
     publish_update_time_text = format_update_time(publish_row.get("update_time"))
     social_update_time_text = get_latest_update_time_text(social_metrics)
+    ranking_update_time_text = get_latest_update_time_text(ranking_metrics)
     thirdapp_update_time_text = format_update_time(thirdapp_row.get("update_time"))
 
     return {
@@ -748,6 +828,34 @@ def build_card_payload(
                     {
                         "tag": "markdown",
                         "content": (
+                            "#### 昨天发布的视频中，播放数增量 Top 10（过去24小时）\n"
+                            f"**更新时间**：{ranking_update_time_text}"
+                        ),
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_social_video_ranking_table(
+                        ranking_metrics,
+                        ranking_type="t1_published_video_top",
+                        element_id="t1_published_video_top",
+                    ),
+                    {
+                        "tag": "markdown",
+                        "content": (
+                            "#### 过去发布的所有视频中，播放数增量 Top 10（过去24小时）\n"
+                            f"**更新时间**：{ranking_update_time_text}"
+                        ),
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_social_video_ranking_table(
+                        ranking_metrics,
+                        ranking_type="historical_video_top",
+                        element_id="historical_video_top",
+                    ),
+                    {
+                        "tag": "markdown",
+                        "content": (
                             "#### 第三方渠道外链跳转数据\n"
                             f"**展示渠道**：`overall`\n"
                             f"**更新时间**：{thirdapp_update_time_text}"
@@ -786,10 +894,12 @@ def main() -> int:
 
     publish_row = fetch_publish_metrics(target_date)
     social_metrics = fetch_social_content_metrics(target_date)
+    ranking_metrics = fetch_social_video_rankings(target_date)
     thirdapp_row = fetch_thirdapp_metrics(target_date)
     payload = build_card_payload(
         publish_row,
         social_metrics,
+        ranking_metrics,
         thirdapp_row,
     )
 

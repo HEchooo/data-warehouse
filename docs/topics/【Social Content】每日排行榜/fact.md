@@ -9,6 +9,7 @@
 - 其他榜单 Superset 虚拟 dataset：`virtual_social_content_video_monitor_rankings_v2`（id=271，主时间列 `dt`）
 - 视频日榜粒度：`dt + ranking_type + rank_no`
 - 视频日榜：每天固定产出 2 类榜单，每类 10 行
+- Lark 日报推送：两类视频 Top 10 榜单均以原生 table 展示视频链接和增量播放量
 
 ## 字段
 
@@ -62,13 +63,20 @@
 - 视频链接与账号 URL 均展示为可点击且在新窗口打开的超链接
 - 周榜账号增量播放量为 `SUM(单视频 D-1 日末累计播放量 - 单视频 D-7 日末累计播放量)`，累计播放量为 `SUM(单视频 D-1 日末累计播放量)`；汇总 `published_dt <= D-1` 的所有历史视频，并按 `channel + creator_id` 分组
 
+### Lark 推送字段
+
+| 榜单 | 推送字段 |
+|------|------|
+| T-1 发布视频增量 Views Top 10 | 视频链接、增量播放量 |
+| T-1 前发布视频增量 Views Top 10 | 视频链接、增量播放量 |
+
 ## 依赖
 
 - 播放事实：`decom.dws_social_video_state_daily_v2`
 - 视频维表：`decom.dim_video`；承接三端视频 / 账号展示属性和 Social Content 范围标记
 - 视频日榜：`decom.ads_daily_social_video_monitor_rankings_v2`
 - 展示字段映射：`docs/rules/video-mapping.md`
-- 脚本：`jobs/dim/dim_video.py`, `jobs/ads/ads_daily_social_video_monitor_rankings_v2.py`
+- 脚本：`jobs/dim/dim_video.py`, `jobs/ads/ads_daily_social_video_monitor_rankings_v2.py`, `jobs/ads/ads_daily_ecn_lark_push.py`
 - DDL：`ddl/dim/dim_video.sql`, `ddl/ads/ads_daily_social_video_monitor_rankings_v2.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口 `ads_daily_social_video_monitor_rankings_v2`
 - 性能：物理视频日榜每个 `dt` 只读取 D / D-1 两个状态分区，排名结果持久化后每天最多 20 行；虚拟周榜利用日末全量快照，即使统计所有历史视频也只读取 D / D-1 / D-7 三个必要分区
