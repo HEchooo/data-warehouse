@@ -26,7 +26,7 @@
 
 | 需求字段 | 落地字段 | 口径 |
 |------|------|------|
-| `dt` | `dt` | 已完整结束的美东自然日 `D`；Superset 日期筛选字段，默认 `Last day` |
+| `dt` | `dt` | 已完整结束的美东自然日 `D`；Superset 日期筛选字段，默认使用 Advanced Time Range 将实例 `now` 向后平移 5 小时后截日，严格筛选一个完整美东日 |
 | 对比基准日期 | `target_dt` | `D-1`；用于计算 D 当日增量，也是 T-1 发布视频池的发布日期 |
 | 榜单类型 | `ranking_type` | `t1_published_video_top` / `historical_video_top` |
 | 排名 | `rank_no` | 每个 `dt + ranking_type` 按增量降序生成 `1-10` |
@@ -72,4 +72,4 @@
 - DDL：`ddl/dim/dim_video.sql`, `ddl/ads/ads_daily_social_video_monitor_rankings_v2.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口 `ads_daily_social_video_monitor_rankings_v2`
 - 性能：物理视频日榜每个 `dt` 只读取 D / D-1 两个状态分区，排名结果持久化后每天最多 20 行；虚拟周榜只读取 D / D-1 / D-7 三个必要快照分区，不扫描完整周区间
-- Superset chart：`679 / 681` 使用物理 dataset 272 和 `dt` 筛选；`680 / 682 / 683` 使用固定计算最近完整日 `dt` 的虚拟 dataset 271
+- Superset chart：`679 / 681` 使用物理 dataset 272 和 `dt` 单日筛选；`680 / 682 / 683` 使用固定计算最近完整日 `dt` 的虚拟 dataset 271

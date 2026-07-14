@@ -18,6 +18,13 @@
 - table chart 必须同时在 `params.granularity_sqla`、`query_context.form_data.granularity_sqla` 和 `query_context.queries[].granularity` 指定 `dt`；否则 Superset 会忽略 `time_range`，导致历史表按其他排序字段直接取 `row_limit`
 - 验收时不能只检查 Dashboard `native_filter_configuration`；还要强制执行带 `time_range` 的 `POST /api/v1/chart/data`，确认生成 SQL 实际包含 `dt` 上下界
 
+## Superset `Last day` 不会按美东切日
+
+- `dt` 按 `America/Toronto` 表示已完整结束的自然日，但当前 Superset 实例将 `Last day` 按实例时区解析；在 UTC 已换日、美东尚未换日的窗口，生成的 `dt` 会比最新完整美东日晚 1 天。
+- 不要把 Chart 排除出全局时间筛选，否则用户无法查看物理日榜的历史日期。
+- 当前实例的 Advanced Time Range 不支持 `DATETIME("now", "America/Toronto")`，该写法会返回 HTTP 500；默认范围改用 `DATEADD` / `DATETRUNC` 将 UTC `now` 向后平移 5 小时再截日，严格生成一个 `dt` 分区。
+- 固定 `-5 hour` 在 EST 期间精确；在 EDT 期间会保守一小时，即美东夏令时 00:00~00:59 仍展示上一个完整日，01:00 后切换，但不会提前选中尚未完整的日期。
+
 ## Superset 资源列表查重必须显式分页
 
 - 当前实例的 dataset / chart / dashboard 列表接口会把单页结果限制在 100 条；即使请求 `page_size = 1000`，也不能假设拿到了全部资源
