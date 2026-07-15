@@ -32,6 +32,7 @@
 - `ads_daily_retention_user_product_detail_bucket`
 - `ads_daily_social_content_v2`
 - `ads_daily_social_video_monitor_rankings_v2`
+- `ads_daily_social_creator_suspected_throttle_rankings`
 - `ads_daily_formal_video_increment`
 - `ads_weekly_formal_video_increment_growth`
 - `ads_weekly_ai_fashion_tryon_okr`
@@ -69,6 +70,7 @@
 - `jobs/ads/ads_daily_retention_user_product_detail_bucket.py`
 - `jobs/ads/ads_daily_social_content_v2.py`
 - `jobs/ads/ads_daily_social_video_monitor_rankings_v2.py`
+- `jobs/ads/ads_daily_social_creator_suspected_throttle_rankings.py`
 - `jobs/ads/ads_daily_formal_video_increment.py`
 - `jobs/ads/ads_weekly_formal_video_increment_growth.py`
 - `jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
@@ -114,6 +116,7 @@
   - `ads_daily_retention_user_product_detail_bucket`
   - `ads_daily_social_content_v2`
   - `ads_daily_social_video_monitor_rankings_v2`
+  - `ads_daily_social_creator_suspected_throttle_rankings`
   - `ads_daily_formal_video_increment`
   - `ads_weekly_formal_video_increment_growth`
   - `ads_weekly_ai_fashion_tryon_okr`
@@ -201,6 +204,8 @@
   - `videos.* -> dim_video`
   - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_social_video_monitor_rankings_v2`
   - 日榜 `dt=D` 固定读取 D 与 `target_dt=D-1` 两个完整视频日末状态分区，分别产出 `D-1` 发布和 `D-1` 前发布视频在 D 当日的增量 Views Top 10
+  - `dim_video + dws_social_video_snapshot_daily_v2 + dws_social_video_state_daily_v2 -> dws_social_creator_published_t1_daily -> ads_daily_social_creator_suspected_throttle_rankings`
+  - 疑似限流账号榜 `dt=D` 读取 `D-10 ~ D-4` 七天历史基准和 `D-3 ~ D-1` 三天近期发布日期分区，只对 T+1 真实快照完整且满足最低样本量的账号排名
 - 正式号视频发布增量链路：
   - `videos.platform_video_tags -> dim_video`
   - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2`

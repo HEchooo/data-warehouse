@@ -1,0 +1,31 @@
+CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings` (
+    dt DATE,
+    baseline_start_dt DATE,
+    baseline_end_dt DATE,
+    recent_start_dt DATE,
+    recent_end_dt DATE,
+    rank_no INT64,
+    channel_rank_no INT64,
+    channel STRING,
+    creator_id STRING,
+    account_name STRING,
+    account_handle STRING,
+    account_url STRING,
+    baseline_active_day_count INT64,
+    baseline_video_count INT64,
+    baseline_t1_view_count INT64,
+    baseline_t1_avg_view_count NUMERIC,
+    recent_video_count INT64,
+    recent_t1_view_count INT64,
+    recent_t1_avg_view_count NUMERIC,
+    recent_day_1_t1_avg_view_count NUMERIC,
+    recent_day_2_t1_avg_view_count NUMERIC,
+    recent_day_3_t1_avg_view_count NUMERIC,
+    threshold_ratio NUMERIC,
+    throttle_ratio NUMERIC,
+    decline_rate NUMERIC,
+    severity STRING,
+    update_time TIMESTAMP
+)
+PARTITION BY dt
+CLUSTER BY channel, creator_id;
