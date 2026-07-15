@@ -29,3 +29,33 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_t
 )
 PARTITION BY dt
 CLUSTER BY channel, creator_id;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+DROP COLUMN IF EXISTS recent_day_1_t1_avg_view_count;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+DROP COLUMN IF EXISTS recent_day_2_t1_avg_view_count;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+DROP COLUMN IF EXISTS recent_day_3_t1_avg_view_count;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS recent_video_1_t1_view_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS recent_video_2_t1_view_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS recent_video_3_t1_view_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS pool_window_start_dt DATE;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS pool_window_end_dt DATE;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS pool_published_video_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS weekly_avg_published_video_count NUMERIC;

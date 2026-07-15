@@ -162,7 +162,16 @@ def build_select_sql(dates: list[date]) -> str:
         COUNT(DISTINCT video_key)
             = COUNT(DISTINCT IF(has_t1_snapshot, video_key, NULL))
             AS is_t1_snapshot_complete,
-        CURRENT_TIMESTAMP() AS update_time
+        CURRENT_TIMESTAMP() AS update_time,
+        ARRAY_AGG(
+            STRUCT(
+                video_key,
+                published_ts_utc,
+                IF(has_t1_snapshot, day_end_views, NULL) AS t1_view_count,
+                has_t1_snapshot
+            )
+            ORDER BY published_ts_utc, video_key
+        ) AS video_samples
     FROM t1_video_observation
     GROUP BY published_dt, t1_dt, channel, creator_id
     """
@@ -209,7 +218,15 @@ def run(dates: list[date], full_refresh: bool = False) -> None:
                     COUNTIF(
                         (is_t1_snapshot_complete AND t1_avg_view_count IS NULL)
                         OR (NOT is_t1_snapshot_complete AND t1_avg_view_count IS NOT NULL)
-                    ) AS invalid_avg_count
+                    ) AS invalid_avg_count,
+                    COUNTIF(ARRAY_LENGTH(video_samples) != published_video_count)
+                        AS invalid_video_sample_count,
+                    COUNTIF(EXISTS(
+                        SELECT 1
+                        FROM UNNEST(video_samples) sample
+                        WHERE sample.has_t1_snapshot
+                            != (sample.t1_view_count IS NOT NULL)
+                    )) AS invalid_video_observation_count
                 FROM `{staging_table}`
                 """
             ).result()
@@ -224,6 +241,10 @@ def run(dates: list[date], full_refresh: bool = False) -> None:
             raise RuntimeError("账号 T+1 日事实校验失败：完整性标记错误")
         if validation.invalid_avg_count != 0:
             raise RuntimeError("账号 T+1 日事实校验失败：篇均播放与完整性不一致")
+        if validation.invalid_video_sample_count != 0:
+            raise RuntimeError("账号 T+1 日事实校验失败：视频明细数与发布数不一致")
+        if validation.invalid_video_observation_count != 0:
+            raise RuntimeError("账号 T+1 日事实校验失败：视频明细观测标记错误")
 
         if target_table_exists():
             if full_refresh:
@@ -238,7 +259,7 @@ def run(dates: list[date], full_refresh: bool = False) -> None:
                 SELECT * FROM `{target_table}`
                 {preserve_sql}
 
-                UNION ALL
+                UNION ALL BY NAME
 
                 SELECT * FROM `{staging_table}`
                 """

@@ -15,3 +15,11 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_social_creator_published_t1_dail
 )
 PARTITION BY published_dt
 CLUSTER BY channel, creator_id;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_creator_published_t1_daily`
+ADD COLUMN IF NOT EXISTS video_samples ARRAY<STRUCT<
+    video_key STRING,
+    published_ts_utc TIMESTAMP,
+    t1_view_count INT64,
+    has_t1_snapshot BOOL
+>>;
