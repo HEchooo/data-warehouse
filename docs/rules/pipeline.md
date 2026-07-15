@@ -30,7 +30,7 @@
 - `ads_daily_retention_user_new_follow_bucket`
 - `ads_daily_retention_user_tryon_bucket`
 - `ads_daily_retention_user_product_detail_bucket`
-- `ads_daily_social_content`
+- `ads_daily_social_content_v2`
 - `ads_daily_social_video_monitor_rankings_v2`
 - `ads_daily_formal_video_increment`
 - `ads_weekly_formal_video_increment_growth`
@@ -67,7 +67,7 @@
 - `jobs/ads/ads_daily_retention_user_new_follow_bucket.py`
 - `jobs/ads/ads_daily_retention_user_tryon_bucket.py`
 - `jobs/ads/ads_daily_retention_user_product_detail_bucket.py`
-- `jobs/ads/ads_daily_social_content.py`
+- `jobs/ads/ads_daily_social_content_v2.py`
 - `jobs/ads/ads_daily_social_video_monitor_rankings_v2.py`
 - `jobs/ads/ads_daily_formal_video_increment.py`
 - `jobs/ads/ads_weekly_formal_video_increment_growth.py`
@@ -112,7 +112,7 @@
   - `ads_daily_retention_user_new_follow_bucket`
   - `ads_daily_retention_user_tryon_bucket`
   - `ads_daily_retention_user_product_detail_bucket`
-  - `ads_daily_social_content`
+  - `ads_daily_social_content_v2`
   - `ads_daily_social_video_monitor_rankings_v2`
   - `ads_daily_formal_video_increment`
   - `ads_weekly_formal_video_increment_growth`
@@ -195,9 +195,8 @@
 - AppsFlyer 下载链路：
   - `ods_appsflyer_download -> dws_appsflyer_download_daily`
 - 社媒内容链路：
-  - `videos.* -> dim_video -> dws_social_video_snapshot_daily -> dws_social_video_state_daily + dim_auto_publish_video_task -> dws_social_channel_daily -> ads_daily_social_content`
-  - v2 并行链路：`videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2 + dim_auto_publish_video_task -> dws_social_channel_daily_v2 -> ads_daily_social_content_v2`
-  - v2 只替换 YouTube 累计快照源为 `yt_video_stats_log.view_count / like_count`，v1 链路保持不变
+  - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2 + dim_auto_publish_video_task -> dws_social_channel_daily_v2 -> ads_daily_social_content_v2`
+  - YouTube 累计快照源为 `yt_video_stats_log.view_count / like_count`
 - 社媒视频监控日榜链路：
   - `videos.* -> dim_video`
   - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_social_video_monitor_rankings_v2`
