@@ -6,7 +6,7 @@
 - 账号发布日期 T+1 中间表：`decom.dws_social_creator_published_t1_daily`
 - 疑似限流账号日榜表：`decom.ads_daily_social_creator_suspected_throttle_rankings`
 - Superset 物理 dataset：`ads_daily_social_creator_suspected_throttle_rankings`（id=273，主时间列 `dt`）
-- Superset chart：疑似限流账号数（id=684）、疑似限流账号分布（按疑似程度）（id=685）、疑似限流账号 Ranking（id=686）
+- Superset chart：疑似限流账号数（id=684）、疑似限流账号分布（按疑似程度）（id=685）、疑似限流账号 Ranking（id=686）、各平台疑似限流账号分布（id=695）
 - 中间表粒度：`published_dt + channel + creator_id`
 - 日榜粒度：`dt + channel + creator_id`；`dt` 表示已完整结束的美东自然日
 
