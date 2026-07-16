@@ -14,3 +14,9 @@
 
 - 物理链路首次回填时，已成熟日期但某属性组合没有发布视频，若将 cohort 的 `view_count / video_count` 补成 `0 / 0`，会与原 virtual dataset 的 `NULL / NULL` 语义不一致
 - 正确做法是保留 cohort 分子分母的 `NULL`；只有真实存在 cohort 样本时，才产出播放总和与视频数
+
+## 属性数据起点必须数据驱动，不能硬编码日期
+
+- 现象：看板只显示 `2026-07-15` 一天。排查确认是 `ext_info.video_task` 这个 key 自 `2026-07-15` 才写入 `videos.video_upload_tasks`，过滤后数据自然从该日起（非 bug）；看板只显示一天是因为按 `America/Toronto` 不展示未走完的当天
+- 隐患：DWS 曾把起点写成 `ATTRIBUTE_START_DATE = date(2026, 7, 15)` 常量。一旦上游回补历史 `video_task`，`dim_social_video_attribute` 会向前扩展出更早的带属性视频，而硬编码下界会把这些历史日期挡在窗口外，造成静默漏数
+- 正确做法：起点由 `dws_social_video_state_daily_v2` INNER JOIN `dim_social_video_attribute` 后的 `MIN(dt)` 动态求得；增量下界取 `max(动态起点, today-29)`，全量直接取 join 后 distinct dt，`build_select_sql` 的 `attribute_state` 下界也用动态起点。起点为 `None`（尚无带属性视频）时跳过运行，避免建空表

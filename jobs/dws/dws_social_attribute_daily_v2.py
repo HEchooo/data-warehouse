@@ -15,7 +15,6 @@ TABLE_NAME = "dws_social_attribute_daily_v2"
 SOURCE_TABLE_NAME = "dws_social_video_state_daily_v2"
 ATTRIBUTE_DIM_TABLE_NAME = "dim_social_video_attribute"
 TORONTO_TZ = "America/Toronto"
-ATTRIBUTE_START_DATE = date(2026, 7, 15)
 REBUILD_DAYS = 30
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
@@ -73,12 +72,24 @@ def dates_to_sql_list(dates: list[date]) -> str:
     return ", ".join(f"DATE '{value}'" for value in dates)
 
 
-def get_incremental_dates() -> list[date]:
+def get_attribute_start_date() -> date | None:
+    # 属性数据起点由数据源决定：带属性视频在状态表里实际最早的 dt。
+    # 不硬编码日期，上游回补历史 video_task 后起点会自动向前扩展。
+    query = f"""
+    SELECT MIN(s.dt) AS start_dt
+    FROM `{source_table_id()}` s
+    INNER JOIN `{attribute_dim_table_id()}` a USING (video_key)
+    """
+    rows = list(client.query(query).result())
+    return rows[0].start_dt if rows else None
+
+
+def get_incremental_dates(start_date: date) -> list[date]:
     end_date = datetime.now(ZoneInfo(TORONTO_TZ)).date()
-    start_date = max(ATTRIBUTE_START_DATE, end_date - timedelta(days=REBUILD_DAYS - 1))
+    lower_date = max(start_date, end_date - timedelta(days=REBUILD_DAYS - 1))
     return [
-        start_date + timedelta(days=offset)
-        for offset in range((end_date - start_date).days + 1)
+        lower_date + timedelta(days=offset)
+        for offset in range((end_date - lower_date).days + 1)
     ]
 
 
@@ -87,18 +98,18 @@ def get_full_dates() -> list[date]:
     SELECT DISTINCT s.dt
     FROM `{source_table_id()}` s
     INNER JOIN `{attribute_dim_table_id()}` a USING (video_key)
-    WHERE s.dt >= DATE '{ATTRIBUTE_START_DATE}'
     ORDER BY s.dt
     """
     return [row.dt for row in client.query(query).result()]
 
 
-def build_select_sql(dates: list[date]) -> str:
+def build_select_sql(dates: list[date], start_date: date) -> str:
     dates_sql = dates_to_sql_list(dates)
     max_date = max(dates)
     return f"""
     WITH
     -- 读取属性数据起点到本批上限的稠密视频日状态；任务 JSON 已在 DIM 层解析。
+    -- 下界用数据真实起点（非硬编码日期），保证首采正播放日、7d/cohort 基线完整。
     attribute_state AS (
         SELECT
             s.dt,
@@ -115,7 +126,7 @@ def build_select_sql(dates: list[date]) -> str:
             a.blogger_attribute
         FROM `{source_table_id()}` s
         INNER JOIN `{attribute_dim_table_id()}` a USING (video_key)
-        WHERE s.dt BETWEEN DATE '{ATTRIBUTE_START_DATE}' AND DATE '{max_date}'
+        WHERE s.dt BETWEEN DATE '{start_date}' AND DATE '{max_date}'
     ),
     -- 视频指标同时展开真实渠道与全部渠道口径。
     video_scoped_state_raw AS (
@@ -440,7 +451,7 @@ def build_select_sql(dates: list[date]) -> str:
     """
 
 
-def run_dws_social_attribute_daily(dates: list[date]) -> None:
+def run_dws_social_attribute_daily(dates: list[date], start_date: date) -> None:
     if not dates:
         logging.info("没有新的 %s 日期需要处理", TABLE_NAME)
         return
@@ -469,7 +480,7 @@ def run_dws_social_attribute_daily(dates: list[date]) -> None:
         client.query(
             f"""
             INSERT INTO `{staging_table}`
-            {build_select_sql(dates)}
+            {build_select_sql(dates, start_date)}
             """
         ).result()
         validation_row = list(
@@ -530,8 +541,12 @@ if __name__ == "__main__":
     log_path = configure_logging()
     logging.info("日志文件: %s", log_path)
     args = parse_args()
-    dates = get_full_dates() if args.full_refresh else get_incremental_dates()
+    start_date = get_attribute_start_date()
+    if start_date is None:
+        logging.info("%s 没有可用的属性数据起点，跳过本次运行", TABLE_NAME)
+        sys.exit(0)
+    dates = get_full_dates() if args.full_refresh else get_incremental_dates(start_date)
     start_time = datetime.now(timezone.utc)
-    run_dws_social_attribute_daily(dates)
+    run_dws_social_attribute_daily(dates, start_date)
     elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
     logging.info("%s 完成, 耗时: %.1f 秒", TABLE_NAME, elapsed)

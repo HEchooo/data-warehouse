@@ -5,7 +5,7 @@
 - Dashboard：[【Social Content】属性维度数据](https://bi.alvinclub.ca/superset/dashboard/social-content-attribute-data/)（id=124）
 - Dashboard 主图表使用物理 dataset `ads_daily_social_content_attribute_v2`（id=277）；cohort 图使用只对物理 ADS 做轻量展开的 virtual dataset（id=276）
 - 统计范围：只统计 `videos.video_upload_tasks.ext_info` 顶层存在 `video_task` key，且能通过 `video_upload_task_channels.platform_video_id` 映射到 `decom.dim_video.video_id` 的视频
-- 当前可用数据起点：`2026-07-15`
+- 数据起点：由数据源动态决定（`dws_social_video_state_daily_v2` 与 `dim_social_video_attribute` join 后的 `MIN(dt)`），不在脚本里硬编码日期；上游回补历史 `video_task` 后起点会自动向前扩展
 - 首次生产回填范围：`2026-07-15 ~ 2026-07-16`
 - 视频类图表：每日新增 Views、每日新增 Likes、每天新增视频数、新增视频平均播放数、新视频 7 天平均播放数、发布时间 cohort 平均播放折线图
 - 博主类图表：前一天新增 Views / 博主总数、每个博主最新 3 条平均赞播率
