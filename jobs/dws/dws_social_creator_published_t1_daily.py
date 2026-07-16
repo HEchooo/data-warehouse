@@ -11,7 +11,6 @@ PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "dws_social_creator_published_t1_daily"
-STATE_TABLE_NAME = "dws_social_video_state_daily_v2"
 SNAPSHOT_TABLE_NAME = "dws_social_video_snapshot_daily_v2"
 DIM_TABLE_NAME = "dim_video"
 INCREMENTAL_REBUILD_DAYS = 30
@@ -26,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--full-refresh",
         action="store_true",
-        help="按视频状态表的完整成熟日期历史重刷，而不是最近 30 个成熟发布日期",
+        help="按真实视频快照表的完整成熟日期历史重刷，而不是最近 30 个成熟发布日期",
     )
     return parser.parse_args()
 
@@ -57,7 +56,7 @@ def get_full_dates_to_process() -> list[date]:
     SELECT
         MIN(published_dt) AS min_published_dt,
         MAX(published_dt) AS max_published_dt
-    FROM `{table_id(STATE_TABLE_NAME)}`
+    FROM `{table_id(SNAPSHOT_TABLE_NAME)}`
     WHERE dt = DATE_ADD(published_dt, INTERVAL 1 DAY)
         AND dt < CURRENT_DATE('{TORONTO_TZ}')
     """
@@ -94,37 +93,28 @@ def build_select_sql(dates: list[date]) -> str:
     max_t1_dt = max(dates) + timedelta(days=1)
     return f"""
     WITH
-    -- 读取目标发布日期对应的 T+1 视频日末状态。
-    t1_video_state AS (
-        SELECT
-            state.published_dt,
-            state.dt AS t1_dt,
-            state.channel,
-            state.creator_id,
-            state.video_key,
-            state.published_ts_utc,
-            state.day_end_views,
-            dim.account_name,
-            dim.account_handle,
-            dim.account_url
-        FROM `{table_id(STATE_TABLE_NAME)}` state
-        INNER JOIN `{table_id(DIM_TABLE_NAME)}` dim
-            ON state.video_key = dim.video_key
-        WHERE state.dt BETWEEN DATE '{min_t1_dt}' AND DATE '{max_t1_dt}'
-            AND state.published_dt IN UNNEST([{dates_sql}])
-            AND state.dt = DATE_ADD(state.published_dt, INTERVAL 1 DAY)
-            AND dim.is_social_content_video
-            AND dim.is_active_account
-    ),
-    -- 标记 T+1 当天是否存在真实采集快照，避免把沿用状态当成有效观测。
+    -- 只读取 T+1 当天存在真实采集的快照；正式号属性不参与该主题准入。
     t1_video_observation AS (
         SELECT
-            state.*,
-            snapshot.video_key IS NOT NULL AS has_t1_snapshot
-        FROM t1_video_state state
-        LEFT JOIN `{table_id(SNAPSHOT_TABLE_NAME)}` snapshot
-            ON snapshot.dt = state.t1_dt
-            AND snapshot.video_key = state.video_key
+            snapshot.published_dt,
+            snapshot.dt AS t1_dt,
+            snapshot.channel,
+            snapshot.creator_id,
+            snapshot.video_key,
+            snapshot.published_ts_utc,
+            snapshot.day_end_views,
+            dim.account_name,
+            dim.account_handle,
+            dim.account_url,
+            TRUE AS has_t1_snapshot
+        FROM `{table_id(SNAPSHOT_TABLE_NAME)}` snapshot
+        INNER JOIN `{table_id(DIM_TABLE_NAME)}` dim
+            ON snapshot.video_key = dim.video_key
+        WHERE snapshot.dt BETWEEN DATE '{min_t1_dt}' AND DATE '{max_t1_dt}'
+            AND snapshot.published_dt IN UNNEST([{dates_sql}])
+            AND snapshot.dt = DATE_ADD(snapshot.published_dt, INTERVAL 1 DAY)
+            AND dim.is_social_content_video
+            AND dim.is_active_account
     )
     SELECT
         published_dt,
@@ -147,28 +137,19 @@ def build_select_sql(dates: list[date]) -> str:
             LIMIT 1
         )[OFFSET(0)].account_url AS account_url,
         COUNT(DISTINCT video_key) AS published_video_count,
-        COUNT(DISTINCT IF(has_t1_snapshot, video_key, NULL))
-            AS observed_t1_video_count,
-        COALESCE(SUM(IF(has_t1_snapshot, day_end_views, 0)), 0)
-            AS observed_t1_view_count,
-        CAST(IF(
+        COUNT(DISTINCT video_key) AS observed_t1_video_count,
+        COALESCE(SUM(day_end_views), 0) AS observed_t1_view_count,
+        CAST(SAFE_DIVIDE(
+            SUM(day_end_views),
             COUNT(DISTINCT video_key)
-                = COUNT(DISTINCT IF(has_t1_snapshot, video_key, NULL)),
-            SAFE_DIVIDE(
-                SUM(IF(has_t1_snapshot, day_end_views, 0)),
-                COUNT(DISTINCT video_key)
-            ),
-            NULL
         ) AS NUMERIC) AS t1_avg_view_count,
-        COUNT(DISTINCT video_key)
-            = COUNT(DISTINCT IF(has_t1_snapshot, video_key, NULL))
-            AS is_t1_snapshot_complete,
+        TRUE AS is_t1_snapshot_complete,
         CURRENT_TIMESTAMP() AS update_time,
         ARRAY_AGG(
             STRUCT(
                 video_key,
                 published_ts_utc,
-                IF(has_t1_snapshot, day_end_views, NULL) AS t1_view_count,
+                day_end_views AS t1_view_count,
                 has_t1_snapshot
             )
             ORDER BY published_ts_utc, video_key
@@ -212,6 +193,8 @@ def run(dates: list[date], full_refresh: bool = False) -> None:
                         AS invalid_t1_date_count,
                     COUNTIF(observed_t1_video_count > published_video_count)
                         AS invalid_observation_count,
+                    COUNTIF(observed_t1_video_count != published_video_count)
+                        AS incomplete_observation_count,
                     COUNTIF(
                         is_t1_snapshot_complete
                             != (observed_t1_video_count = published_video_count)
@@ -238,6 +221,8 @@ def run(dates: list[date], full_refresh: bool = False) -> None:
             raise RuntimeError("账号 T+1 日事实校验失败：T+1 日期错误")
         if validation.invalid_observation_count != 0:
             raise RuntimeError("账号 T+1 日事实校验失败：真实快照数超过发布视频数")
+        if validation.incomplete_observation_count != 0:
+            raise RuntimeError("账号 T+1 日事实校验失败：存在非真实 T+1 视频")
         if validation.invalid_complete_flag_count != 0:
             raise RuntimeError("账号 T+1 日事实校验失败：完整性标记错误")
         if validation.invalid_avg_count != 0:
