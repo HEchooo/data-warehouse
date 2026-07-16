@@ -76,6 +76,30 @@ def build_select_sql() -> str:
     excluded_channel_ids_sql = strings_to_sql_list(YOUTUBE_AI_TEAM_EXCLUDED_CHANNEL_IDS)
     return f"""
     WITH
+    -- 统一三端当前启用账号，避免 tag-only 视频缺少平台视频主表时误判为非活跃。
+    active_account AS (
+        SELECT
+            'youtube' AS channel,
+            CAST(channel_id AS STRING) AS creator_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_channels`
+        WHERE is_active = 1
+
+        UNION ALL
+
+        SELECT
+            'tiktok' AS channel,
+            CAST(id AS STRING) AS creator_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.users`
+        WHERE is_active = 1
+
+        UNION ALL
+
+        SELECT
+            'ins' AS channel,
+            CAST(account_id AS STRING) AS creator_id
+        FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_channels`
+        WHERE is_active = 1
+    ),
     -- 正式号视频标记统一来自服务端 tag 表，供下游复用。
     formal_video_tag AS (
         SELECT
@@ -104,7 +128,6 @@ def build_select_sql() -> str:
             c.channel_name AS account_name,
             c.custom_url AS account_handle,
             CONCAT('https://www.youtube.com/', c.custom_url) AS account_url,
-            COALESCE(c.is_active = 1, FALSE) AS is_active_account,
             v.channel_id NOT IN ({excluded_channel_ids_sql}) AS is_social_content_video,
             1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos` v
@@ -128,7 +151,6 @@ def build_select_sql() -> str:
             u.display_name AS account_name,
             u.username AS account_handle,
             u.profile_deep_link AS account_url,
-            COALESCE(u.is_active = 1, FALSE) AS is_active_account,
             TRUE AS is_social_content_video,
             1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos` v
@@ -148,7 +170,6 @@ def build_select_sql() -> str:
             c.account_name,
             c.username AS account_handle,
             CONCAT('https://www.instagram.com/', c.account_name, '/reels/') AS account_url,
-            COALESCE(c.is_active = 1, FALSE) AS is_active_account,
             TRUE AS is_social_content_video,
             1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media` m
@@ -168,7 +189,6 @@ def build_select_sql() -> str:
             CAST(NULL AS STRING) AS account_name,
             CAST(NULL AS STRING) AS account_handle,
             CAST(NULL AS STRING) AS account_url,
-            FALSE AS is_active_account,
             NOT (
                 channel = 'youtube'
                 AND creator_id IN ({excluded_channel_ids_sql})
@@ -189,7 +209,6 @@ def build_select_sql() -> str:
             account_name,
             account_handle,
             account_url,
-            is_active_account,
             is_social_content_video
         FROM raw_video_union
         WHERE published_ts_utc IS NOT NULL
@@ -210,7 +229,7 @@ def build_select_sql() -> str:
         deduped_video.account_name,
         deduped_video.account_handle,
         deduped_video.account_url,
-        deduped_video.is_active_account,
+        active_account.creator_id IS NOT NULL AS is_active_account,
         deduped_video.is_social_content_video,
         formal_video_tag.formal_tag_created_ts_utc IS NOT NULL AS is_formal_video,
         formal_video_tag.formal_tag_created_ts_utc,
@@ -218,6 +237,9 @@ def build_select_sql() -> str:
     FROM deduped_video
     LEFT JOIN formal_video_tag
         USING (video_key)
+    LEFT JOIN active_account
+        ON deduped_video.channel = active_account.channel
+        AND deduped_video.creator_id = active_account.creator_id
     """
 
 
