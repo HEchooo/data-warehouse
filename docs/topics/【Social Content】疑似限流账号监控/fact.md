@@ -16,7 +16,7 @@
 
 | 需求字段 | 定义 |
 |------|------|
-| 疑似限流账号 Ranking | `dt=D`；账号按 `channel + creator_id` 区分。过去 28 天发布视频数除以 4 得到周均发布量，只有周均发布量大于 3 的账号进入监控池。按发布时间取最近 10 个视频，最近 3 个为观察组、此前 7 个为历史基准，10 个视频都必须在 T+1 当天存在真实快照；若最近 3 个视频的 T+1 播放量逐个低于此前 7 个视频 T+1 平均播放量的 30%，则进入疑似限流榜 |
+| 疑似限流账号 Ranking | `dt=D`；账号按 `channel + creator_id` 区分，仅保留当前启用账号：YouTube `videos.yt_channels.is_active = 1`、TikTok `videos.users.is_active = 1`、Instagram `videos.ig_channels.is_active = 1`。过去 28 天发布视频数除以 4 得到周均发布量，只有周均发布量大于 3 的账号进入监控池。按发布时间取最近 10 个视频，最近 3 个为观察组、此前 7 个为历史基准，10 个视频都必须在 T+1 当天存在真实快照；若最近 3 个视频的 T+1 播放量逐个低于此前 7 个视频 T+1 平均播放量的 30%，则进入疑似限流榜 |
 
 ### 疑似限流账号日榜字段
 
@@ -54,7 +54,7 @@
 ## 依赖
 
 - 播放事实：`decom.dws_social_video_snapshot_daily_v2`, `decom.dws_social_video_state_daily_v2`
-- 视频维表：`decom.dim_video`；承接三端视频、账号展示属性和 Social Content 范围标记
+- 视频维表：`decom.dim_video`；承接三端视频、账号展示属性、Social Content 范围标记和三端账号当前启用状态 `is_active_account`
 - 中间表：`decom.dws_social_creator_published_t1_daily`
 - 报表表：`decom.ads_daily_social_creator_suspected_throttle_rankings`
 - 展示字段映射：`docs/rules/video-mapping.md`
@@ -62,4 +62,4 @@
 - DDL：`ddl/dws/dws_social_creator_published_t1_daily.sql`, `ddl/ads/ads_daily_social_creator_suspected_throttle_rankings.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口 `dws_social_creator_published_t1_daily` 与 `ads_daily_social_creator_suspected_throttle_rankings`
 - 性能：疑似限流账号榜只读取中间表的滚动 28 个发布日期分区；视频级 T+1 播放和真实快照标记在 DWS 一次计算并以数组复用，避免 ADS 回扫全量视频状态表
-- Superset：物理 dataset `ads_daily_social_creator_suspected_throttle_rankings`（id=273），chart `684 / 685 / 686`，dashboard `【Social Content】疑似限流账号监控`（id=123）
+- Superset：物理 dataset `ads_daily_social_creator_suspected_throttle_rankings`（id=273），chart `684 / 685 / 686 / 695`，dashboard `【Social Content】疑似限流账号监控`（id=123）

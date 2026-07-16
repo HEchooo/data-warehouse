@@ -32,3 +32,6 @@ ADD COLUMN IF NOT EXISTS account_url STRING;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
 ADD COLUMN IF NOT EXISTS is_social_content_video BOOL;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+ADD COLUMN IF NOT EXISTS is_active_account BOOL;

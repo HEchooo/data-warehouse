@@ -104,6 +104,7 @@ def build_select_sql() -> str:
             c.channel_name AS account_name,
             c.custom_url AS account_handle,
             CONCAT('https://www.youtube.com/', c.custom_url) AS account_url,
+            COALESCE(c.is_active = 1, FALSE) AS is_active_account,
             v.channel_id NOT IN ({excluded_channel_ids_sql}) AS is_social_content_video,
             1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_videos` v
@@ -127,6 +128,7 @@ def build_select_sql() -> str:
             u.display_name AS account_name,
             u.username AS account_handle,
             u.profile_deep_link AS account_url,
+            COALESCE(u.is_active = 1, FALSE) AS is_active_account,
             TRUE AS is_social_content_video,
             1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.videos` v
@@ -146,6 +148,7 @@ def build_select_sql() -> str:
             c.account_name,
             c.username AS account_handle,
             CONCAT('https://www.instagram.com/', c.account_name, '/reels/') AS account_url,
+            COALESCE(c.is_active = 1, FALSE) AS is_active_account,
             TRUE AS is_social_content_video,
             1 AS source_priority
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media` m
@@ -165,6 +168,7 @@ def build_select_sql() -> str:
             CAST(NULL AS STRING) AS account_name,
             CAST(NULL AS STRING) AS account_handle,
             CAST(NULL AS STRING) AS account_url,
+            FALSE AS is_active_account,
             NOT (
                 channel = 'youtube'
                 AND creator_id IN ({excluded_channel_ids_sql})
@@ -185,6 +189,7 @@ def build_select_sql() -> str:
             account_name,
             account_handle,
             account_url,
+            is_active_account,
             is_social_content_video
         FROM raw_video_union
         WHERE published_ts_utc IS NOT NULL
@@ -205,6 +210,7 @@ def build_select_sql() -> str:
         deduped_video.account_name,
         deduped_video.account_handle,
         deduped_video.account_url,
+        deduped_video.is_active_account,
         deduped_video.is_social_content_video,
         formal_video_tag.formal_tag_created_ts_utc IS NOT NULL AS is_formal_video,
         formal_video_tag.formal_tag_created_ts_utc,
@@ -240,6 +246,7 @@ def run_dim_video() -> None:
             COUNT(DISTINCT video_key) AS distinct_video_keys,
             COUNTIF(video_key IS NULL OR video_key = '') AS invalid_video_key_rows,
             COUNTIF(is_social_content_video IS NULL) AS invalid_social_content_flag_rows,
+            COUNTIF(is_active_account IS NULL) AS invalid_active_account_flag_rows,
             COUNTIF(is_formal_video AND formal_tag_created_ts_utc IS NULL)
                 AS invalid_formal_video_rows
         FROM `{staging_table_id}`
@@ -251,6 +258,8 @@ def run_dim_video() -> None:
             raise RuntimeError("dim_video 校验失败：存在空 video_key")
         if validation_row.invalid_social_content_flag_rows != 0:
             raise RuntimeError("dim_video 校验失败：存在空 Social Content 范围标记")
+        if validation_row.invalid_active_account_flag_rows != 0:
+            raise RuntimeError("dim_video 校验失败：存在空账号启用标记")
         if validation_row.invalid_formal_video_rows != 0:
             raise RuntimeError("dim_video 校验失败：正式号视频缺少 tag 创建时间")
 

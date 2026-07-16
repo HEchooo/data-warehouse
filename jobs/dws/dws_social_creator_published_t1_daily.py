@@ -114,6 +114,7 @@ def build_select_sql(dates: list[date]) -> str:
             AND state.published_dt IN UNNEST([{dates_sql}])
             AND state.dt = DATE_ADD(state.published_dt, INTERVAL 1 DAY)
             AND dim.is_social_content_video
+            AND dim.is_active_account
     ),
     -- 标记 T+1 当天是否存在真实采集快照，避免把沿用状态当成有效观测。
     t1_video_observation AS (
