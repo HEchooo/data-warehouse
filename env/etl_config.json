@@ -125,6 +125,18 @@
     },
     {
       "layer": "DIM",
+      "table_name": "dim_social_video_attribute",
+      "stage": "DIM",
+      "name": "DIM Social Content 视频属性映射 ETL",
+      "script": "jobs/dim/dim_social_video_attribute.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video"
+      ],
+      "schedule_group": "dim_social_video_attribute"
+    },
+    {
+      "layer": "DIM",
       "table_name": "dim_device_first_active",
       "stage": "DIM",
       "name": "DIM 设备首活维表 ETL",
@@ -738,6 +750,19 @@
       "schedule_group": "dws_social_channel_daily_v2"
     },
     {
+      "layer": "DWS",
+      "table_name": "dws_social_attribute_daily_v2",
+      "stage": "DWS",
+      "name": "DWS Social Content 属性维度日事实 v2 ETL",
+      "script": "jobs/dws/dws_social_attribute_daily_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_social_video_attribute",
+        "dws_social_video_state_daily_v2"
+      ],
+      "schedule_group": "dws_social_attribute_daily_v2"
+    },
+    {
       "layer": "ADS",
       "table_name": "ads_daily_closet_overview",
       "stage": "ADS",
@@ -1113,6 +1138,18 @@
         "dws_social_channel_daily_v2"
       ],
       "schedule_group": "ads_daily_social_content_v2"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_social_content_attribute_v2",
+      "stage": "ADS",
+      "name": "ADS Social Content 属性维度日报 v2 ETL",
+      "script": "jobs/ads/ads_daily_social_content_attribute_v2.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_social_attribute_daily_v2"
+      ],
+      "schedule_group": "ads_daily_social_content_attribute_v2"
     },
     {
       "layer": "ADS",

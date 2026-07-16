@@ -31,6 +31,7 @@
 - `ads_daily_retention_user_tryon_bucket`
 - `ads_daily_retention_user_product_detail_bucket`
 - `ads_daily_social_content_v2`
+- `ads_daily_social_content_attribute_v2`
 - `ads_daily_social_video_monitor_rankings_v2`
 - `ads_daily_social_creator_suspected_throttle_rankings`
 - `ads_daily_formal_video_increment`
@@ -69,6 +70,7 @@
 - `jobs/ads/ads_daily_retention_user_tryon_bucket.py`
 - `jobs/ads/ads_daily_retention_user_product_detail_bucket.py`
 - `jobs/ads/ads_daily_social_content_v2.py`
+- `jobs/ads/ads_daily_social_content_attribute_v2.py`
 - `jobs/ads/ads_daily_social_video_monitor_rankings_v2.py`
 - `jobs/ads/ads_daily_social_creator_suspected_throttle_rankings.py`
 - `jobs/ads/ads_daily_formal_video_increment.py`
@@ -115,6 +117,7 @@
   - `ads_daily_retention_user_tryon_bucket`
   - `ads_daily_retention_user_product_detail_bucket`
   - `ads_daily_social_content_v2`
+  - `ads_daily_social_content_attribute_v2`
   - `ads_daily_social_video_monitor_rankings_v2`
   - `ads_daily_social_creator_suspected_throttle_rankings`
   - `ads_daily_formal_video_increment`
@@ -200,6 +203,11 @@
 - 社媒内容链路：
   - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2 + dim_auto_publish_video_task -> dws_social_channel_daily_v2 -> ads_daily_social_content_v2`
   - YouTube 累计快照源为 `yt_video_stats_log.view_count / like_count`
+- 社媒属性维度链路：
+  - `videos.video_upload_tasks + videos.video_upload_task_channels + dim_video -> dim_social_video_attribute`
+  - `dim_social_video_attribute + dws_social_video_state_daily_v2 -> dws_social_attribute_daily_v2 -> ads_daily_social_content_attribute_v2`
+  - `dim_social_video_attribute` 只保留 `ext_info` 顶层存在 `video_task` key 的任务，并一次性解析视频属性、品牌与博主属性
+  - DWS 保留平均值和比率的分子分母，ADS 只做报表粒度轻派生
 - 社媒视频监控日榜链路：
   - `videos.* -> dim_video`
   - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_social_video_monitor_rankings_v2`
