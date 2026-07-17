@@ -144,7 +144,7 @@
   - `dwd_makepod_event_log -> dim_makepod_device_first_visit -> dws_makepod_traffic_daily`
   - `v3_decom.user_info -> dim_makepod_user_channel`
   - `dim_makepod_user_channel -> dws_makepod_traffic_daily`
-  - `dim_makepod_user_channel + v3_decom.user_order + v3_decom.pay_order + v3_decom.user_order_item + decom.currency_conversion_dict -> dws_makepod_order_daily`
+  - `dim_makepod_user_channel + v3_decom.user_order + v3_decom.pay_order + v3_decom.user_order_item + v3_decom.sku + decom.currency_conversion_dict -> dws_makepod_order_daily`
   - `dws_makepod_traffic_daily + dws_makepod_order_daily -> ads_daily_makepod`
 - 平台内容链路：
   - `dwd_event_log + v3 服务端行为表 -> dws_platform_content_daily -> ads_daily_content_performance`

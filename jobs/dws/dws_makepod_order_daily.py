@@ -18,6 +18,7 @@ TABLE_NAME = "dws_makepod_order_daily"
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 TENANT_CODE = "T18002707"
+LOGISTICS_COST_PER_PAID_ORDER_USD = 5
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -132,6 +133,7 @@ def get_makepod_order_dates_to_process(
     pay_change_ts = datastream_change_ts_expr()
     order_change_ts = datastream_change_ts_expr()
     item_change_ts = normal_change_ts_expr()
+    sku_change_ts = datastream_change_ts_expr()
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
@@ -197,6 +199,15 @@ def get_makepod_order_dates_to_process(
                 >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
             AND order_id IS NOT NULL
     ),
+    -- 最近 6 小时采购价或采购币种发生变化的 SKU。
+    changed_sku_codes AS (
+        SELECT DISTINCT sku_code
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.sku`
+        WHERE tenant_code = '{TENANT_CODE}'
+            AND {sku_change_ts}
+                >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
+            AND sku_code IS NOT NULL
+    ),
     -- 受影响的下单业务日。
     changed_order_dates AS (
         SELECT DISTINCT DATE({order_ts}, '{SHANGHAI_TZ}') AS dt
@@ -213,6 +224,19 @@ def get_makepod_order_dates_to_process(
         INNER JOIN changed_order_ids c
             ON CAST(p.order_id AS STRING) = c.order_id
         WHERE p.tenant_code = '{TENANT_CODE}'
+            AND p.pay_time IS NOT NULL
+            AND DATE({pay_ts}, '{SHANGHAI_TZ}') IS NOT NULL
+    ),
+    -- SKU 采购信息变化影响的支付业务日。
+    changed_sku_pay_dates AS (
+        SELECT DISTINCT DATE({pay_ts}, '{SHANGHAI_TZ}') AS dt
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_order_item` i
+        INNER JOIN changed_sku_codes s
+            ON i.sku_code = s.sku_code
+        INNER JOIN `{PROJECT_ID}.{V3_DATASET_ID}.pay_order` p
+            ON CAST(i.order_id AS STRING) = CAST(p.order_id AS STRING)
+        WHERE p.tenant_code = '{TENANT_CODE}'
+            AND p.pay_status = 4
             AND p.pay_time IS NOT NULL
             AND DATE({pay_ts}, '{SHANGHAI_TZ}') IS NOT NULL
     ),
@@ -249,6 +273,8 @@ def get_makepod_order_dates_to_process(
         UNION DISTINCT
         SELECT dt FROM changed_pay_dates
         UNION DISTINCT
+        SELECT dt FROM changed_sku_pay_dates
+        UNION DISTINCT
         SELECT dt FROM changed_channel_order_dates
         UNION DISTINCT
         SELECT dt FROM changed_channel_pay_dates
@@ -276,6 +302,8 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
     - 支付 GMV（USD）
     - 支付手续费（USD）
     - 支付 SKU 件数
+    - 采购成本（USD）
+    - 物流成本（USD）
     """
     if not dates:
         logging.info("没有新的 dws_makepod_order_daily 日期需要处理")
@@ -301,6 +329,8 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         pay_gmv_usd,
         pay_fee_amount,
         pay_sku_quantity,
+        purchase_cost_usd,
+        logistics_cost_usd,
         update_time
     )
     WITH
@@ -323,13 +353,80 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         WHERE UPPER(to_currency) = 'USD'
         GROUP BY 1
     ),
-    -- 订单商品件数：先按 order_id 汇总，避免支付表 join 后重复放大。
-    order_item_quantity AS (
+    -- 本批支付成功订单：按 order_id 保留最新支付记录，避免金额和成本重复放大。
+    paid_order_fact AS (
+        SELECT * EXCEPT(row_num)
+        FROM (
+            SELECT
+                CAST(p.order_id AS STRING) AS order_id,
+                CAST(p.user_id AS STRING) AS user_id,
+                p.pay_time,
+                p.pay_amount,
+                p.pay_fee,
+                p.currency_type,
+                ROW_NUMBER() OVER (
+                    PARTITION BY CAST(p.order_id AS STRING)
+                    ORDER BY
+                        COALESCE(
+                            TIMESTAMP_MILLIS(p.datastream_metadata.source_timestamp),
+                            TIMESTAMP(p.gmt_update, 'UTC'),
+                            TIMESTAMP(p.gmt_create, 'UTC')
+                        ) DESC,
+                        p.id DESC
+                ) AS row_num
+            FROM `{PROJECT_ID}.{V3_DATASET_ID}.pay_order` p
+            WHERE p.tenant_code = '{TENANT_CODE}'
+                AND p.pay_status = 4
+                AND p.pay_time IS NOT NULL
+                AND DATE({pay_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
+                AND NULLIF(CAST(p.order_id AS STRING), '') IS NOT NULL
+        )
+        WHERE row_num = 1
+    ),
+    -- SKU 采购信息：同一 SKU 只保留当前最新版本。
+    sku_purchase_dim AS (
         SELECT
-            CAST(order_id AS STRING) AS order_id,
-            SUM(COALESCE(SAFE_CAST(sku_quantity AS INT64), 0)) AS pay_sku_quantity
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_order_item`
-        WHERE order_id IS NOT NULL
+            sku_code,
+            SAFE_CAST(purchase_price AS NUMERIC) AS purchase_price,
+            UPPER(CAST(purchase_cur AS STRING)) AS purchase_currency
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.sku`
+        WHERE tenant_code = '{TENANT_CODE}'
+            AND sku_code IS NOT NULL
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY sku_code
+            ORDER BY
+                COALESCE(
+                    TIMESTAMP_MILLIS(datastream_metadata.source_timestamp),
+                    TIMESTAMP(gmt_update, 'UTC'),
+                    TIMESTAMP(gmt_create, 'UTC')
+                ) DESC,
+                id DESC
+        ) = 1
+    ),
+    -- 订单商品指标：按 order_id 汇总件数和采购成本，避免支付表 join 后重复放大。
+    order_item_metrics AS (
+        SELECT
+            CAST(i.order_id AS STRING) AS order_id,
+            SUM(COALESCE(SAFE_CAST(i.sku_quantity AS INT64), 0)) AS pay_sku_quantity,
+            COALESCE(SUM(
+                COALESCE(SAFE_CAST(i.sku_quantity AS NUMERIC), 0)
+                * COALESCE(s.purchase_price, 0)
+                * COALESCE(
+                    r.usd_rate,
+                    CASE
+                        WHEN s.purchase_currency = 'USD' THEN 1
+                        ELSE 0
+                    END
+                )
+            ), 0) AS purchase_cost_usd
+        FROM `{PROJECT_ID}.{V3_DATASET_ID}.user_order_item` i
+        INNER JOIN paid_order_fact p
+            ON CAST(i.order_id AS STRING) = p.order_id
+        LEFT JOIN sku_purchase_dim s
+            ON i.sku_code = s.sku_code
+        LEFT JOIN currency_rate_dim r
+            ON s.purchase_currency = r.from_currency
+        WHERE i.order_id IS NOT NULL
         GROUP BY 1
     ),
     -- 用户渠道维表：复用 DIM 层稳定服务端用户渠道。
@@ -428,18 +525,20 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
                     END
                 )
             ), 0) AS pay_fee_amount,
-            COALESCE(SUM(COALESCE(i.pay_sku_quantity, 0)), 0) AS pay_sku_quantity
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.pay_order` p
+            COALESCE(SUM(COALESCE(i.pay_sku_quantity, 0)), 0) AS pay_sku_quantity,
+            COALESCE(SUM(COALESCE(i.purchase_cost_usd, 0)), 0) AS purchase_cost_usd,
+            CAST(
+                COUNT(DISTINCT NULLIF(CAST(p.order_id AS STRING), ''))
+                * {LOGISTICS_COST_PER_PAID_ORDER_USD}
+                AS NUMERIC
+            ) AS logistics_cost_usd
+        FROM paid_order_fact p
         LEFT JOIN currency_rate_dim r
             ON UPPER(CAST(p.currency_type AS STRING)) = r.from_currency
-        LEFT JOIN order_item_quantity i
+        LEFT JOIN order_item_metrics i
             ON CAST(p.order_id AS STRING) = i.order_id
         LEFT JOIN user_channel_dim c
             ON CAST(p.user_id AS STRING) = c.service_user_id
-        WHERE p.tenant_code = '{TENANT_CODE}'
-            AND p.pay_status = 4
-            AND p.pay_time IS NOT NULL
-            AND DATE({pay_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
         GROUP BY dt, channel
     ),
     -- Overall 支付指标：不分渠道汇总全部支付成功订单，按用户/订单全局去重。
@@ -484,16 +583,18 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
                     END
                 )
             ), 0) AS pay_fee_amount,
-            COALESCE(SUM(COALESCE(i.pay_sku_quantity, 0)), 0) AS pay_sku_quantity
-        FROM `{PROJECT_ID}.{V3_DATASET_ID}.pay_order` p
+            COALESCE(SUM(COALESCE(i.pay_sku_quantity, 0)), 0) AS pay_sku_quantity,
+            COALESCE(SUM(COALESCE(i.purchase_cost_usd, 0)), 0) AS purchase_cost_usd,
+            CAST(
+                COUNT(DISTINCT NULLIF(CAST(p.order_id AS STRING), ''))
+                * {LOGISTICS_COST_PER_PAID_ORDER_USD}
+                AS NUMERIC
+            ) AS logistics_cost_usd
+        FROM paid_order_fact p
         LEFT JOIN currency_rate_dim r
             ON UPPER(CAST(p.currency_type AS STRING)) = r.from_currency
-        LEFT JOIN order_item_quantity i
+        LEFT JOIN order_item_metrics i
             ON CAST(p.order_id AS STRING) = i.order_id
-        WHERE p.tenant_code = '{TENANT_CODE}'
-            AND p.pay_status = 4
-            AND p.pay_time IS NOT NULL
-            AND DATE({pay_ts}, '{SHANGHAI_TZ}') IN ({dates_str})
         GROUP BY dt
     ),
     -- 支付指标汇总：合并分渠道和 Overall。
@@ -515,6 +616,8 @@ def run_dws_makepod_order_daily(dates: list[date]) -> None:
         COALESCE(p.pay_gmv_usd, 0) AS pay_gmv_usd,
         COALESCE(p.pay_fee_amount, 0) AS pay_fee_amount,
         COALESCE(p.pay_sku_quantity, 0) AS pay_sku_quantity,
+        COALESCE(p.purchase_cost_usd, 0) AS purchase_cost_usd,
+        COALESCE(p.logistics_cost_usd, 0) AS logistics_cost_usd,
         CURRENT_TIMESTAMP() AS update_time
     FROM target_dates d
     CROSS JOIN channel_list c

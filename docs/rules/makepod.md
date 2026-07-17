@@ -46,5 +46,8 @@
   - 关联条件：`user_order_item.order_id = pay_order.order_id`
 
 ## 采购相关
-- 采购价：`JSON_VALUE (sku.ext_info, '$.pricingDetails[0].purchasePrice')`
-- 采购价单位：`JSON_VALUE (sku.ext_info, '$.pricingDetails[0].currency')`
+- 采购价：`v3_decom.sku.purchase_price`
+- 采购价单位：`v3_decom.sku.purchase_cur`
+- 关联条件：`user_order_item.sku_code = sku.sku_code`，并限定 `sku.tenant_code = 'T18002707'`
+- 采购成本（USD）：支付成功订单的 `SUM(sku.purchase_price * user_order_item.sku_quantity * usd_rate)`
+- 物流成本（USD）：支付成功的去重订单数乘以 `5 USD`

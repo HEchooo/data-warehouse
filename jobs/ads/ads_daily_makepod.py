@@ -179,6 +179,10 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         pay_gmv_usd,
         pay_fee_amount,
         pay_sku_quantity,
+        purchase_cost_usd,
+        logistics_cost_usd,
+        gross_profit_usd,
+        gross_profit_rate,
         update_time
     )
     WITH
@@ -216,7 +220,9 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
             pay_order_count,
             pay_gmv_usd,
             pay_fee_amount,
-            pay_sku_quantity
+            pay_sku_quantity,
+            purchase_cost_usd,
+            logistics_cost_usd
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_makepod_order_daily`
         WHERE dt IN ({dates_str})
     )
@@ -235,6 +241,19 @@ def run_ads_daily_makepod(dates: list[date]) -> None:
         COALESCE(o.pay_gmv_usd, 0) AS pay_gmv_usd,
         COALESCE(o.pay_fee_amount, 0) AS pay_fee_amount,
         COALESCE(o.pay_sku_quantity, 0) AS pay_sku_quantity,
+        COALESCE(o.purchase_cost_usd, 0) AS purchase_cost_usd,
+        COALESCE(o.logistics_cost_usd, 0) AS logistics_cost_usd,
+        COALESCE(o.pay_gmv_usd, 0)
+            - COALESCE(o.purchase_cost_usd, 0)
+            - COALESCE(o.logistics_cost_usd, 0) AS gross_profit_usd,
+        CAST(
+            SAFE_DIVIDE(
+                COALESCE(o.pay_gmv_usd, 0)
+                    - COALESCE(o.purchase_cost_usd, 0)
+                    - COALESCE(o.logistics_cost_usd, 0),
+                NULLIF(COALESCE(o.pay_gmv_usd, 0), 0)
+            ) AS NUMERIC
+        ) AS gross_profit_rate,
         CURRENT_TIMESTAMP() AS update_time
     FROM target_dates d
     CROSS JOIN channel_list c

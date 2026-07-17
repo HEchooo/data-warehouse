@@ -12,3 +12,9 @@ PARTITION BY dt;
 
 ALTER TABLE `my-project-8584-jetonai.decom.dws_makepod_order_daily`
 ADD COLUMN channel STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_makepod_order_daily`
+ADD COLUMN purchase_cost_usd NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_makepod_order_daily`
+ADD COLUMN logistics_cost_usd NUMERIC;

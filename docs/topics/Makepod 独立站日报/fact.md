@@ -25,10 +25,14 @@
 | 支付 GMV | `pay_gmv_usd` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM((pay_amount + pay_fee) * usd_rate)`；`Overall` 按支付日全站汇总同口径 GMV；`pay_fee` 保持源表负数参与实付金额计算；汇率来自 `decom.currency_conversion_dict` |
 | 支付手续费 | `pay_fee_amount` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM(pay_fee * usd_rate)`；`Overall` 按支付日全站汇总同口径手续费；`currency_type = 'USD'` 时按 1 折算，其他币种使用 `decom.currency_conversion_dict` 转 USD，并保持源表负数符号 |
 | 支付 SKU 件数 | `pay_sku_quantity` | `pay_status = 4` 的支付订单，按 `user_order_item.order_id = pay_order.order_id` 汇总 `SUM(sku_quantity)` 后，再按 `dt × channel` 聚合；`Overall` 为支付日全站汇总 |
+| 采购成本 | `purchase_cost_usd` | `pay_status = 4` 的支付订单，按 `user_order_item.sku_code = sku.sku_code` 获取 `sku.purchase_price × user_order_item.sku_quantity`，再使用 `sku.purchase_cur` 对应的 `decom.currency_conversion_dict` 汇率转换为 USD；按 `dt × channel` 汇总，`Overall` 为支付日全站汇总 |
+| 物流成本 | `logistics_cost_usd` | `pay_status = 4` 的去重支付订单数 × `5 USD`；按 `dt × channel` 汇总，`Overall` 为支付日全站汇总 |
+| 毛利 | `gross_profit_usd` | `pay_gmv_usd - purchase_cost_usd - logistics_cost_usd` |
+| 毛利率 | `gross_profit_rate` | `gross_profit_usd / pay_gmv_usd`；支付 GMV 为 0 时返回 `NULL` |
 
 ## 依赖
 
-- 上游：`decom.dwd_makepod_event_log`、`v3_decom.user_info`、`v3_decom.user_order`、`v3_decom.pay_order`、`v3_decom.user_order_item`、`decom.currency_conversion_dict`
+- 上游：`decom.dwd_makepod_event_log`、`v3_decom.user_info`、`v3_decom.user_order`、`v3_decom.pay_order`、`v3_decom.user_order_item`、`v3_decom.sku`、`decom.currency_conversion_dict`
 - 维表：`decom.dim_makepod_device_first_visit`、`decom.dim_makepod_user_channel`
 - 中间表：`decom.dws_makepod_traffic_daily`、`decom.dws_makepod_order_daily`
 - ADS：`decom.ads_daily_makepod`
@@ -43,3 +47,5 @@
 - 截至 `2026-06-26`，已完成分渠道代码与 DDL 上线，并对 `decom.dws_makepod_traffic_daily`、`decom.dws_makepod_order_daily`、`decom.ads_daily_makepod` 做历史全量回刷；订单与 ADS 的金额类历史值按当前 `decom.currency_conversion_dict` 重新换算
 - 截至 `2026-06-26`，仓库代码口径已调整为 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic / Overall`；其中 `Other Channel` 表示存在 `share_code` 或 `invite_user_id` 但未命中指定映射，`Organic` 表示两者都缺失，`Overall` 为全站去重汇总
 - 截至 `2026-06-26`，Superset 物理 dataset `ads_daily_makepod`（id=261）已 refresh，dashboard `【Makepod】平台看板`（id=115）已新增 `channel` native filter
+- 截至 `2026-07-17`，已完成采购成本、物流成本、毛利、毛利率的 DWS/ADS 历史全量回填；`dws_makepod_order_daily` 共 50 个日期、400 行，`ads_daily_makepod` 共 52 个日期、416 行，每日期均补齐 8 个渠道
+- 截至 `2026-07-17`，Superset 物理 dataset `ads_daily_makepod`（id=261）已 refresh，明细图表（id=636）已新增 `采购成本（USD）/物流成本（USD）/毛利（USD）/毛利率` 四列
