@@ -8,7 +8,7 @@
 - 疑似限流账号日榜表（下降方向）：`decom.ads_daily_social_creator_suspected_throttle_rankings`
 - 播放量波动增加账号日榜表（上升方向）：`decom.ads_daily_social_creator_view_boost_rankings`
 - Superset 物理 dataset：`ads_daily_social_creator_suspected_throttle_rankings`（id=273）、`ads_daily_social_creator_view_boost_rankings`（id=278）；主时间列均为 `dt`
-- Superset chart：疑似限流账号数（id=684）、疑似限流账号分布（按疑似程度）（id=685）、各平台疑似限流账号分布（id=695）、疑似限流账号 Ranking（下降比例）（id=686，按 `decline_rate` 降序）、疑似限流账号 Ranking（下降绝对值）（id=696，按 `decline_abs` 降序）、播放量波动增加账号 Ranking（上升比例）（id=697，按 `boost_ratio` 降序）
+- Superset chart：疑似限流账号数（id=684，big number）、各平台疑似限流账号数（id=695，按 `channel` 计数）、疑似限流账号 Ranking（下降比例）（id=686，按 `decline_rate` 降序）、疑似限流账号 Ranking（下降绝对值）（id=696，按 `decline_abs` 降序）、播放量波动增加账号 Ranking（上升比例）（id=697，按 `boost_ratio` 降序）；不再区分疑似程度，原饼图 id=685 已删除
 - T+1 中间表粒度：`published_dt + channel + creator_id`
 - 波动准入中间表粒度：`dt + channel + creator_id`（每行是某统计日一个通过准入的账号）
 - 日榜粒度（两张榜一致）：`dt + channel + creator_id`；`dt` 表示已完整结束的美东自然日
@@ -43,7 +43,6 @@
 | 限流指数 | `throttle_ratio` | `recent_t1_avg_view_count / baseline_t1_avg_view_count`；按升序排名 |
 | 下降比例 | `decline_rate` | `1 - throttle_ratio`；chart 686 的排序维度 |
 | 下降绝对值 | `decline_abs` | `baseline_t1_avg_view_count - recent_t1_avg_view_count`，历史基准与近期日均的绝对差；chart 696 的排序维度，偏向基准播放高的大号 |
-| 疑似程度 | `severity` | 限流指数 `<=10%` 为“高度疑似”，其余命中账号为“疑似” |
 
 ### 播放量波动增加账号日榜字段（上升方向）
 
@@ -52,11 +51,11 @@
 | 需求字段 | 落地字段 | 口径 |
 |------|------|------|
 | 上升比例 | `boost_ratio` | `recent_t1_avg_view_count / baseline_t1_avg_view_count - 1`，观察发布日日均相对历史基准的上升幅度；按降序排名 |
-| 命中条件 | — | `recent_t1_avg_view_count > baseline_t1_avg_view_count`（任意上升）；不含 `throttle_ratio` / `decline_rate` / `decline_abs` / `severity` / 逐条视频字段 |
+| 命中条件 | — | `recent_t1_avg_view_count > baseline_t1_avg_view_count`（任意上升）；不含 `throttle_ratio` / `decline_rate` / `decline_abs` / 逐条视频字段 |
 
 ### 账号播放波动准入中间表字段
 
-`dws_social_creator_view_fluctuation_daily`：`dt + channel + creator_id` 粒度，收录某统计日通过监控池准入的**全部**账号（下降/持平/上升都在内），供两张 ADS 榜按方向过滤。不含方向判定字段（`throttle_ratio` / `boost_ratio` / `severity` 等由各 ADS 自行派生）。
+`dws_social_creator_view_fluctuation_daily`：`dt + channel + creator_id` 粒度，收录某统计日通过监控池准入的**全部**账号（下降/持平/上升都在内），供两张 ADS 榜按方向过滤。不含方向判定字段（`throttle_ratio` / `boost_ratio` 等由各 ADS 自行派生）。
 
 | 需求字段 | 落地字段 | 口径 |
 |------|------|------|
@@ -91,4 +90,4 @@
 - DDL：`ddl/dws/dws_social_creator_published_t1_daily.sql`, `ddl/dws/dws_social_creator_view_fluctuation_daily.sql`, `ddl/ads/ads_daily_social_creator_suspected_throttle_rankings.sql`, `ddl/ads/ads_daily_social_creator_view_boost_rankings.sql`
 - 编排：`env/etl_config.json` 中的表级入口 `dws_social_creator_published_t1_daily` → `dws_social_creator_view_fluctuation_daily` → `ads_daily_social_creator_suspected_throttle_rankings` / `ads_daily_social_creator_view_boost_rankings`（两张 ADS 依赖波动准入中间表）
 - 性能：波动准入中间表只读取 T+1 中间表的滚动 28 个发布日期分区，准入/基准/近期日均一次算好；两张 ADS 各自只按 `dt` 分区读该中间表做方向过滤和排名，不重复回扫
-- Superset：物理 dataset `ads_daily_social_creator_suspected_throttle_rankings`（id=273）与 `ads_daily_social_creator_view_boost_rankings`（id=278），chart `684 / 685 / 686 / 695 / 696 / 697`，dashboard `【Social Content】疑似限流账号监控`（id=123）
+- Superset：物理 dataset `ads_daily_social_creator_suspected_throttle_rankings`（id=273）与 `ads_daily_social_creator_view_boost_rankings`（id=278），chart `684 / 686 / 695 / 696 / 697`（原按疑似程度的饼图 685 已删除），dashboard `【Social Content】疑似限流账号监控`（id=123）

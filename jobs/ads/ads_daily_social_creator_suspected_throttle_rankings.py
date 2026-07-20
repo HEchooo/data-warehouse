@@ -160,7 +160,6 @@ def build_select_sql(dates: list[date]) -> str:
         CAST(1 - throttle_ratio AS NUMERIC) AS decline_rate,
         CAST(baseline_t1_avg_view_count - recent_t1_avg_view_count AS NUMERIC)
             AS decline_abs,
-        IF(throttle_ratio <= 0.1, '高度疑似', '疑似') AS severity,
         CURRENT_TIMESTAMP() AS update_time,
         pool_window_start_dt,
         pool_window_end_dt,
