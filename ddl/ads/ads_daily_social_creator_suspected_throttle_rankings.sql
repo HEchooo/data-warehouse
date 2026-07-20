@@ -59,3 +59,6 @@ ADD COLUMN IF NOT EXISTS pool_published_video_count INT64;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
 ADD COLUMN IF NOT EXISTS weekly_avg_published_video_count NUMERIC;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+ADD COLUMN IF NOT EXISTS decline_abs NUMERIC;
