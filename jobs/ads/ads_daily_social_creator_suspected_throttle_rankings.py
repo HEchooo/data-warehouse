@@ -14,8 +14,8 @@ TABLE_NAME = "ads_daily_social_creator_suspected_throttle_rankings"
 SOURCE_TABLE_NAME = "dws_social_creator_published_t1_daily"
 INCREMENTAL_WINDOW_HOURS = 6
 POOL_WINDOW_DAY_COUNT = 28
-BASELINE_VIDEO_COUNT = 7
-RECENT_VIDEO_COUNT = 3
+BASELINE_DAY_COUNT = 7
+RECENT_DAY_COUNT = 1
 WEEKLY_PUBLISH_THRESHOLD = 3
 THRESHOLD_RATIO = 0.3
 
@@ -159,8 +159,8 @@ def build_select_sql(dates: list[date]) -> str:
         FROM `{table_id(SOURCE_TABLE_NAME)}`
         WHERE published_dt BETWEEN DATE '{min_source_dt}' AND DATE '{max_source_dt}'
     ),
-    -- 展开账号日事实中的视频明细，并映射到各统计日的监控池。
-    pool_videos AS (
+    -- 将账号发布日事实映射到各统计日的监控池；中间表每行即一个发布日。
+    pool_days AS (
         SELECT
             stat.dt,
             stat.pool_window_start_dt,
@@ -171,30 +171,28 @@ def build_select_sql(dates: list[date]) -> str:
             daily.account_name,
             daily.account_handle,
             daily.account_url,
-            sample.video_key,
-            sample.published_ts_utc,
-            sample.t1_view_count,
-            sample.has_t1_snapshot
+            daily.published_video_count,
+            daily.observed_t1_view_count,
+            daily.t1_avg_view_count
         FROM stat_dates stat
         INNER JOIN creator_t1_daily daily
             ON daily.published_dt
                 BETWEEN stat.pool_window_start_dt AND stat.pool_window_end_dt
-        CROSS JOIN UNNEST(daily.video_samples) sample
     ),
-    -- 按账号发布时间倒序编号，并计算滚动 28 天发布视频数。
-    ranked_videos AS (
+    -- 按账号发布日期倒序编号，并计算滚动 28 天发布视频总数。
+    ranked_days AS (
         SELECT
             *,
             ROW_NUMBER() OVER (
                 PARTITION BY dt, channel, creator_id
-                ORDER BY published_ts_utc DESC, video_key DESC
-            ) AS video_recency_no,
-            COUNT(*) OVER (
+                ORDER BY published_dt DESC
+            ) AS day_recency_no,
+            SUM(published_video_count) OVER (
                 PARTITION BY dt, channel, creator_id
             ) AS pool_published_video_count
-        FROM pool_videos
+        FROM pool_days
     ),
-    -- 汇总最近 10 次发布：最近 3 次为观察组，此前 7 次为历史基准。
+    -- 汇总最近 8 个发布日：最近 1 天为观察对象，此前 7 天为历史基准。
     account_window AS (
         SELECT
             dt,
@@ -202,49 +200,53 @@ def build_select_sql(dates: list[date]) -> str:
             pool_window_end_dt,
             channel,
             creator_id,
-            ARRAY_AGG(
-                STRUCT(account_name, account_handle, account_url)
-                ORDER BY published_ts_utc DESC, video_key DESC
-                LIMIT 1
-            )[OFFSET(0)].account_name AS account_name,
-            ARRAY_AGG(
-                STRUCT(account_name, account_handle, account_url)
-                ORDER BY published_ts_utc DESC, video_key DESC
-                LIMIT 1
-            )[OFFSET(0)].account_handle AS account_handle,
-            ARRAY_AGG(
-                STRUCT(account_name, account_handle, account_url)
-                ORDER BY published_ts_utc DESC, video_key DESC
-                LIMIT 1
-            )[OFFSET(0)].account_url AS account_url,
-            MIN(IF(video_recency_no BETWEEN 4 AND 10, published_dt, NULL))
-                AS baseline_start_dt,
-            MAX(IF(video_recency_no BETWEEN 4 AND 10, published_dt, NULL))
-                AS baseline_end_dt,
-            MIN(IF(video_recency_no BETWEEN 1 AND 3, published_dt, NULL))
+            MAX(IF(day_recency_no = 1, account_name, NULL)) AS account_name,
+            MAX(IF(day_recency_no = 1, account_handle, NULL)) AS account_handle,
+            MAX(IF(day_recency_no = 1, account_url, NULL)) AS account_url,
+            MIN(IF(
+                day_recency_no BETWEEN {RECENT_DAY_COUNT + 1}
+                    AND {RECENT_DAY_COUNT + BASELINE_DAY_COUNT},
+                published_dt, NULL
+            )) AS baseline_start_dt,
+            MAX(IF(
+                day_recency_no BETWEEN {RECENT_DAY_COUNT + 1}
+                    AND {RECENT_DAY_COUNT + BASELINE_DAY_COUNT},
+                published_dt, NULL
+            )) AS baseline_end_dt,
+            MIN(IF(day_recency_no <= {RECENT_DAY_COUNT}, published_dt, NULL))
                 AS recent_start_dt,
-            MAX(IF(video_recency_no BETWEEN 1 AND 3, published_dt, NULL))
+            MAX(IF(day_recency_no <= {RECENT_DAY_COUNT}, published_dt, NULL))
                 AS recent_end_dt,
-            COUNT(DISTINCT IF(
-                video_recency_no BETWEEN 4 AND 10, published_dt, NULL
-            )) AS baseline_active_day_count,
-            COUNTIF(video_recency_no BETWEEN 4 AND 10) AS baseline_video_count,
-            SUM(IF(video_recency_no BETWEEN 4 AND 10, t1_view_count, 0))
-                AS baseline_t1_view_count,
-            COUNTIF(video_recency_no BETWEEN 1 AND 3) AS recent_video_count,
-            SUM(IF(video_recency_no BETWEEN 1 AND 3, t1_view_count, 0))
-                AS recent_t1_view_count,
-            MAX(IF(video_recency_no = 3, t1_view_count, NULL))
-                AS recent_video_1_t1_view_count,
-            MAX(IF(video_recency_no = 2, t1_view_count, NULL))
-                AS recent_video_2_t1_view_count,
-            MAX(IF(video_recency_no = 1, t1_view_count, NULL))
-                AS recent_video_3_t1_view_count,
-            MAX(pool_published_video_count) AS pool_published_video_count,
-            COUNTIF(video_recency_no <= 10 AND has_t1_snapshot)
-                AS complete_t1_video_count
-        FROM ranked_videos
-        WHERE video_recency_no <= {BASELINE_VIDEO_COUNT + RECENT_VIDEO_COUNT}
+            COUNTIF(
+                day_recency_no BETWEEN {RECENT_DAY_COUNT + 1}
+                    AND {RECENT_DAY_COUNT + BASELINE_DAY_COUNT}
+            ) AS baseline_active_day_count,
+            SUM(IF(
+                day_recency_no BETWEEN {RECENT_DAY_COUNT + 1}
+                    AND {RECENT_DAY_COUNT + BASELINE_DAY_COUNT},
+                published_video_count, 0
+            )) AS baseline_video_count,
+            SUM(IF(
+                day_recency_no BETWEEN {RECENT_DAY_COUNT + 1}
+                    AND {RECENT_DAY_COUNT + BASELINE_DAY_COUNT},
+                observed_t1_view_count, 0
+            )) AS baseline_t1_view_count,
+            -- 历史基准 = 此前 7 个发布日各自日均播放，再对 7 天求均值（各天等权）。
+            AVG(IF(
+                day_recency_no BETWEEN {RECENT_DAY_COUNT + 1}
+                    AND {RECENT_DAY_COUNT + BASELINE_DAY_COUNT},
+                t1_avg_view_count, NULL
+            )) AS baseline_t1_avg_view_count,
+            SUM(IF(day_recency_no <= {RECENT_DAY_COUNT},
+                published_video_count, 0)) AS recent_video_count,
+            SUM(IF(day_recency_no <= {RECENT_DAY_COUNT},
+                observed_t1_view_count, 0)) AS recent_t1_view_count,
+            -- 观察对象 = 最近发布日的当日日均播放（同日多条已在中间表取均值）。
+            MAX(IF(day_recency_no <= {RECENT_DAY_COUNT}, t1_avg_view_count, NULL))
+                AS recent_t1_avg_view_count,
+            MAX(pool_published_video_count) AS pool_published_video_count
+        FROM ranked_days
+        WHERE day_recency_no <= {BASELINE_DAY_COUNT + RECENT_DAY_COUNT}
         GROUP BY
             dt,
             pool_window_start_dt,
@@ -252,36 +254,26 @@ def build_select_sql(dates: list[date]) -> str:
             channel,
             creator_id
     ),
-    -- 计算历史基准、近期均值及周均发布量，并执行监控池准入规则。
+    -- 计算周均发布量并执行监控池准入：观察对象必须是榜单日前一天的发布。
     eligible AS (
         SELECT
             *,
-            SAFE_DIVIDE(baseline_t1_view_count, baseline_video_count)
-                AS baseline_t1_avg_view_count,
-            SAFE_DIVIDE(recent_t1_view_count, recent_video_count)
-                AS recent_t1_avg_view_count,
             SAFE_DIVIDE(pool_published_video_count, 4)
                 AS weekly_avg_published_video_count
         FROM account_window
         WHERE pool_published_video_count > {WEEKLY_PUBLISH_THRESHOLD * 4}
-            AND baseline_video_count = {BASELINE_VIDEO_COUNT}
-            AND recent_video_count = {RECENT_VIDEO_COUNT}
-            AND complete_t1_video_count
-                = {BASELINE_VIDEO_COUNT + RECENT_VIDEO_COUNT}
-            AND baseline_t1_view_count > 0
+            AND baseline_active_day_count = {BASELINE_DAY_COUNT}
+            AND recent_end_dt = DATE_SUB(dt, INTERVAL 1 DAY)
+            AND baseline_t1_avg_view_count > 0
     ),
-    -- 仅保留最近三次发布都低于此前七次 T+1 均值 30% 的疑似限流账号。
+    -- 仅保留最近发布日日均 T+1 播放低于历史基准 30% 的疑似限流账号。
     suspected AS (
         SELECT
             *,
             SAFE_DIVIDE(recent_t1_avg_view_count, baseline_t1_avg_view_count)
                 AS throttle_ratio
         FROM eligible
-        WHERE recent_video_1_t1_view_count
-                < baseline_t1_avg_view_count * {THRESHOLD_RATIO}
-            AND recent_video_2_t1_view_count
-                < baseline_t1_avg_view_count * {THRESHOLD_RATIO}
-            AND recent_video_3_t1_view_count
+        WHERE recent_t1_avg_view_count
                 < baseline_t1_avg_view_count * {THRESHOLD_RATIO}
     ),
     -- 按近期与历史播放比从低到高生成全局及渠道内排名。
@@ -318,12 +310,10 @@ def build_select_sql(dates: list[date]) -> str:
         recent_video_count,
         recent_t1_view_count,
         CAST(recent_t1_avg_view_count AS NUMERIC) AS recent_t1_avg_view_count,
-        CAST(recent_video_1_t1_view_count AS NUMERIC)
-            AS recent_video_1_t1_view_count,
-        CAST(recent_video_2_t1_view_count AS NUMERIC)
-            AS recent_video_2_t1_view_count,
-        CAST(recent_video_3_t1_view_count AS NUMERIC)
-            AS recent_video_3_t1_view_count,
+        -- 兼容旧口径历史分区保留的逐条视频字段，新口径按发布日聚合，固定为空。
+        CAST(NULL AS NUMERIC) AS recent_video_1_t1_view_count,
+        CAST(NULL AS NUMERIC) AS recent_video_2_t1_view_count,
+        CAST(NULL AS NUMERIC) AS recent_video_3_t1_view_count,
         CAST({THRESHOLD_RATIO} AS NUMERIC) AS threshold_ratio,
         CAST(throttle_ratio AS NUMERIC) AS throttle_ratio,
         CAST(1 - throttle_ratio AS NUMERIC) AS decline_rate,
@@ -373,14 +363,10 @@ def run(dates: list[date], full_refresh: bool = False) -> None:
                             <= {WEEKLY_PUBLISH_THRESHOLD * 4}
                         OR weekly_avg_published_video_count
                             <= {WEEKLY_PUBLISH_THRESHOLD}
-                        OR baseline_video_count != {BASELINE_VIDEO_COUNT}
-                        OR recent_video_count != {RECENT_VIDEO_COUNT})
+                        OR baseline_active_day_count != {BASELINE_DAY_COUNT}
+                        OR recent_end_dt != DATE_SUB(dt, INTERVAL 1 DAY))
                         AS invalid_pool_sample_count,
-                    COUNTIF(recent_video_1_t1_view_count
-                            >= baseline_t1_avg_view_count * threshold_ratio
-                        OR recent_video_2_t1_view_count
-                            >= baseline_t1_avg_view_count * threshold_ratio
-                        OR recent_video_3_t1_view_count
+                    COUNTIF(recent_t1_avg_view_count
                             >= baseline_t1_avg_view_count * threshold_ratio)
                         AS invalid_suspected_count,
                     COUNTIF(ABS(
@@ -406,7 +392,7 @@ def run(dates: list[date], full_refresh: bool = False) -> None:
         if validation.invalid_pool_sample_count != 0:
             raise RuntimeError("疑似限流账号榜校验失败：监控池或发布样本不满足准入条件")
         if validation.invalid_suspected_count != 0:
-            raise RuntimeError("疑似限流账号榜校验失败：存在未连续低于阈值的账号")
+            raise RuntimeError("疑似限流账号榜校验失败：存在最近发布日日均未低于阈值的账号")
         if validation.invalid_ratio_count != 0:
             raise RuntimeError("疑似限流账号榜校验失败：限流指数计算错误")
         if validation.invalid_window_count != 0:
