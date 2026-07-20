@@ -32,7 +32,7 @@
 | 监控池发布频率 | `pool_published_video_count` / `weekly_avg_published_video_count` | 过去 28 天具有真实 T+1 快照的有效样本视频数，及其除以 4 后的周均发布量；周均严格大于 3，即 28 天至少 13 个有效样本 |
 | 历史基准日期 | `baseline_start_dt` / `baseline_end_dt` | 此前 7 个基准发布日中最早和最晚的发布日期，不表示固定自然日窗口 |
 | 近期观察日期 | `recent_start_dt` / `recent_end_dt` | 观察发布日的发布日期，恒等于 `D-1`，两个字段取值相同 |
-| 排名 | `rank_no` / `channel_rank_no` | 按限流指数升序生成全局排名和平台内排名；越小表示近期播放相对历史下降越明显 |
+| 排名 | — | 不落库排名字段；排序由展示层（chart）按对应指标（下降比例 / 下降绝对值 / 上升比例）降序完成 |
 | 账号 | `channel + creator_id` | 不做跨平台账号合并；展示名称、Handle 和 URL 取观察发布日（`D-1`）对应账号属性 |
 | 历史活跃发布日数 | `baseline_active_day_count` | 用作基准的发布日个数，取账号最近实际发过视频的 7 个发布日（可在日历上分散、非连续，允许中间断更）；是准入条件——监控池 28 天内不足 7 个发布日的账号不进榜，进榜账号该值恒为 7 |
 | 历史样本 | `baseline_video_count` / `baseline_t1_view_count` | 此前 7 个基准发布日的视频总条数（可大于 7）及这些视频在 T+1 日末的累计播放总和 |
@@ -89,5 +89,5 @@
 - 脚本：`jobs/dws/dws_social_creator_published_t1_daily.py`, `jobs/dws/dws_social_creator_view_fluctuation_daily.py`, `jobs/ads/ads_daily_social_creator_suspected_throttle_rankings.py`, `jobs/ads/ads_daily_social_creator_view_boost_rankings.py`
 - DDL：`ddl/dws/dws_social_creator_published_t1_daily.sql`, `ddl/dws/dws_social_creator_view_fluctuation_daily.sql`, `ddl/ads/ads_daily_social_creator_suspected_throttle_rankings.sql`, `ddl/ads/ads_daily_social_creator_view_boost_rankings.sql`
 - 编排：`env/etl_config.json` 中的表级入口 `dws_social_creator_published_t1_daily` → `dws_social_creator_view_fluctuation_daily` → `ads_daily_social_creator_suspected_throttle_rankings` / `ads_daily_social_creator_view_boost_rankings`（两张 ADS 依赖波动准入中间表）
-- 性能：波动准入中间表只读取 T+1 中间表的滚动 28 个发布日期分区，准入/基准/近期日均一次算好；两张 ADS 各自只按 `dt` 分区读该中间表做方向过滤和排名，不重复回扫
+- 性能：波动准入中间表只读取 T+1 中间表的滚动 28 个发布日期分区，准入/基准/近期日均一次算好；两张 ADS 各自只按 `dt` 分区读该中间表做方向过滤，排序交给展示层，不落库排名字段
 - Superset：物理 dataset `ads_daily_social_creator_suspected_throttle_rankings`（id=273）与 `ads_daily_social_creator_view_boost_rankings`（id=278），chart `684 / 686 / 695 / 696 / 697`（原按疑似程度的饼图 685 已删除），dashboard `【Social Content】疑似限流账号监控`（id=123）

@@ -114,29 +114,14 @@ def build_select_sql(dates: list[date]) -> str:
                 AS boost_ratio
         FROM fluctuation
         WHERE recent_t1_avg_view_count > baseline_t1_avg_view_count
-    ),
-    -- 按近期相对历史的上升比例从高到低生成全局及渠道内排名。
-    ranked AS (
-        SELECT
-            *,
-            ROW_NUMBER() OVER (
-                PARTITION BY dt
-                ORDER BY boost_ratio DESC, recent_t1_avg_view_count DESC, channel, creator_id
-            ) AS rank_no,
-            ROW_NUMBER() OVER (
-                PARTITION BY dt, channel
-                ORDER BY boost_ratio DESC, recent_t1_avg_view_count DESC, creator_id
-            ) AS channel_rank_no
-        FROM boosted
     )
+    -- 榜单排序由展示层（chart）按上升比例完成，此处不再存储排名字段。
     SELECT
         dt,
         baseline_start_dt,
         baseline_end_dt,
         recent_start_dt,
         recent_end_dt,
-        rank_no,
-        channel_rank_no,
         channel,
         creator_id,
         account_name,
@@ -156,7 +141,7 @@ def build_select_sql(dates: list[date]) -> str:
         pool_published_video_count,
         CAST(weekly_avg_published_video_count AS NUMERIC)
             AS weekly_avg_published_video_count
-    FROM ranked
+    FROM boosted
     """
 
 
@@ -168,8 +153,6 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', channel, '|', creator_id))
                     AS unique_account_count,
-                COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', CAST(rank_no AS STRING)))
-                    AS unique_rank_count,
                 COUNTIF(recent_t1_avg_view_count
                         <= baseline_t1_avg_view_count)
                     AS invalid_boost_count,
@@ -188,8 +171,6 @@ def validate(staging_table: str) -> None:
     )[0]
     if result.row_count != result.unique_account_count:
         raise RuntimeError("播放上升账号榜校验失败：统计日、渠道和账号不唯一")
-    if result.row_count != result.unique_rank_count:
-        raise RuntimeError("播放上升账号榜校验失败：统计日内排名不唯一")
     if result.invalid_boost_count != 0:
         raise RuntimeError("播放上升账号榜校验失败：存在最近发布日日均未高于基准的账号")
     if result.invalid_ratio_count != 0:

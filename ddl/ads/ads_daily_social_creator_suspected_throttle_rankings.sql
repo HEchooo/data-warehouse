@@ -65,3 +65,9 @@ ADD COLUMN IF NOT EXISTS decline_abs NUMERIC;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
 DROP COLUMN IF EXISTS severity;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+DROP COLUMN IF EXISTS rank_no;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+DROP COLUMN IF EXISTS channel_rank_no;

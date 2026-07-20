@@ -116,29 +116,14 @@ def build_select_sql(dates: list[date]) -> str:
         FROM fluctuation
         WHERE recent_t1_avg_view_count
                 < baseline_t1_avg_view_count * {THRESHOLD_RATIO}
-    ),
-    -- 按近期与历史播放比从低到高生成全局及渠道内排名。
-    ranked AS (
-        SELECT
-            *,
-            ROW_NUMBER() OVER (
-                PARTITION BY dt
-                ORDER BY throttle_ratio, recent_t1_avg_view_count, channel, creator_id
-            ) AS rank_no,
-            ROW_NUMBER() OVER (
-                PARTITION BY dt, channel
-                ORDER BY throttle_ratio, recent_t1_avg_view_count, creator_id
-            ) AS channel_rank_no
-        FROM suspected
     )
+    -- 榜单排序由展示层（chart）按指标完成，此处不再存储排名字段。
     SELECT
         dt,
         baseline_start_dt,
         baseline_end_dt,
         recent_start_dt,
         recent_end_dt,
-        rank_no,
-        channel_rank_no,
         channel,
         creator_id,
         account_name,
@@ -166,7 +151,7 @@ def build_select_sql(dates: list[date]) -> str:
         pool_published_video_count,
         CAST(weekly_avg_published_video_count AS NUMERIC)
             AS weekly_avg_published_video_count
-    FROM ranked
+    FROM suspected
     """
 
 
@@ -178,8 +163,6 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', channel, '|', creator_id))
                     AS unique_account_count,
-                COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', CAST(rank_no AS STRING)))
-                    AS unique_rank_count,
                 COUNTIF(recent_t1_avg_view_count
                         >= baseline_t1_avg_view_count * threshold_ratio)
                     AS invalid_suspected_count,
@@ -198,8 +181,6 @@ def validate(staging_table: str) -> None:
     )[0]
     if result.row_count != result.unique_account_count:
         raise RuntimeError("疑似限流账号榜校验失败：统计日、渠道和账号不唯一")
-    if result.row_count != result.unique_rank_count:
-        raise RuntimeError("疑似限流账号榜校验失败：统计日内排名不唯一")
     if result.invalid_suspected_count != 0:
         raise RuntimeError("疑似限流账号榜校验失败：存在最近发布日日均未低于阈值的账号")
     if result.invalid_ratio_count != 0:

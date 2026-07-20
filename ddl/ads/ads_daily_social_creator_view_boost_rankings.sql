@@ -27,3 +27,9 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_view_boost_
 )
 PARTITION BY dt
 CLUSTER BY channel, creator_id;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_view_boost_rankings`
+DROP COLUMN IF EXISTS rank_no;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_creator_view_boost_rankings`
+DROP COLUMN IF EXISTS channel_rank_no;
