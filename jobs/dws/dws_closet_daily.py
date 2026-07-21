@@ -124,7 +124,7 @@ def get_closet_daily_dates_to_process(
             FROM (
                 SELECT DATE({event_ts}, '{TORONTO_TZ}') AS dt
                 FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-                WHERE event_name = 'v_closet'
+                WHERE event_name IN ('v_closet', 'v_smart_closet_home')
                     AND prop_user_id IS NOT NULL
                     AND prop_user_id != ''
                     AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
@@ -158,7 +158,7 @@ def get_closet_daily_dates_to_process(
         SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-            AND event_name = 'v_closet'
+            AND event_name IN ('v_closet', 'v_smart_closet_home')
             AND prop_user_id IS NOT NULL
             AND prop_user_id != ''
             AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
@@ -274,7 +274,7 @@ def run_dws_closet_daily(dates: list[date]) -> None:
             DATE({event_ts}, '{TORONTO_TZ}') AS dt,
             prop_user_id AS user_id
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-        WHERE event_name = 'v_closet'
+        WHERE event_name IN ('v_closet', 'v_smart_closet_home')
             AND prop_user_id IS NOT NULL
             AND prop_user_id != ''
             AND DATE({event_ts}, '{TORONTO_TZ}')

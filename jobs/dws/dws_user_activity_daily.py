@@ -375,7 +375,7 @@ def run_dws_user_activity_daily(dates: list[date]) -> None:
             user_id,
             MAX(IF(event_name = 'v_product_detail', 1, 0)) AS viewed_product_detail,
             MAX(IF(event_name IN ('c_home_search', 'c_shop_search'), 1, 0)) AS used_search,
-            MAX(IF(event_name = 'v_closet', 1, 0)) AS viewed_closet,
+            MAX(IF(event_name IN ('v_closet', 'v_smart_closet_home'), 1, 0)) AS viewed_closet,
             MAX(IF(event_name = 'v_home_feeds', 1, 0)) AS exposed_home_feeds,
             MAX(IF(event_name = 'c_home_feeds', 1, 0)) AS clicked_home_feeds,
             MAX(IF(event_name = 'v_home_star', 1, 0)) AS exposed_home_star,

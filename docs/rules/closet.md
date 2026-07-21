@@ -43,7 +43,8 @@
 ## 指标口径
 
 - 衣橱首页曝光 UV
-  - `event_name = 'v_closet'`
+  - `event_name IN ('v_closet', 'v_smart_closet_home')`
+    - 2026-07-07 前后「智能衣橱」改版，衣橱首页曝光埋点由 `v_closet` 迁移到 `v_smart_closet_home`（约 07-10 完成切换），口径需同时兼容新旧事件
   - `COUNT(DISTINCT prop_user_id)`
   - 必须过滤 `prop_user_id IS NOT NULL AND prop_user_id != ''`
 - 新增衣橱使用用户
@@ -70,7 +71,7 @@
   - 用 `MERGE` 仅向更早首日收敛，不在下游日事实里重复全扫源表
 - 渗透人数
   - 同日满足两件事的去重用户数：
-    - 日志中存在 `event_name = 'v_closet'`
+    - 日志中存在 `event_name IN ('v_closet', 'v_smart_closet_home')`
     - 服务端当日存在 `type IN ('SINGLE', 'OUTFIT')`
 - 渗透率
   - 分子：渗透人数

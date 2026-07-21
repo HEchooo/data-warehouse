@@ -12,11 +12,11 @@
 | 需求字段 | 定义 |
 |------|------|
 | 日期 | 报表日期，按 `America/Toronto` 切天 |
-| 衣橱首页曝光uv | `event_name = 'v_closet'` 的已登录去重用户数；按 `COUNT(DISTINCT prop_user_id)`，且 `prop_user_id IS NOT NULL AND prop_user_id != ''` |
+| 衣橱首页曝光uv | `event_name IN ('v_closet', 'v_smart_closet_home')` 的已登录去重用户数；按 `COUNT(DISTINCT prop_user_id)`，且 `prop_user_id IS NOT NULL AND prop_user_id != ''`（2026-07-07 前后曝光埋点由 `v_closet` 迁移到 `v_smart_closet_home`，口径兼容新旧） |
 | 新增衣橱使用用户 | 当日首次发生 `type IN ('SINGLE', 'OUTFIT')` 的去重用户数；首日以 `v3_decom.user_fashion_closet.gmt_create` 转 `America/Toronto` 业务日后计算 |
 | 新增item数量 | 当日新增 item 数量；`SINGLE` 按 `COUNT(uuid)`，`OUTFIT` 按 `item_uuids` 拆数组后的元素个数求和 |
 | 总计使用用户 | 历史累计去重用户数；用户在 `v3_decom.user_fashion_closet` 中曾出现过 `type IN ('SINGLE', 'OUTFIT')` 即计入，按首次衣橱使用日累计 |
-| 渗透人数 | 同日满足两件事的已登录去重用户数：日志中存在 `event_name = 'v_closet'`，且 `v3_decom.user_fashion_closet` 当日存在 `type IN ('SINGLE', 'OUTFIT')` |
+| 渗透人数 | 同日满足两件事的已登录去重用户数：日志中存在 `event_name IN ('v_closet', 'v_smart_closet_home')`，且 `v3_decom.user_fashion_closet` 当日存在 `type IN ('SINGLE', 'OUTFIT')` |
 | 渗透率 | `渗透人数 / all_event_uv`；其中 `all_event_uv` 为日志中当日所有事件的已登录去重用户数 |
 
 ## 已落地字段
@@ -24,11 +24,11 @@
 | 需求字段 | 落地表 | 落地字段 | 口径 |
 |------|------|------|------|
 | 日期 | `decom.ads_daily_closet_overview` | `dt` | 按 `America/Toronto` 切天 |
-| 衣橱首页曝光uv | `decom.ads_daily_closet_overview` | `closet_home_exposure_uv` | `event_name = 'v_closet'` 的 `COUNT(DISTINCT prop_user_id)`；仅统计非空 `prop_user_id` |
+| 衣橱首页曝光uv | `decom.ads_daily_closet_overview` | `closet_home_exposure_uv` | `event_name IN ('v_closet', 'v_smart_closet_home')` 的 `COUNT(DISTINCT prop_user_id)`；仅统计非空 `prop_user_id` |
 | 新增衣橱使用用户 | `decom.ads_daily_closet_overview` | `new_closet_user_count` | 用户首次发生 `type IN ('SINGLE', 'OUTFIT')` 的业务日记 1 次 |
 | 新增item数量 | `decom.ads_daily_closet_overview` | `new_item_count` | 当日新增 item 数量；`SINGLE` 按非空 `uuid` 计数，`OUTFIT` 按 `item_uuids` 拆数组后元素个数求和 |
 | 总计使用用户 | `decom.ads_daily_closet_overview` | `total_closet_user_count` | 先求每个用户首次 `type IN ('SINGLE', 'OUTFIT')` 的业务日，再按日期累计 |
-| 渗透人数 | `decom.ads_daily_closet_overview` | `penetration_user_count` | 同日 `v_closet` 用户集合与同日 `SINGLE / OUTFIT` 用户集合的交集 UV |
+| 渗透人数 | `decom.ads_daily_closet_overview` | `penetration_user_count` | 同日衣橱首页曝光（`v_closet` / `v_smart_closet_home`）用户集合与同日 `SINGLE / OUTFIT` 用户集合的交集 UV |
 | 渗透率分母 | `decom.ads_daily_closet_overview` | `all_event_uv` | 当日日志所有事件的 `COUNT(DISTINCT prop_user_id)`；仅统计非空 `prop_user_id` |
 | 渗透率 | `decom.ads_daily_closet_overview` | `penetration_rate` | `penetration_user_count / all_event_uv`；`all_event_uv = 0` 时返回 `0` |
 

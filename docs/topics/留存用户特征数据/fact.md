@@ -70,7 +70,7 @@
 | 浏览商详 | 对应 cohort 用户中，在 `dt` 当日发生过 `event_name = 'v_product_detail'` 的去重用户数 |
 | 创建模特 | 对应 cohort 用户中，在 `dt` 当日发生过 `v3_decom.common_ext_ai_task.task_type = 'MODEL'` 的去重用户数 |
 | 搜索 | 对应 cohort 用户中，在 `dt` 当日发生过 `event_name IN ('c_home_search', 'c_shop_search')` 的去重用户数 |
-| 衣橱渗透 | 对应 cohort 用户中，在 `dt` 当日同时满足两件事的去重用户数：日志中存在 `event_name = 'v_closet'`，且 `v3_decom.user_fashion_closet` 当日存在 `type IN ('SINGLE', 'OUTFIT')` |
+| 衣橱渗透 | 对应 cohort 用户中，在 `dt` 当日同时满足两件事的去重用户数：日志中存在 `event_name IN ('v_closet', 'v_smart_closet_home')`，且 `v3_decom.user_fashion_closet` 当日存在 `type IN ('SINGLE', 'OUTFIT')` |
 | 非衣橱渗透 | 对应 cohort 用户中，在 `dt` 当日不满足“衣橱渗透”条件的去重用户数；等价于 cohort 总人数减去衣橱渗透用户数 |
 
 ### 留存与非留存用户时长分布
@@ -211,7 +211,8 @@
 - cohort 主体先沉到 `decom.dws_user_activity_daily`，再分别聚合到 `decom.dws_user_retention_feature_daily` 和 `decom.ads_daily_retention_user_duration_bucket`
 - 服务端行为 `AI试穿 / 关注账号 / 创建模特` 分别来自 `v3_decom.common_ext_ai_task`、`v3_decom.community_star_follow`、`v3_decom.common_ext_ai_task`
 - 事件侧行为 `浏览商详 / 搜索 / 停留时长 / 衣橱首页曝光` 先沉到 `decom.dws_user_activity_daily`
-- `衣橱渗透` 的留存主题口径为“同日 `v_closet` + 同日 `type IN ('SINGLE', 'OUTFIT')` 的 cohort 用户数”；这里不直接复用 `【AI-Fashion】衣橱概览` 中 `type = 'SINGLE'` 的分子定义
+- `衣橱渗透` 的留存主题口径为“同日 `v_closet` / `v_smart_closet_home` + 同日 `type IN ('SINGLE', 'OUTFIT')` 的 cohort 用户数”；这里不直接复用 `【AI-Fashion】衣橱概览` 中 `type = 'SINGLE'` 的分子定义
+  - 衣橱首页曝光埋点 2026-07-07 前后由 `v_closet` 迁移到 `v_smart_closet_home`（约 07-10 完成），口径同时兼容新旧事件；否则切换后渗透 cohort 归零、次日留存会假性掉到 0
 - `非衣橱渗透` 为同一 cohort 下“不满足衣橱渗透条件”的补集用户数
 - 行为类指标采用布尔判定口径：用户在 `dt` 当日只要发生过至少 1 次，就记入该行为人数
 - `日均停留时长` 为了支持跨天聚合，除单日平均值外，额外落地 4 个时长分子字段；报表层应使用 `SUM(分子) / SUM(对应用户数)` 计算区间平均值
