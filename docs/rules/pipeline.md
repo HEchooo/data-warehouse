@@ -19,6 +19,9 @@
 - `ads_daily_content_performance`
 - `ads_daily_home_module_performance`
 - `ads_daily_thirdapp_channel_uv`
+- `ads_daily_lta_overview`
+- `ads_daily_lta_kol`
+- `ads_daily_lta_spu`
 - `ads_daily_tryon_confirm`
 - `ads_daily_post_tryon_confirm`
 - `ads_daily_tryon_add_cart_conversion`
@@ -58,6 +61,9 @@
 - `jobs/ads/ads_monthly_module_performance.py`
 - `jobs/ads/ads_daily_home_module_performance.py`
 - `jobs/ads/ads_daily_thirdapp_channel_uv.py`
+- `jobs/ads/ads_daily_lta_overview.py`
+- `jobs/ads/ads_daily_lta_kol.py`
+- `jobs/ads/ads_daily_lta_spu.py`
 - `jobs/ads/ads_daily_tryon_confirm.py`
 - `jobs/ads/ads_daily_post_tryon_confirm.py`
 - `jobs/ads/ads_daily_tryon_add_cart_conversion.py`
@@ -105,6 +111,9 @@
   - `ads_daily_content_performance`
   - `ads_daily_home_module_performance`
   - `ads_daily_thirdapp_channel_uv`
+  - `ads_daily_lta_overview`
+  - `ads_daily_lta_kol`
+  - `ads_daily_lta_spu`
   - `ads_daily_tryon_confirm`
   - `ads_daily_post_tryon_confirm`
   - `ads_daily_tryon_add_cart_conversion`
@@ -152,6 +161,10 @@
   - `dwd_event_log -> dws_home_module_daily -> ads_daily_home_module_performance`
 - 第三方渠道曝光链路：
   - `dwd_event_log -> dws_thirdapp_channel_device_daily -> ads_daily_thirdapp_channel_uv`
+- LTA 看板链路：
+  - `dwd_event_log + v3_decom.kol_rel -> dws_lta_thirdparty_event_daily -> ads_daily_lta_overview + ads_daily_lta_kol + ads_daily_lta_spu`
+  - 只看 `args.current_url` 域名为 `mycch.me` 的 `v_third_party_page` / `v_third_party_goods` / `c_third_party_goods` 三事件
+  - 商品曝光在 DWD 已按商品拆多行且 `args` 一致，DWS 先按 `raw_event_id` 去重再按 `args.spu[]/args.spu_name[]` 同位展开到商品级
 - 试穿点击汇总链路：
   - `dwd_event_log -> dws_tryon_confirm_daily -> ads_daily_tryon_confirm`
 - 帖子级试穿点击链路：

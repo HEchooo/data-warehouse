@@ -448,6 +448,18 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_lta_thirdparty_event_daily",
+      "stage": "DWS",
+      "name": "DWS LTA 第三方事件明细 ETL",
+      "script": "jobs/dws/dws_lta_thirdparty_event_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_lta_thirdparty_event_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_tryon_confirm_daily",
       "stage": "DWS",
       "name": "DWS 试穿点击汇总事实 ETL",
@@ -952,6 +964,42 @@
         "dws_thirdapp_channel_device_daily"
       ],
       "schedule_group": "ads_daily_thirdapp_channel_uv"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_lta_overview",
+      "stage": "ADS",
+      "name": "ADS LTA 看板日期总览日报 ETL",
+      "script": "jobs/ads/ads_daily_lta_overview.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_lta_thirdparty_event_daily"
+      ],
+      "schedule_group": "ads_daily_lta_overview"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_lta_kol",
+      "stage": "ADS",
+      "name": "ADS LTA 看板红人维度日报 ETL",
+      "script": "jobs/ads/ads_daily_lta_kol.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_lta_thirdparty_event_daily"
+      ],
+      "schedule_group": "ads_daily_lta_kol"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_lta_spu",
+      "stage": "ADS",
+      "name": "ADS LTA 看板商品维度日报 ETL",
+      "script": "jobs/ads/ads_daily_lta_spu.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_lta_thirdparty_event_daily"
+      ],
+      "schedule_group": "ads_daily_lta_spu"
     },
     {
       "layer": "ADS",
