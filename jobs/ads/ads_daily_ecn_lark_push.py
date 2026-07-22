@@ -28,6 +28,16 @@ LARK_WEBHOOK_CONFIG_PATH = PROJECT_ROOT / "env" / "lark_webhook.json"
 DASHBOARD_URL = (
     "https://bi.alvinclub.ca/superset/dashboard/social-content-video-monitor"
 )
+THROTTLE_DASHBOARD_URL = (
+    "https://bi.alvinclub.ca/superset/dashboard/"
+    "social-content-suspected-throttle-monitor"
+)
+# channel 落地枚举为 youtube / tiktok / ins（见 jobs/dim/dim_video.py）；仅做展示层美化。
+CHANNEL_DISPLAY_NAMES = {
+    "youtube": "YouTube",
+    "tiktok": "TikTok",
+    "ins": "Instagram",
+}
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -305,6 +315,75 @@ def fetch_social_video_rankings(target_date: date) -> dict:
     }
 
 
+def fetch_social_creator_view_rankings(target_date: date) -> dict:
+    # 三个榜同源两张账号级 ADS 榜表，排名不落库，按各自指标降序取 top3：
+    #   view_boost_ratio      -> ads_daily_social_creator_view_boost_rankings.boost_ratio
+    #   throttle_decline_rate -> ads_daily_social_creator_suspected_throttle_rankings.decline_rate
+    #   throttle_decline_abs  -> 同上表 .decline_abs
+    query = f"""
+    WITH
+    throttle AS (
+        SELECT
+            channel, creator_id, account_name, account_handle, account_url,
+            decline_rate, decline_abs, update_time
+        FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_social_creator_suspected_throttle_rankings`
+        WHERE dt = @target_date
+    ),
+    boost AS (
+        SELECT
+            channel, creator_id, account_name, account_handle, account_url,
+            boost_ratio, update_time
+        FROM `{PROJECT_ID}.{DATASET_ID}.ads_daily_social_creator_view_boost_rankings`
+        WHERE dt = @target_date
+    ),
+    decline_rate_top AS (
+        SELECT
+            'throttle_decline_rate' AS ranking_type, channel, creator_id,
+            account_name, account_handle, account_url,
+            decline_rate AS metric_value, update_time,
+            ROW_NUMBER() OVER (ORDER BY decline_rate DESC, creator_id) AS rank_no
+        FROM throttle
+        WHERE decline_rate IS NOT NULL
+        QUALIFY rank_no <= 3
+    ),
+    decline_abs_top AS (
+        SELECT
+            'throttle_decline_abs' AS ranking_type, channel, creator_id,
+            account_name, account_handle, account_url,
+            decline_abs AS metric_value, update_time,
+            ROW_NUMBER() OVER (ORDER BY decline_abs DESC, creator_id) AS rank_no
+        FROM throttle
+        WHERE decline_abs IS NOT NULL
+        QUALIFY rank_no <= 3
+    ),
+    boost_ratio_top AS (
+        SELECT
+            'view_boost_ratio' AS ranking_type, channel, creator_id,
+            account_name, account_handle, account_url,
+            boost_ratio AS metric_value, update_time,
+            ROW_NUMBER() OVER (ORDER BY boost_ratio DESC, creator_id) AS rank_no
+        FROM boost
+        WHERE boost_ratio IS NOT NULL
+        QUALIFY rank_no <= 3
+    )
+    SELECT * FROM boost_ratio_top
+    UNION ALL SELECT * FROM decline_rate_top
+    UNION ALL SELECT * FROM decline_abs_top
+    ORDER BY ranking_type, rank_no
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("target_date", "DATE", target_date)
+        ]
+    )
+    rows = list(client.query(query, job_config=job_config).result())
+    if not rows:
+        logger.warning("未找到 dt=%s 的账号播放波动榜数据，将展示占位行", target_date)
+    return {
+        "rows": [dict(row.items()) for row in rows],
+    }
+
+
 def fetch_thirdapp_metrics(target_date: date) -> dict:
     query = f"""
     SELECT
@@ -347,6 +426,20 @@ def format_percent(value, scale: int = 2) -> str:
     if value is None:
         return "--"
     return f"{float(value) * 100:,.{scale}f}%"
+
+
+def format_signed_percent(value, positive: bool, scale: int = 1) -> str:
+    if value is None:
+        return "--"
+    sign = "+" if positive else "-"
+    return f"{sign}{abs(float(value)) * 100:,.{scale}f}%"
+
+
+def format_signed_views(value, positive: bool) -> str:
+    if value is None:
+        return "--"
+    sign = "+" if positive else "-"
+    return f"{sign}{abs(int(round(float(value)))):,} views"
 
 
 def calc_rate(numerator, denominator):
@@ -699,6 +792,94 @@ def build_social_video_ranking_table(
     }
 
 
+def format_channel_label(channel) -> str:
+    if not isinstance(channel, str) or not channel.strip():
+        return "--"
+    key = channel.strip().lower()
+    return CHANNEL_DISPLAY_NAMES.get(key, channel.strip())
+
+
+def build_creator_account_cell(row: dict) -> str:
+    name = row.get("account_name") or row.get("account_handle") or row.get("creator_id")
+    name = str(name).strip() if name else "--"
+    url = row.get("account_url")
+    if isinstance(url, str) and url.strip():
+        return f"[{name}]({url.strip()})"
+    return name
+
+
+def format_creator_ranking_change(row: dict, ranking_type: str) -> str:
+    value = row.get("metric_value")
+    if ranking_type == "view_boost_ratio":
+        return format_signed_percent(value, positive=True)
+    if ranking_type == "throttle_decline_rate":
+        return format_signed_percent(value, positive=False)
+    if ranking_type == "throttle_decline_abs":
+        return format_signed_views(value, positive=False)
+    return "--"
+
+
+def build_creator_ranking_table(
+    ranking_metrics: dict,
+    ranking_type: str,
+    change_display_name: str,
+    element_id: str,
+) -> dict:
+    rows = [
+        {
+            "channel": format_channel_label(row.get("channel")),
+            "account": build_creator_account_cell(row),
+            "change": format_creator_ranking_change(row, ranking_type),
+        }
+        for row in ranking_metrics["rows"]
+        if row["ranking_type"] == ranking_type
+    ]
+    if not rows:
+        rows = [{"channel": "--", "account": "_暂无数据_", "change": "--"}]
+    return {
+        "tag": "table",
+        "element_id": element_id,
+        "margin": "8px 0px 0px 0px",
+        "page_size": 3,
+        "row_height": "low",
+        "header_style": {
+            "text_align": "center",
+            "text_size": "normal",
+            "background_style": "grey",
+            "text_color": "default",
+            "bold": True,
+            "lines": 1,
+        },
+        "columns": [
+            {
+                "name": "channel",
+                "display_name": "平台",
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "22%",
+            },
+            {
+                "name": "account",
+                "display_name": "账号",
+                "data_type": "lark_md",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "50%",
+            },
+            {
+                "name": "change",
+                "display_name": change_display_name,
+                "data_type": "text",
+                "horizontal_align": "center",
+                "vertical_align": "top",
+                "width": "28%",
+            },
+        ],
+        "rows": rows,
+    }
+
+
 def build_thirdapp_table(row: dict, element_id: str) -> dict:
     rows = [
         {
@@ -774,6 +955,10 @@ def get_latest_update_time_text(*rows_or_metrics: dict) -> str:
     return format_update_time(max(update_times))
 
 
+def divider_element() -> dict:
+    return {"tag": "hr", "margin": "20px 0px 12px 0px"}
+
+
 def build_card_payload(
     publish_row: dict,
     social_metrics: dict,
@@ -805,6 +990,7 @@ def build_card_payload(
                     {
                         "tag": "markdown",
                         "content": (
+                            "# 视频数据总览\n"
                             f"**数据日期**：`{dt_text}`\n"
                             f"**日期口径**：America/Toronto 昨日\n"
                             f"**更新时间**：{publish_update_time_text}"
@@ -817,10 +1003,11 @@ def build_card_payload(
                         element_id="publish_metrics",
                         target_date=publish_row["dt"],
                     ),
+                    divider_element(),
                     {
                         "tag": "markdown",
                         "content": (
-                            "#### 发布时间 cohort 平均播放\n"
+                            "# 发布时间 cohort 平均播放\n"
                             f"**展示渠道**：`全部渠道`\n"
                             f"**更新时间**：{social_update_time_text}"
                         ),
@@ -831,10 +1018,11 @@ def build_card_payload(
                         social_metrics,
                         element_id="social_content_metrics",
                     ),
+                    divider_element(),
                     {
                         "tag": "markdown",
                         "content": (
-                            "#### 昨天发布的视频中，播放数增量 Top 5（过去24小时）\n"
+                            "# 昨天发布的视频中，播放数增量 Top 5（过去24小时）\n"
                             f"**更新时间**：{ranking_update_time_text}"
                         ),
                         "text_align": "left",
@@ -848,7 +1036,7 @@ def build_card_payload(
                     {
                         "tag": "markdown",
                         "content": (
-                            "#### 过去发布的所有视频中，播放数增量 Top 5（过去24小时）\n"
+                            "# 过去发布的所有视频中，播放数增量 Top 5（过去24小时）\n"
                             f"**更新时间**：{ranking_update_time_text}"
                         ),
                         "text_align": "left",
@@ -858,20 +1046,6 @@ def build_card_payload(
                         ranking_metrics,
                         ranking_type="historical_video_top",
                         element_id="historical_video_top",
-                    ),
-                    {
-                        "tag": "markdown",
-                        "content": (
-                            "#### 第三方渠道外链跳转数据\n"
-                            f"**展示渠道**：`overall`\n"
-                            f"**更新时间**：{thirdapp_update_time_text}"
-                        ),
-                        "text_align": "left",
-                        "margin": "16px 0px 0px 0px",
-                    },
-                    build_thirdapp_table(
-                        thirdapp_row,
-                        element_id="thirdapp_metrics",
                     ),
                     {
                         "tag": "button",
@@ -890,7 +1064,107 @@ def build_card_payload(
                         ],
                         "margin": "16px 0px 0px 0px",
                     },
+                    divider_element(),
+                    {
+                        "tag": "markdown",
+                        "content": (
+                            "# 第三方渠道外链跳转数据\n"
+                            f"**展示渠道**：`overall`\n"
+                            f"**更新时间**：{thirdapp_update_time_text}"
+                        ),
+                        "text_align": "left",
+                        "margin": "16px 0px 0px 0px",
+                    },
+                    build_thirdapp_table(
+                        thirdapp_row,
+                        element_id="thirdapp_metrics",
+                    ),
                 ],
+            },
+        },
+    }
+
+
+def build_creator_ranking_card_payload(
+    creator_ranking_metrics: dict,
+    target_date: date,
+) -> dict:
+    dt_text = target_date.isoformat()
+    update_time_text = get_latest_update_time_text(creator_ranking_metrics)
+    sections = [
+        (
+            "view_boost_ratio",
+            "播放量波动增加账号 Top3（上升比例）",
+            "上升比例",
+        ),
+        (
+            "throttle_decline_rate",
+            "疑似限流账号 Top3（下降比例）",
+            "下降比例",
+        ),
+        (
+            "throttle_decline_abs",
+            "疑似限流账号 Top3（下降绝对值）",
+            "下降绝对值",
+        ),
+    ]
+    elements: list[dict] = []
+    for index, (ranking_type, title, change_label) in enumerate(sections):
+        if index > 0:
+            elements.append(divider_element())
+        elements.append(
+            {
+                "tag": "markdown",
+                "content": (
+                    f"# {title}\n"
+                    f"**更新时间**：{update_time_text}"
+                ),
+                "text_align": "left",
+                "margin": "16px 0px 0px 0px" if index else "0px 0px 0px 0px",
+            }
+        )
+        elements.append(
+            build_creator_ranking_table(
+                creator_ranking_metrics,
+                ranking_type=ranking_type,
+                change_display_name=change_label,
+                element_id=ranking_type,
+            )
+        )
+    elements.append(
+        {
+            "tag": "button",
+            "text": {
+                "tag": "plain_text",
+                "content": "疑似限流账号监控",
+            },
+            "type": "primary",
+            "width": "default",
+            "size": "medium",
+            "behaviors": [
+                {
+                    "type": "open_url",
+                    "default_url": THROTTLE_DASHBOARD_URL,
+                }
+            ],
+            "margin": "16px 0px 0px 0px",
+        }
+    )
+    return {
+        "msg_type": "interactive",
+        "card": {
+            "schema": "2.0",
+            "header": {
+                "template": "blue",
+                "title": {
+                    "tag": "plain_text",
+                    "content": f"ECN 账号播放波动榜 | {dt_text}",
+                },
+            },
+            "body": {
+                "direction": "vertical",
+                "padding": "12px 12px 12px 12px",
+                "elements": elements,
             },
         },
     }
@@ -918,6 +1192,7 @@ def main() -> int:
     publish_row = fetch_publish_metrics(target_date)
     social_metrics = fetch_social_content_metrics(target_date)
     ranking_metrics = fetch_social_video_rankings(target_date)
+    creator_ranking_metrics = fetch_social_creator_view_rankings(target_date)
     thirdapp_row = fetch_thirdapp_metrics(target_date)
     payload = build_card_payload(
         publish_row,
@@ -925,15 +1200,22 @@ def main() -> int:
         ranking_metrics,
         thirdapp_row,
     )
+    creator_ranking_payload = build_creator_ranking_card_payload(
+        creator_ranking_metrics,
+        target_date,
+    )
 
     if args.dry_run:
         logger.info("dry-run 模式，不实际发送 webhook")
         print(json.dumps(payload, ensure_ascii=False, indent=2))
+        print(json.dumps(creator_ranking_payload, ensure_ascii=False, indent=2))
         return 0
 
     webhook_url = args.webhook_url or load_lark_webhook()
     send_lark_message(webhook_url, payload)
-    logger.info("Lark ECN 数据发布指标推送完成，dt=%s", target_date)
+    logger.info("Lark ECN 数据发布指标推送完成（卡片一），dt=%s", target_date)
+    send_lark_message(webhook_url, creator_ranking_payload)
+    logger.info("Lark ECN 账号播放波动榜推送完成（卡片二），dt=%s", target_date)
     return 0
 
 
