@@ -29,6 +29,7 @@ MAKEPOD_REPORT_CHANNELS = [
     "Facebook",
     "TK-ELSA-AI",
     "YOUTUBE-ELSA-AI",
+    "Reddit",
     "Other Channel",
     MAKEPOD_ORGANIC_CHANNEL,
     "Overall",

@@ -137,6 +137,34 @@ def build_invite_code_functions_sql() -> str:
         return output;
     }
 
+    function base62Decode(input) {
+        var alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        var index = {};
+        for (var i = 0; i < alphabet.length; i += 1) {
+            index[alphabet.charAt(i)] = i;
+        }
+
+        var value = 0n;
+        for (var i = 0; i < input.length; i += 1) {
+            var ch = input.charAt(i);
+            if (!(ch in index)) {
+                return null;
+            }
+            value = value * 62n + BigInt(index[ch]);
+        }
+
+        var output = [];
+        if (value === 0n) {
+            output.push(0);
+        } else {
+            while (value > 0n) {
+                output.unshift(Number(value & 0xffn));
+                value = value >> 8n;
+            }
+        }
+        return output;
+    }
+
     function readBigInt64BE(bytes) {
         var normalized = bytes.slice(0, 8);
         while (normalized.length < 8) {
@@ -163,7 +191,13 @@ def build_invite_code_functions_sql() -> str:
             return null;
         }
 
-        var decodedBytes = base64Decode(normalized);
+        var decodedBytes;
+        if (normalized.charAt(0) === "6") {
+            // 以 '6' 开头：去掉前缀后按 Base62 解码，与服务端 Java / invitecode_mapping.py 口径对齐
+            decodedBytes = base62Decode(normalized.substring(1));
+        } else {
+            decodedBytes = base64Decode(normalized);
+        }
         if (decodedBytes === null) {
             return null;
         }

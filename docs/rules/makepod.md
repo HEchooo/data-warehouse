@@ -12,8 +12,8 @@
 - `invite_user_id` 是邀请用户 id，其中包含达人
 ## 渠道映射
 
-- 当前 Makepod 已知映射渠道固定为：`Facebook`、`Google`、`TikTok`、`TK-ELSA-AI`、`YOUTUBE-ELSA-AI`
-- 报表展示渠道固定为：`TikTok`、`Google`、`Facebook`、`TK-ELSA-AI`、`YOUTUBE-ELSA-AI`、`Other Channel`、`Organic`、`Overall`
+- 当前 Makepod 已知映射渠道固定为：`Facebook`、`Google`、`TikTok`、`TK-ELSA-AI`、`YOUTUBE-ELSA-AI`、`Reddit`
+- 报表展示渠道固定为：`TikTok`、`Google`、`Facebook`、`TK-ELSA-AI`、`YOUTUBE-ELSA-AI`、`Reddit`、`Other Channel`、`Organic`、`Overall`
 - `Other Channel`：未命中已知映射，但存在 `share_code` 或 `invite_user_id`
 - `Organic`：不存在 `share_code` 且不存在 `invite_user_id`
 - `Overall`：全站去重汇总；不是前面各渠道直接相加，跨渠道重复主体在 `Overall` 中只记 1 次
@@ -23,6 +23,10 @@
   - `AAACXvMzgK4 -> 2606091027981 -> TikTok`
   - `AAACXzUeDVA -> 2607062764531 -> TK-ELSA-AI`
   - `AAACXzUDkV8 -> 2607063062524 -> YOUTUBE-ELSA-AI`
+  - `600jur9wxV -> 2607226173754 -> Reddit`
+- 邀请码解码坑：`600jur9wxV` 以 `6` 开头，服务端真实解码（`invitecode_mapping.py`，含 `6` 前缀 Base62 分支）得 `2607226173754`，与 `user_info.invite_user_id` 一致；但 `dwd_makepod_event_log` 的 BigQuery JS UDF `invite_code_to_user_id` 未处理 `6` 前缀，对该码解码错误。因此：
+  - 服务端口径（`dim_makepod_user_channel`，基于 `user_info.invite_user_id`）用 `2607226173754` 匹配
+  - 事件流量口径（`dws_makepod_traffic_daily`）必须靠 `prop_share_code = '600jur9wxV'` 匹配，不能依赖事件表 `invite_user_id`
 
 ## 注册相关
 

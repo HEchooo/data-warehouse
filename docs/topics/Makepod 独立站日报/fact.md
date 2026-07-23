@@ -12,18 +12,18 @@
 
 | 需求字段 | 落地字段 | 口径 |
 |---|---|---|
-| 渠道 | `channel` | 固定枚举 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic / Overall`；映射关系见 `docs/rules/makepod.md` |
-| 全量 DAU | `dau_uv_total` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站 `dt` 去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
-| 新用户 DAU | `dau_new_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 去重后的新设备统计；`Overall` 按全站去重新设备统计，判定条件为 `dim_makepod_device_first_visit.first_visit_date = dt` |
-| 老用户 DAU | `dau_old_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 去重后的老设备统计；`Overall` 按全站去重老设备统计，判定条件为 `dim_makepod_device_first_visit.first_visit_date < dt` |
-| 注册人数 | `register_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `dim_makepod_user_channel.register_date × channel` 统计去重注册用户数；`Overall` 按注册日全站去重注册用户数 |
-| 商详页访问人数 | `product_detail_view_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
-| 加购人数 | `add_cart_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
-| 下单人数 | `order_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `dt × channel` 统计去重 `user_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按下单日全站去重 `user_id` |
-| 支付人数 | `pay_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `dt × channel` 统计去重 `user_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按支付日全站去重 `user_id` |
-| 支付订单数 | `pay_order_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `dt × channel` 统计去重 `order_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按支付日全站去重 `order_id` |
-| 支付 GMV | `pay_gmv_usd` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM((pay_amount + pay_fee) * usd_rate)`；`Overall` 按支付日全站汇总同口径 GMV；`pay_fee` 保持源表负数参与实付金额计算；汇率来自 `decom.currency_conversion_dict` |
-| 支付手续费 | `pay_fee_amount` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM(pay_fee * usd_rate)`；`Overall` 按支付日全站汇总同口径手续费；`currency_type = 'USD'` 时按 1 折算，其他币种使用 `decom.currency_conversion_dict` 转 USD，并保持源表负数符号 |
+| 渠道 | `channel` | 固定枚举 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic / Overall`；映射关系见 `docs/rules/makepod.md` |
+| 全量 DAU | `dau_uv_total` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站 `dt` 去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
+| 新用户 DAU | `dau_new_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重后的新设备统计；`Overall` 按全站去重新设备统计，判定条件为 `dim_makepod_device_first_visit.first_visit_date = dt` |
+| 老用户 DAU | `dau_old_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重后的老设备统计；`Overall` 按全站去重老设备统计，判定条件为 `dim_makepod_device_first_visit.first_visit_date < dt` |
+| 注册人数 | `register_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dim_makepod_user_channel.register_date × channel` 统计去重注册用户数；`Overall` 按注册日全站去重注册用户数 |
+| 商详页访问人数 | `product_detail_view_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
+| 加购人数 | `add_cart_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
+| 下单人数 | `order_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dt × channel` 统计去重 `user_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按下单日全站去重 `user_id` |
+| 支付人数 | `pay_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dt × channel` 统计去重 `user_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按支付日全站去重 `user_id` |
+| 支付订单数 | `pay_order_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dt × channel` 统计去重 `order_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按支付日全站去重 `order_id` |
+| 支付 GMV | `pay_gmv_usd` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM((pay_amount + pay_fee) * usd_rate)`；`Overall` 按支付日全站汇总同口径 GMV；`pay_fee` 保持源表负数参与实付金额计算；汇率来自 `decom.currency_conversion_dict` |
+| 支付手续费 | `pay_fee_amount` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM(pay_fee * usd_rate)`；`Overall` 按支付日全站汇总同口径手续费；`currency_type = 'USD'` 时按 1 折算，其他币种使用 `decom.currency_conversion_dict` 转 USD，并保持源表负数符号 |
 | 支付 SKU 件数 | `pay_sku_quantity` | `pay_status = 4` 的支付订单，按 `user_order_item.order_id = pay_order.order_id` 汇总 `SUM(sku_quantity)` 后，再按 `dt × channel` 聚合；`Overall` 为支付日全站汇总 |
 | 采购成本 | `purchase_cost_usd` | `pay_status = 4` 的支付订单，按 `user_order_item.sku_code = sku.sku_code` 获取 `sku.purchase_price × user_order_item.sku_quantity`，再使用 `sku.purchase_cur` 对应的 `decom.currency_conversion_dict` 汇率转换为 USD；按 `dt × channel` 汇总，`Overall` 为支付日全站汇总 |
 | 物流成本 | `logistics_cost_usd` | `pay_status = 4` 的去重支付订单数 × `5 USD`；按 `dt × channel` 汇总，`Overall` 为支付日全站汇总 |
@@ -45,7 +45,7 @@
 
 - 截至 `2026-06-10`，已完成建表、4 张 ETL 脚本生产全量初始化、手续费 USD 口径更新与 Superset 看板创建；当时已初始化 `2026-05-27` 到 `2026-06-10` 的日报分区，订单主题已初始化 `2026-05-29` 到 `2026-06-10`
 - 截至 `2026-06-26`，已完成分渠道代码与 DDL 上线，并对 `decom.dws_makepod_traffic_daily`、`decom.dws_makepod_order_daily`、`decom.ads_daily_makepod` 做历史全量回刷；订单与 ADS 的金额类历史值按当前 `decom.currency_conversion_dict` 重新换算
-- 截至 `2026-06-26`，仓库代码口径已调整为 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Other Channel / Organic / Overall`；其中 `Other Channel` 表示存在 `share_code` 或 `invite_user_id` 但未命中指定映射，`Organic` 表示两者都缺失，`Overall` 为全站去重汇总
+- 截至 `2026-06-26`，仓库代码口径已调整为 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic / Overall`；其中 `Other Channel` 表示存在 `share_code` 或 `invite_user_id` 但未命中指定映射，`Organic` 表示两者都缺失，`Overall` 为全站去重汇总
 - 截至 `2026-06-26`，Superset 物理 dataset `ads_daily_makepod`（id=261）已 refresh，dashboard `【Makepod】平台看板`（id=115）已新增 `channel` native filter
 - 截至 `2026-07-17`，已完成采购成本、物流成本、毛利、毛利率的 DWS/ADS 历史全量回填；`dws_makepod_order_daily` 共 50 个日期、400 行，`ads_daily_makepod` 共 52 个日期、416 行，每日期均补齐 8 个渠道
 - 截至 `2026-07-17`，Superset 物理 dataset `ads_daily_makepod`（id=261）已 refresh，明细图表（id=636）已新增 `采购成本（USD）/物流成本（USD）/毛利（USD）/毛利率` 四列

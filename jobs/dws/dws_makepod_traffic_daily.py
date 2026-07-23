@@ -29,6 +29,7 @@ MAKEPOD_REPORT_CHANNELS = [
     "Facebook",
     "TK-ELSA-AI",
     "YOUTUBE-ELSA-AI",
+    "Reddit",
     "Other Channel",
     "Organic",
     "Overall",
@@ -85,6 +86,9 @@ def build_makepod_event_channel_case_sql(
         WHEN CAST({share_code_expr} AS STRING) = 'AAACXzUDkV8'
             OR CAST({invite_user_id_expr} AS STRING) = '2607063062524'
             THEN 'YOUTUBE-ELSA-AI'
+        WHEN CAST({share_code_expr} AS STRING) = '600jur9wxV'
+            OR CAST({invite_user_id_expr} AS STRING) = '2607226173754'
+            THEN 'Reddit'
         WHEN NULLIF(CAST({share_code_expr} AS STRING), '') IS NOT NULL
             OR NULLIF(CAST({invite_user_id_expr} AS STRING), '') IS NOT NULL
             THEN 'Other Channel'
