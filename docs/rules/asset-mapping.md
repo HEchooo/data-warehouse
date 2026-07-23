@@ -26,6 +26,7 @@ DATETIME(TIMESTAMP(gmt_create, 'UTC'), 'Asia/Shanghai')
 - `post_ext.mainAssets[*].assetCode` 与 `community_fashion_asset.asset_code` 关联。
 - `mainAssets` 是数组；一个帖子可以包含多个素材，同一素材也可能被多个帖子复用。
 - 素材生产时间取 `community_fashion_asset.gmt_create`，不能使用帖子 `publish_time` 代替。
+- 素材发布时间取 `community_post.publish_time`，因为素材的发布时间就是帖子的发布时间。
 
 ## 素材曝光
 
