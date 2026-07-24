@@ -1,5 +1,6 @@
 import json
 import os
+import urllib.request
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from google.cloud import storage
@@ -10,6 +11,49 @@ import applog
 # 初始化客户端
 storage_client = storage.Client()
 bigquery_client = bigquery.Client()
+
+# 飞书告警 webhook，通过环境变量注入，不硬编码到仓库
+LARK_ALERT_WEBHOOK = os.environ.get("LARK_ALERT_WEBHOOK", "").strip()
+
+
+def send_lark_alert(text):
+    """向飞书群机器人推送一条文本告警。
+
+    告警属于旁路能力，发送失败只打印日志、绝不影响主流程；
+    webhook 未配置时静默跳过。
+    """
+    if not LARK_ALERT_WEBHOOK:
+        print(f"⚠️ 未配置 LARK_ALERT_WEBHOOK，跳过告警: {text}")
+        return
+    try:
+        payload = json.dumps(
+            {"msg_type": "text", "content": {"text": text}}
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            LARK_ALERT_WEBHOOK,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+    except Exception as e:
+        print(f"⚠️ 飞书告警发送失败: {e}")
+
+
+def summarize_insert_errors(errors):
+    """从 insert_rows_json 返回的 errors 中提取被拒行数、涉及字段与错误样例。"""
+    row_count = len(errors)
+    locations = set()
+    sample = None
+    for item in errors:
+        for err in item.get("errors", []):
+            loc = err.get("location")
+            if loc:
+                locations.add(loc)
+            if sample is None:
+                sample = err.get("message")
+    return row_count, locations, sample
 
 
 def coerce_string_for_bigquery(value):
@@ -49,6 +93,7 @@ def normalize_numeric_for_bigquery(value):
 @functions_framework.http
 def process_log_file(request):
     """Cloud Run entry point for processing Cloud Storage events"""
+    object_name = None
     try:
         # Parse the Cloud Storage event from Pub/Sub
         event_data = request.get_json()
@@ -105,6 +150,11 @@ def process_log_file(request):
 
     except Exception as e:
         print(f"❌ Error processing file: {str(e)}")
+        send_lark_alert(
+            "❌ decom-track-log-runner 处理文件失败\n"
+            f"文件: {object_name or '未知'}\n"
+            f"错误: {e}"
+        )
         return f"Error: {str(e)}", 500
 
 
@@ -152,6 +202,11 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
 
     # 准备数据行
     rows_to_insert = []
+    # 累计本文件写入 BigQuery 的异常，处理结束后汇总告警一条
+    rejected_rows = 0
+    error_locations = set()
+    error_sample = None
+    exec_errors = []
     # extrac oss_key such 'archived/2025-11-12/020.172.30.0.4.log' the date part and cast to bigyquery date type
     oss_key_date = None
     try:
@@ -240,6 +295,11 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
                     )
                     if errors:
                         print(f"❌ 插入数据时出现错误: {errors} gcs_key={gcs_key}")
+                        cnt, locs, samp = summarize_insert_errors(errors)
+                        rejected_rows += cnt
+                        error_locations |= locs
+                        if error_sample is None:
+                            error_sample = samp
                     else:
                         print(
                             f"✅ 成功插入 {len(rows_to_insert)} 行数据到BigQuery gcs_key={gcs_key}"
@@ -247,6 +307,7 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
                     rows_to_insert.clear()
                 except Exception as e:
                     print(f"❌ 批量插入数据失败: {e} gcs_key={gcs_key}")
+                    exec_errors.append(str(e))
                     rows_to_insert.clear()
 
         except Exception as e:
@@ -261,12 +322,34 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
             )
             if errors:
                 print(f"❌ 插入剩余数据时出现错误: {errors} gcs_key={gcs_key}")
+                cnt, locs, samp = summarize_insert_errors(errors)
+                rejected_rows += cnt
+                error_locations |= locs
+                if error_sample is None:
+                    error_sample = samp
             else:
                 print(
                     f"✅ 成功插入剩余 {len(rows_to_insert)} 行数据到BigQuery gcs_key={gcs_key}"
                 )
         except Exception as e:
             print(f"❌ 插入剩余数据失败: {e} gcs_key={gcs_key}")
+            exec_errors.append(str(e))
+
+    # 本文件存在写入异常时，汇总推送一条飞书告警
+    if rejected_rows or exec_errors:
+        lines = [
+            "⚠️ decom-track-log-runner 写入 BigQuery 异常",
+            f"文件: {gcs_key}",
+        ]
+        if rejected_rows:
+            lines.append(f"被拒行数: {rejected_rows}")
+            if error_locations:
+                lines.append(f"涉及字段: {', '.join(sorted(error_locations))}")
+            if error_sample:
+                lines.append(f"错误样例: {error_sample}")
+        if exec_errors:
+            lines.append(f"插入异常: {'; '.join(exec_errors[:3])}")
+        send_lark_alert("\n".join(lines))
 
     print(f"✅ 完成保存 {len(log_list)} 个日志实体到BigQuery gcs_key={gcs_key}")
 
