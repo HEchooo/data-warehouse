@@ -22,6 +22,12 @@
   - `json_extract(request_param, '$.postId')`
   - 同时要求 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`
 
+## 素材试穿映射
+
+- 试穿素材：
+  - `json_extract(request_param, '$.assetCode')`
+  - 同时要求 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`
+
 ## 常用指标映射
 
 - 试穿任务数：
