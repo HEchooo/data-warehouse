@@ -448,6 +448,18 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_launch_product_detail_device_daily",
+      "stage": "DWS",
+      "name": "DWS Launch 商详页设备级事实 ETL",
+      "script": "jobs/dws/dws_launch_product_detail_device_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_launch_product_detail_device_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_lta_thirdparty_event_daily",
       "stage": "DWS",
       "name": "DWS LTA 第三方事件明细 ETL",
@@ -964,6 +976,18 @@
         "dws_thirdapp_channel_device_daily"
       ],
       "schedule_group": "ads_daily_thirdapp_channel_uv"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_launch_product_detail",
+      "stage": "ADS",
+      "name": "ADS Launch 商详页总览日报 ETL",
+      "script": "jobs/ads/ads_daily_launch_product_detail.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_launch_product_detail_device_daily"
+      ],
+      "schedule_group": "ads_daily_launch_product_detail"
     },
     {
       "layer": "ADS",

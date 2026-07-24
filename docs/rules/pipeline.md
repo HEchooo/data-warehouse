@@ -19,6 +19,7 @@
 - `ads_daily_content_performance`
 - `ads_daily_home_module_performance`
 - `ads_daily_thirdapp_channel_uv`
+- `ads_daily_launch_product_detail`
 - `ads_daily_lta_overview`
 - `ads_daily_lta_kol`
 - `ads_daily_lta_spu`
@@ -61,6 +62,7 @@
 - `jobs/ads/ads_monthly_module_performance.py`
 - `jobs/ads/ads_daily_home_module_performance.py`
 - `jobs/ads/ads_daily_thirdapp_channel_uv.py`
+- `jobs/ads/ads_daily_launch_product_detail.py`
 - `jobs/ads/ads_daily_lta_overview.py`
 - `jobs/ads/ads_daily_lta_kol.py`
 - `jobs/ads/ads_daily_lta_spu.py`
@@ -111,6 +113,7 @@
   - `ads_daily_content_performance`
   - `ads_daily_home_module_performance`
   - `ads_daily_thirdapp_channel_uv`
+  - `ads_daily_launch_product_detail`
   - `ads_daily_lta_overview`
   - `ads_daily_lta_kol`
   - `ads_daily_lta_spu`
@@ -161,6 +164,10 @@
   - `dwd_event_log -> dws_home_module_daily -> ads_daily_home_module_performance`
 - 第三方渠道曝光链路：
   - `dwd_event_log -> dws_thirdapp_channel_device_daily -> ads_daily_thirdapp_channel_uv`
+- Launch 商详页总览链路：
+  - `dwd_event_log -> dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail`
+  - 只看 `event_name IN ('v_launch_product_detail','c_launch_product_detail_shopnow')` 两个埋点
+  - PV 按 `raw_event_id` 去重，UV 按 `prop_device_id` 去重；外跳率在 ADS 层用 `SAFE_DIVIDE` 轻派生
 - LTA 看板链路：
   - `dwd_event_log + v3_decom.kol_rel -> dws_lta_thirdparty_event_daily -> ads_daily_lta_overview + ads_daily_lta_kol + ads_daily_lta_spu`
   - 只看 `args.current_url` 域名为 `mycch.me` 的 `v_third_party_page` / `v_third_party_goods` / `c_third_party_goods` 三事件
