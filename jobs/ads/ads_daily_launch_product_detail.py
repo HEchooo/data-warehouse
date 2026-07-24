@@ -148,7 +148,9 @@ def run_ads_daily_launch_product_detail(dates: list[date]) -> None:
     - dt
 
     说明：
-    - PV 为设备级 raw_event_id 去重计数求和，UV 为 pv > 0 的设备计数
+    - PV 为 raw_event_id 去重计数求和，UV 为当日 pv > 0 的设备去重计数
+      （DWS 现按维度拆分为多行，同一设备可能同日落在多个维度组合，
+      UV 必须用 COUNT(DISTINCT device_id) 而非按行 COUNTIF）
     - 外跳率为轻派生：外跳 UV / 商品页 UV、外跳 PV / 商品页 PV；
       分母为 0 时用 SAFE_DIVIDE 返回 NULL
     """
@@ -184,9 +186,9 @@ def run_ads_daily_launch_product_detail(dates: list[date]) -> None:
         SELECT
             dt,
             SUM(product_detail_pv) AS product_detail_pv,
-            COUNTIF(product_detail_pv > 0) AS product_detail_uv,
+            COUNT(DISTINCT IF(product_detail_pv > 0, device_id, NULL)) AS product_detail_uv,
             SUM(shopnow_pv) AS shopnow_pv,
-            COUNTIF(shopnow_pv > 0) AS shopnow_uv
+            COUNT(DISTINCT IF(shopnow_pv > 0, device_id, NULL)) AS shopnow_uv
         FROM `{PROJECT_ID}.{DATASET_ID}.dws_launch_product_detail_device_daily`
         WHERE dt IN (
             SELECT dt

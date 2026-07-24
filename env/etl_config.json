@@ -991,6 +991,78 @@
     },
     {
       "layer": "ADS",
+      "table_name": "ads_daily_launch_product_detail_dimension",
+      "stage": "ADS",
+      "name": "ADS Launch 商详页多维度日报 ETL",
+      "script": "jobs/ads/ads_daily_launch_product_detail_dimension.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_launch_product_detail_device_daily"
+      ],
+      "schedule_group": "ads_daily_launch_product_detail_dimension"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_weekly_launch_product_detail_dimension",
+      "stage": "ADS",
+      "name": "ADS Launch 商详页多维度周报 ETL",
+      "script": "jobs/ads/ads_weekly_launch_product_detail_dimension.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_launch_product_detail_device_daily"
+      ],
+      "schedule_group": "ads_weekly_launch_product_detail_dimension"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_monthly_launch_product_detail_dimension",
+      "stage": "ADS",
+      "name": "ADS Launch 商详页多维度月报 ETL",
+      "script": "jobs/ads/ads_monthly_launch_product_detail_dimension.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_launch_product_detail_device_daily"
+      ],
+      "schedule_group": "ads_monthly_launch_product_detail_dimension"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_launch_product_detail_video_source",
+      "stage": "ADS",
+      "name": "ADS Launch 商详页来源概览日报 ETL",
+      "script": "jobs/ads/ads_daily_launch_product_detail_video_source.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_launch_product_detail_device_daily"
+      ],
+      "schedule_group": "ads_daily_launch_product_detail_video_source"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_weekly_launch_product_detail_video_source",
+      "stage": "ADS",
+      "name": "ADS Launch 商详页来源概览周报 ETL",
+      "script": "jobs/ads/ads_weekly_launch_product_detail_video_source.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_launch_product_detail_device_daily"
+      ],
+      "schedule_group": "ads_weekly_launch_product_detail_video_source"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_monthly_launch_product_detail_video_source",
+      "stage": "ADS",
+      "name": "ADS Launch 商详页来源概览月报 ETL",
+      "script": "jobs/ads/ads_monthly_launch_product_detail_video_source.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_launch_product_detail_device_daily"
+      ],
+      "schedule_group": "ads_monthly_launch_product_detail_video_source"
+    },
+    {
+      "layer": "ADS",
       "table_name": "ads_daily_lta_overview",
       "stage": "ADS",
       "name": "ADS LTA 看板日期总览日报 ETL",

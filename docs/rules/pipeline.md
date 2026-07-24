@@ -20,6 +20,12 @@
 - `ads_daily_home_module_performance`
 - `ads_daily_thirdapp_channel_uv`
 - `ads_daily_launch_product_detail`
+- `ads_daily_launch_product_detail_dimension`
+- `ads_weekly_launch_product_detail_dimension`
+- `ads_monthly_launch_product_detail_dimension`
+- `ads_daily_launch_product_detail_video_source`
+- `ads_weekly_launch_product_detail_video_source`
+- `ads_monthly_launch_product_detail_video_source`
 - `ads_daily_lta_overview`
 - `ads_daily_lta_kol`
 - `ads_daily_lta_spu`
@@ -114,6 +120,8 @@
   - `ads_daily_home_module_performance`
   - `ads_daily_thirdapp_channel_uv`
   - `ads_daily_launch_product_detail`
+  - `ads_daily_launch_product_detail_dimension`
+  - `ads_daily_launch_product_detail_video_source`
   - `ads_daily_lta_overview`
   - `ads_daily_lta_kol`
   - `ads_daily_lta_spu`
@@ -143,6 +151,10 @@
   - `ads_daily_push_recall`
   - `ads_daily_makepod`
   - `ads_daily_ai_fashion_styleme`
+  - `ads_weekly_launch_product_detail_dimension`
+  - `ads_monthly_launch_product_detail_dimension`
+  - `ads_weekly_launch_product_detail_video_source`
+  - `ads_monthly_launch_product_detail_video_source`
 - 固定窗口重刷或全量回刷能力，优先留在 `DWS` / `DIM` 层处理；不要重新引入共享 `ADS` 总入口来兜底
 
 
@@ -167,7 +179,14 @@
 - Launch 商详页总览链路：
   - `dwd_event_log -> dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail`
   - 只看 `event_name IN ('v_launch_product_detail','c_launch_product_detail_shopnow')` 两个埋点
-  - PV 按 `raw_event_id` 去重，UV 按 `prop_device_id` 去重；外跳率在 ADS 层用 `SAFE_DIVIDE` 轻派生
+  - DWS 粒度为 `dt × video_id × channel × kol_name × country × merchant × device_id`，5 个维度均来自 `args` JSON
+  - PV 按 `raw_event_id` 去重求和；UV 按 `device_id` 去重计数（不能对多维度拆分后的行数直接 `COUNTIF`）；外跳率在 ADS 层用 `SAFE_DIVIDE` 轻派生
+- Launch 商详页多维度链路：
+  - `dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail_dimension + ads_weekly_launch_product_detail_dimension + ads_monthly_launch_product_detail_dimension`
+  - 粒度分别为 `dt / week_start_dt(周一起) / month × video_id × channel × kol_name × country × merchant`
+  - 只统计商品页 PV/UV；PV/UV 贡献占比分母为当期全维度合计（UV 合计按 `device_id` 去重，不对各维度 UV 求和）；人均访问次数 = PV / UV
+  - `dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail_video_source + ads_weekly_launch_product_detail_video_source + ads_monthly_launch_product_detail_video_source`
+  - 粒度分别为 `dt / week_start_dt(周一起) / month`（不拆维度）；按 `video_id = '无法识别来源'` 与否将 UV 分为有来源 UV / 无来源 UV，同一设备当期若两类事件都有会分别计入两个桶
 - LTA 看板链路：
   - `dwd_event_log + v3_decom.kol_rel -> dws_lta_thirdparty_event_daily -> ads_daily_lta_overview + ads_daily_lta_kol + ads_daily_lta_spu`
   - 只看 `args.current_url` 域名为 `mycch.me` 的 `v_third_party_page` / `v_third_party_goods` / `c_third_party_goods` 三事件

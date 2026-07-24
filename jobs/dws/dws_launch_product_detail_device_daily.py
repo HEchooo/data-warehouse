@@ -88,6 +88,20 @@ def event_ts_expr() -> str:
     )
 
 
+def dimension_exprs() -> str:
+    """
+    5 个多维度看板维度，均来自 args JSON。
+    video_id 缺失时归为“无法识别来源”，其余维度缺失归为“-”。
+    """
+    return """
+        COALESCE(NULLIF(JSON_VALUE(args, '$.video_id'), ''), '无法识别来源') AS video_id,
+        COALESCE(NULLIF(JSON_VALUE(args, '$.channel'), ''), '-') AS channel,
+        COALESCE(NULLIF(JSON_VALUE(args, '$.kol_name'), ''), '-') AS kol_name,
+        COALESCE(NULLIF(JSON_VALUE(args, '$.country'), ''), '-') AS country,
+        COALESCE(NULLIF(JSON_VALUE(args, '$.merchant'), ''), '-') AS merchant
+    """
+
+
 def get_launch_product_detail_device_dates_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
 ) -> list[date]:
@@ -149,13 +163,15 @@ def run_dws_launch_product_detail_device_daily(dates: list[date]) -> None:
     产出 Launch 商详页主题设备级中间层。
 
     粒度：
-    - dt × device_id
+    - dt × video_id × channel × kol_name × country × merchant × device_id
 
     说明：
-    - DWS 保留设备级主题事实，供 ADS 汇总商品页 / 第三方外跳的 PV、UV
+    - DWS 保留设备 + 多维度主题事实，供 ADS 汇总商品页 / 第三方外跳的 PV、UV，
+      以及按视频代码 / 投放平台 / 红人账号 / 国家 / 商家的多维度拆分
     - PV 口径按 `raw_event_id` 全局唯一，设备级先 COUNT(DISTINCT raw_event_id)，
-      ADS 再对设备求和即得当日全局 PV
-    - UV 口径由 ADS 对 `pv > 0` 的设备计数得到
+      ADS 再按需要的粒度对设备求和即得对应 PV
+    - UV 口径由 ADS 对 `pv > 0` 的设备去重计数得到（同一设备当日可能落在多个维度组合，
+      不能直接对各维度 UV 求和得到总 UV）
     """
     if not dates:
         logging.info("没有新的 dws_launch_product_detail_device_daily 日期需要处理")
@@ -164,6 +180,7 @@ def run_dws_launch_product_detail_device_daily(dates: list[date]) -> None:
     dates_str = dates_to_sql_list(dates)
     dates_array_sql = dates_to_array_sql(dates)
     event_ts = event_ts_expr()
+    dims = dimension_exprs()
 
     query = f"""
     DELETE FROM `{target_table_id()}`
@@ -172,6 +189,11 @@ def run_dws_launch_product_detail_device_daily(dates: list[date]) -> None:
     INSERT INTO `{target_table_id()}`
     (
         dt,
+        video_id,
+        channel,
+        kol_name,
+        country,
+        merchant,
         device_id,
         product_detail_pv,
         shopnow_pv,
@@ -183,11 +205,12 @@ def run_dws_launch_product_detail_device_daily(dates: list[date]) -> None:
         SELECT dt
         FROM UNNEST([{dates_array_sql}]) AS dt
     ),
-    -- 提取商品页浏览与第三方外跳两类事件的设备与去重原始事件 id。
+    -- 提取商品页浏览与第三方外跳两类事件的设备、多维度与去重原始事件 id。
     base_events AS (
         SELECT
             DATE({event_ts}, '{EASTERN_TZ}') AS dt,
             NULLIF(prop_device_id, '') AS device_id,
+            {dims},
             event_name,
             NULLIF(raw_event_id, '') AS raw_event_id
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
@@ -198,18 +221,28 @@ def run_dws_launch_product_detail_device_daily(dates: list[date]) -> None:
                 FROM target_dates
             )
     ),
-    -- 聚合到设备级主题事实，PV 按 raw_event_id 去重。
+    -- 聚合到设备 + 多维度主题事实，PV 按 raw_event_id 去重。
     device_metric_daily AS (
         SELECT
             dt,
+            video_id,
+            channel,
+            kol_name,
+            country,
+            merchant,
             device_id,
             COUNT(DISTINCT IF(event_name = 'v_launch_product_detail', raw_event_id, NULL)) AS product_detail_pv,
             COUNT(DISTINCT IF(event_name = 'c_launch_product_detail_shopnow', raw_event_id, NULL)) AS shopnow_pv
         FROM base_events
-        GROUP BY dt, device_id
+        GROUP BY dt, video_id, channel, kol_name, country, merchant, device_id
     )
     SELECT
         dt,
+        video_id,
+        channel,
+        kol_name,
+        country,
+        merchant,
         device_id,
         product_detail_pv,
         shopnow_pv,
