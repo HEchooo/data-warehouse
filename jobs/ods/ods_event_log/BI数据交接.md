@@ -19,6 +19,7 @@
 - EventArc页面 [Triggers](https://console.cloud.google.com/eventarc/triggers?referrer=search&project=my-project-8584-jetonai)
 - Decom埋点日志函数 [decom-track-log-runner](https://console.cloud.google.com/run/detail/us-east4/decom-track-log-runner/observability/metrics?project=my-project-8584-jetonai)
 - AC埋点日志函数 [mall-track-log-runner](https://console.cloud.google.com/run/detail/us-east4/mall-track-log-runner/observability/metrics?hl=en&project=my-project-8584-jetonai)
+- decom-track-log-runner 写 BigQuery 报错会推送飞书告警群，webhook 配在 Cloud Run 环境变量 `LARK_ALERT_WEBHOOK`；网页设置方式：函数页 →「编辑并部署新修订版本」→ 展开「容器」→「变量和 Secret」→「添加变量」填 `LARK_ALERT_WEBHOOK` 及群机器人 webhook → 底部「部署」
 - 使用GCP自带DataStream同步 [链接](https://console.cloud.google.com/datastream/streams?referrer=search&project=my-project-8584-jetonai)
 - 可以找Max开通下这些角色，方便在GCP的数据工作
 - - Artifact Registry Writer
