@@ -12,6 +12,21 @@ storage_client = storage.Client()
 bigquery_client = bigquery.Client()
 
 
+def coerce_string_for_bigquery(value):
+    """将 args 中的标量字段规范化为 STRING 列可接受的值。
+
+    客户端可能把本应是字符串的字段（如 module）上报成数组/对象，
+    直接写入非重复 STRING 列会触发
+    "Array specified for non-repeated field"。
+    这里对 list/dict 用 json.dumps 序列化，保留原始值不丢失。
+    """
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
 def normalize_numeric_for_bigquery(value):
     """将输入值规范化为BigQuery NUMERIC可接受的字符串（最多9位小数）"""
     if value is None or value == "":
@@ -173,21 +188,29 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
                     else None
                 ),
                 "args_page_key": (
-                    log.args.get("page_key", None)
+                    coerce_string_for_bigquery(log.args.get("page_key", None))
                     if isinstance(log.args, dict)
                     else None
                 ),
                 "args_title": (
-                    log.args.get("title", None) if isinstance(log.args, dict) else None
+                    coerce_string_for_bigquery(log.args.get("title", None))
+                    if isinstance(log.args, dict)
+                    else None
                 ),
                 "args_href": (
-                    log.args.get("href", None) if isinstance(log.args, dict) else None
+                    coerce_string_for_bigquery(log.args.get("href", None))
+                    if isinstance(log.args, dict)
+                    else None
                 ),
                 "args_from": (
-                    log.args.get("from", None) if isinstance(log.args, dict) else None
+                    coerce_string_for_bigquery(log.args.get("from", None))
+                    if isinstance(log.args, dict)
+                    else None
                 ),
                 "args_module": (
-                    log.args.get("module", None) if isinstance(log.args, dict) else None
+                    coerce_string_for_bigquery(log.args.get("module", None))
+                    if isinstance(log.args, dict)
+                    else None
                 ),
                 "args_spu": json.dumps(log.args.get("spu", None)),
                 "oss_create_at": ctime,
