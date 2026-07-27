@@ -1440,6 +1440,67 @@
         "dws_video_code_search_user_daily"
       ],
       "schedule_group": "ads_daily_video_code_conversion"
+    },
+    {
+      "layer": "DIM",
+      "table_name": "dim_asset",
+      "stage": "DIM",
+      "name": "DIM dim_asset ETL",
+      "script": "jobs/dim/dim_asset.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dim_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_asset_user_daily",
+      "stage": "DWS",
+      "name": "DWS 素材用户日事实 ETL",
+      "script": "jobs/dws/dws_asset_user_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "dwd_event_log"
+      ],
+      "schedule_group": "dws_asset_user_daily"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_weekly_ai_fashion_asset_overview",
+      "stage": "ADS",
+      "name": "ADS 素材内容周总览 ETL",
+      "script": "jobs/ads/ads_weekly_ai_fashion_asset_overview.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_asset",
+        "dws_asset_user_daily"
+      ],
+      "schedule_group": "ads_weekly_ai_fashion_asset_overview"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_ai_fashion_asset_rankings",
+      "stage": "ADS",
+      "name": "ADS 素材内容日榜单 ETL",
+      "script": "jobs/ads/ads_daily_ai_fashion_asset_rankings.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_asset",
+        "dws_asset_user_daily"
+      ],
+      "schedule_group": "ads_daily_ai_fashion_asset_rankings"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_ai_fashion_asset_detail",
+      "stage": "ADS",
+      "name": "ADS 素材内容明细日报 ETL",
+      "script": "jobs/ads/ads_daily_ai_fashion_asset_detail.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_asset",
+        "dws_asset_user_daily"
+      ],
+      "schedule_group": "ads_daily_ai_fashion_asset_detail"
     }
   ]
 }

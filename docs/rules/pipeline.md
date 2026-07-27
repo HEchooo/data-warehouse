@@ -54,6 +54,9 @@
 - `ads_daily_push_recall`
 - `ads_daily_makepod`
 - `ads_daily_ai_fashion_styleme`
+- `ads_weekly_ai_fashion_asset_overview`
+- `ads_daily_ai_fashion_asset_rankings`
+- `ads_daily_ai_fashion_asset_detail`
 
 ### 执行流程
 
@@ -97,6 +100,9 @@
 - `jobs/ads/ads_daily_push_recall.py`
 - `jobs/ads/ads_daily_makepod.py`
 - `jobs/ads/ads_daily_ai_fashion_styleme.py`
+- `jobs/ads/ads_weekly_ai_fashion_asset_overview.py`
+- `jobs/ads/ads_daily_ai_fashion_asset_rankings.py`
+- `jobs/ads/ads_daily_ai_fashion_asset_detail.py`
 
 日期规则：
 1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定待处理 `dt`
@@ -155,6 +161,9 @@
   - `ads_monthly_launch_product_detail_dimension`
   - `ads_weekly_launch_product_detail_video_source`
   - `ads_monthly_launch_product_detail_video_source`
+  - `ads_weekly_ai_fashion_asset_overview`
+  - `ads_daily_ai_fashion_asset_rankings`
+  - `ads_daily_ai_fashion_asset_detail`
 - 固定窗口重刷或全量回刷能力，优先留在 `DWS` / `DIM` 层处理；不要重新引入共享 `ADS` 总入口来兜底
 
 
@@ -277,6 +286,12 @@
   - `dwd_event_log -> dws_push_recall_daily -> ads_daily_push_recall`
 - AI-Fashion Style Me 链路：
   - `dwd_event_log + v3_decom.common_ext_ai_task + dws_user_daily -> dws_ai_fashion_styleme_daily -> ads_daily_ai_fashion_styleme`
+- AI-Fashion 素材内容链路：
+  - `v3_decom.community_fashion_asset + v3_decom.community_post + dim_column -> dim_asset`
+  - `dwd_event_log + v3_decom.common_ext_ai_task -> dws_asset_user_daily`
+  - `dim_asset + dws_asset_user_daily -> ads_weekly_ai_fashion_asset_overview + ads_daily_ai_fashion_asset_rankings + ads_daily_ai_fashion_asset_detail`
+  - 曝光只看 `v_brand_post_detail` / `v_magazine_post_detail` / `v_star_post_detail` 三个帖子详情页事件；试穿看 `common_ext_ai_task.request_param.$.assetCode`（`task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`）；负反馈看 `c_feedback_entry.args.asset_code`
+  - 周总览统计对象固定为“本周新上线素材”（`dim_asset.publish_dt` 落在当周），只保留 `brand`/`magazine`/`star` 三模块；日榜单与明细不限模块、不限新发布
 - 默认要求：`ADS` 只消费本主题所需的 `DIM` / `DWS`；如果发现 `ADS` 直接读取 `ODS` / `DWD` / 外部源表，应优先视为待收口架构债，而不是常规模式
 - 总量和新增异常时，先确认自己走的是事件链路还是下载链路。
 - 非下载类 ADS 默认不要直接消费下载链路回刷日期；优先按自身依赖链路分发日期，避免全链路无效回刷。
