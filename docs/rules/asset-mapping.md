@@ -11,11 +11,6 @@
 - 表：`v3_decom.community_fashion_asset`
 - 素材 ID：`asset_code`
 - 素材生产时间：`gmt_create`
-- `gmt_create` 为服务端 UTC `DATETIME`；转换为东八区时间时使用：
-
-```sql
-DATETIME(TIMESTAMP(gmt_create, 'UTC'), 'Asia/Shanghai')
-```
 
 - 同一 `asset_code` 存在多条记录时，优先按 `COALESCE(gmt_update, gmt_create)` 倒序、`id` 倒序保留最近一条。
 
