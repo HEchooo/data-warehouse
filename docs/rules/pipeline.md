@@ -290,7 +290,7 @@
   - `v3_decom.community_fashion_asset + v3_decom.community_post + dim_column -> dim_asset`
   - `dwd_event_log + v3_decom.common_ext_ai_task -> dws_asset_user_daily`
   - `dim_asset + dws_asset_user_daily -> ads_weekly_ai_fashion_asset_overview + ads_daily_ai_fashion_asset_rankings + ads_daily_ai_fashion_asset_detail`
-  - 曝光只看 `v_brand_post_detail` / `v_magazine_post_detail` / `v_star_post_detail` 三个帖子详情页事件；试穿看 `common_ext_ai_task.request_param.$.assetCode`（`task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`）；负反馈看 `c_feedback_entry.args.asset_code`
+  - 曝光只看 `v_brand_post_detail` / `v_magazine_post_detail` / `v_star_post_detail` 三个帖子详情页事件；试穿看 `common_ext_ai_task.request_param.$.assetCode`（`task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`）；负反馈看 `c_feedback_entry.args.asset_code`；素材下方商品点击看 `c_product.args.asset_code`（2026-07-25 起上报）
   - 周总览统计对象固定为“本周新上线素材”（`dim_asset.publish_dt` 落在当周），只保留 `brand`/`magazine`/`star` 三模块；日榜单与明细不限模块、不限新发布
 - 默认要求：`ADS` 只消费本主题所需的 `DIM` / `DWS`；如果发现 `ADS` 直接读取 `ODS` / `DWD` / 外部源表，应优先视为待收口架构债，而不是常规模式
 - 总量和新增异常时，先确认自己走的是事件链路还是下载链路。

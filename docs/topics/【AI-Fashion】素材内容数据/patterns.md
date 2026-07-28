@@ -78,7 +78,21 @@
   `DATEADD(DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day), -1, day) : DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day)`
   用 UTC now 向后平移 5 小时近似美东时间再截天，取「昨天」。当前 Superset 实例的 `DATETIME()` 不支持直接指定 `America/Toronto`，这是目前代码库里对日榜单类 dashboard 的既有折衷写法，不是本主题独创。
 
-## 12. 「周」这类非时间取值的筛选器，不要硬套 `filter_time`
+## 12. 新增行为指标类字段，明细表的「当日有行为」过滤条件容易漏改
+
+- 现象：
+  `ads_daily_ai_fashion_asset_detail` 只保留当日曝光/试穿/负反馈任一不为 0 的素材（`WHERE d.exposure_pv > 0 OR d.tryon_count > 0 OR d.negative_feedback_pv > 0`）；新增「素材下方商品点击 UV」时如果只加了 SELECT 列、没有同步扩展这条 `WHERE`，会导致「只有点击、无曝光/试穿/负反馈」的素材整行被过滤掉，看起来像点击数据缺失，实际是明细表本身漏行。
+- 处理：
+  新增任何行为类指标后，先检查明细表末尾的「当日有行为」组合条件是否需要 `OR` 上新指标；本次改动加了 `OR d.product_click_uv > 0`。
+
+## 13. `c_product` 的 `args.asset_code` 同样是标量、同样有明确起报时间
+
+- 现象：
+  `c_product`（素材下方商品点击）的 `args.asset_code` 与「帖子详情页素材曝光」小节的形态一致——**标量字符串**、**2026-07-25 起才开始上报**；实测全历史仅约 20~27 行带该字段（截至 2026-07-27），`args.page_key` 全部落在 `star_detail`/`magazine_detail`/`brand_detail` 三个帖子详情页。
+- 处理：
+  直接复用已有的 `asset_codes_unnest_expr()` 标量/数组兼容分支，不需要再判断 `page_key`（与曝光口径的页面范围天然一致）。新指标只落 UV（`product_click_uv`），DWS 层仍需落 PV（`product_click_pv`）作为用户粒度基础列，避免 ADS 层重复扫描事件表算 UV。
+
+## 14. 「周」这类非时间取值的筛选器，不要硬套 `filter_time`
 
 - 现象：
   周总览的周字段合并成 `week_range`（字符串）后，如果筛选器仍用 `filter_time` 对着 `week_start_dt` 做时间范围选择，本质上是给一个「取值型」维度套了时间控件的交互，用户没法直接按周挑选，还必须带一个不需要的默认时间范围。

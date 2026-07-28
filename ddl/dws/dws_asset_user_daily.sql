@@ -9,3 +9,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_asset_user_daily` (
 )
 PARTITION BY dt
 CLUSTER BY asset_code, user_id;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_asset_user_daily`
+ADD COLUMN IF NOT EXISTS product_click_pv INT64;

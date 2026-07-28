@@ -21,3 +21,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_ai_fashion_asset_rankings`
 )
 PARTITION BY dt
 CLUSTER BY ranking_type, asset_code;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_ai_fashion_asset_rankings`
+ADD COLUMN IF NOT EXISTS product_click_uv INT64;

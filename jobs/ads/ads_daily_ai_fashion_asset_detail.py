@@ -171,6 +171,7 @@ def run(dates: list[date]) -> None:
         online_days,
         exposure_pv,
         exposure_uv,
+        product_click_uv,
         tryon_count,
         tryon_uv,
         negative_feedback_pv,
@@ -179,13 +180,14 @@ def run(dates: list[date]) -> None:
         update_time
     )
     WITH
-    -- 日级素材宽表：曝光 PV/UV、试穿次数/UV、负反馈 PV/UV。
+    -- 日级素材宽表：曝光 PV/UV、商品点击 UV、试穿次数/UV、负反馈 PV/UV。
     day_asset_agg AS (
         SELECT
             dt,
             asset_code,
             SUM(exposure_pv) AS exposure_pv,
             COUNT(DISTINCT IF(exposure_pv > 0, user_id, NULL)) AS exposure_uv,
+            COUNT(DISTINCT IF(product_click_pv > 0, user_id, NULL)) AS product_click_uv,
             SUM(tryon_count) AS tryon_count,
             COUNT(DISTINCT IF(tryon_count > 0, user_id, NULL)) AS tryon_uv,
             SUM(negative_feedback_pv) AS negative_feedback_pv,
@@ -206,6 +208,7 @@ def run(dates: list[date]) -> None:
         DATE_DIFF(d.dt, a.publish_dt, DAY) AS online_days,
         d.exposure_pv,
         d.exposure_uv,
+        d.product_click_uv,
         d.tryon_count,
         d.tryon_uv,
         d.negative_feedback_pv,
@@ -216,6 +219,7 @@ def run(dates: list[date]) -> None:
     LEFT JOIN `{dim_asset_table_id()}` a
         USING (asset_code)
     WHERE d.exposure_pv > 0 OR d.tryon_count > 0 OR d.negative_feedback_pv > 0
+        OR d.product_click_uv > 0
     ORDER BY d.dt, d.asset_code;
     """
     logging.info("开始处理: %s", TABLE_NAME)

@@ -179,7 +179,7 @@ def run(week_starts: list[date]) -> None:
 
     指标：
     - 本周新上线素材总数、获得曝光/有效曝光/样本不足/0 曝光素材数
-    - 曝光 UV / 试穿 UV / 负反馈 UV（周内去重）、负反馈率
+    - 曝光 UV / 商品点击 UV / 试穿 UV / 负反馈 UV（周内去重）、负反馈率
     """
     if not week_starts:
         logging.info("没有新的 %s 周需要处理", TABLE_NAME)
@@ -204,6 +204,7 @@ def run(week_starts: list[date]) -> None:
         insufficient_sample_asset_count,
         zero_exposure_asset_count,
         exposure_uv,
+        product_click_uv,
         tryon_uv,
         negative_feedback_uv,
         negative_feedback_rate,
@@ -243,7 +244,8 @@ def run(week_starts: list[date]) -> None:
             f.user_id,
             f.exposure_pv,
             f.tryon_count,
-            f.negative_feedback_pv
+            f.negative_feedback_pv,
+            f.product_click_pv
         FROM new_assets na
         JOIN `{PROJECT_ID}.{DATASET_ID}.dws_asset_user_daily` f
             ON f.asset_code = na.asset_code
@@ -282,12 +284,13 @@ def run(week_starts: list[date]) -> None:
         FROM asset_classification
         GROUP BY week_start_dt, module
     ),
-    -- 模块级周用户指标：曝光/试穿/负反馈 UV 按周去重（不能由素材级 UV 求和）。
+    -- 模块级周用户指标：曝光/商品点击/试穿/负反馈 UV 按周去重（不能由素材级 UV 求和）。
     module_week_user_metrics AS (
         SELECT
             week_start_dt,
             module,
             COUNT(DISTINCT IF(exposure_pv > 0, user_id, NULL)) AS exposure_uv,
+            COUNT(DISTINCT IF(product_click_pv > 0, user_id, NULL)) AS product_click_uv,
             COUNT(DISTINCT IF(tryon_count > 0, user_id, NULL)) AS tryon_uv,
             COUNT(DISTINCT IF(negative_feedback_pv > 0, user_id, NULL)) AS negative_feedback_uv
         FROM fact_scoped
@@ -307,6 +310,7 @@ def run(week_starts: list[date]) -> None:
         COALESCE(c.new_asset_count, 0) - COALESCE(c.exposed_asset_count, 0)
             AS zero_exposure_asset_count,
         COALESCE(u.exposure_uv, 0) AS exposure_uv,
+        COALESCE(u.product_click_uv, 0) AS product_click_uv,
         COALESCE(u.tryon_uv, 0) AS tryon_uv,
         COALESCE(u.negative_feedback_uv, 0) AS negative_feedback_uv,
         SAFE_DIVIDE(u.negative_feedback_uv, u.exposure_uv) AS negative_feedback_rate,

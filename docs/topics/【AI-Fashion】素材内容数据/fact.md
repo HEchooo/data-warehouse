@@ -25,8 +25,9 @@
 
 - 不限「新发布」，不限模块，全站一份榜；`module` / `column_name` 仅作展示字段
 - 粒度：每日（美东时区）
-- `ranking_type` 三种：
+- `ranking_type` 四种：
   - `tryon_uv_top5`：当日试穿 UV > 0 的素材，按试穿 UV 降序取前 5（并列时按曝光 UV 降序、`asset_code` 兜底排序）
+  - `product_click_uv_top5`：当日素材下方商品点击 UV > 0 的素材，按商品点击 UV 降序取前 5（并列排序规则同上）
   - `tryon_uv_bottom50`：候选池为当日曝光 UV > 0 的素材，按试穿 UV 升序取前 50
   - `negative_feedback_rate_top50`：候选池为当日曝光 UV > 0 的素材，按负反馈率降序取前 50
 - 榜单条数不足时按实际条数输出，不补空行
@@ -51,6 +52,7 @@
 | `insufficient_sample_asset_count` | 样本不足素材数 | 获得曝光素材中，`0 < 周曝光 UV <= 500` |
 | `zero_exposure_asset_count` | 0 曝光素材数 | `new_asset_count - exposed_asset_count`（服务端有、日志无曝光） |
 | `exposure_uv` | 曝光 UV | 获得曝光素材中，`prop_user_id` 按周去重 |
+| `product_click_uv` | 素材下方商品点击 UV | 获得曝光素材范围内，商品点击次数 > 0 的用户按周去重（`c_product.args.asset_code`，2026-07-25 起上报） |
 | `tryon_uv` | 试穿 UV | 获得曝光素材范围内，试穿次数 > 0 的用户按周去重 |
 | `negative_feedback_uv` | 负反馈 UV | 获得曝光素材范围内，负反馈 PV > 0 的用户按周去重 |
 | `negative_feedback_rate` | 负反馈率 | `negative_feedback_uv / exposure_uv` |
@@ -69,12 +71,14 @@
 | `creator` | 运营人员 |
 | `publish_time` / `online_days` | 素材上线时间 / 上线天数（`dt - publish_dt`） |
 | `exposure_pv` / `exposure_uv` | 当日曝光 PV / UV |
+| `product_click_uv` | 当日素材下方商品点击 UV（只落 UV，不落 PV） |
 | `tryon_count` / `tryon_uv` | 当日试穿次数 / UV |
 | `negative_feedback_pv` / `negative_feedback_uv` | 当日负反馈 PV / UV |
 | `negative_feedback_rate` | 负反馈率 |
 
 Chart 实际展示列（精简版，见下方 Superset 小节）：
 - `每日试穿UV Top5` / `每日试穿UV Bottom50`：日报日期、排名、素材ID、素材名称、内容模块、专栏名称、曝光UV、试穿UV
+- `每日素材下方商品点击UV Top5`：日报日期、排名、素材ID、素材名称、内容模块、专栏名称、曝光UV、素材下方商品点击UV
 - `每日负反馈率Top50`：日报日期、排名、素材ID、素材名称、内容模块、专栏名称、曝光UV、负反馈UV、负反馈率
 
 ### 素材明细
@@ -91,6 +95,7 @@ Chart 实际展示列（精简版，见下方 Superset 小节）：
 | 素材上线天数 | `online_days` | `DATE_DIFF(dt, publish_dt, DAY)` |
 | 曝光 PV | `exposure_pv` | `COUNT(DISTINCT raw_event_id)` |
 | 曝光 UV | `exposure_uv` | `COUNT(DISTINCT prop_user_id)` |
+| 素材下方商品点击 UV | `product_click_uv` | `c_product` 的 `COUNT(DISTINCT prop_user_id)`（`args.asset_code`，2026-07-25 起上报；只落 UV，不落 PV） |
 | 试穿次数 | `tryon_count` | `COUNT(DISTINCT task_id)`，`task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` |
 | 试穿 UV | `tryon_uv` | `COUNT(DISTINCT user_id)`，同上条件 |
 | 负反馈 PV | `negative_feedback_pv` | `c_feedback_entry` 的 `COUNT(DISTINCT raw_event_id)` |
@@ -109,7 +114,7 @@ Chart 实际展示列（精简版，见下方 Superset 小节）：
 v3_decom.community_fashion_asset + v3_decom.community_post + decom.dim_column
   -> decom.dim_asset
 
-decom.dwd_event_log + v3_decom.common_ext_ai_task
+decom.dwd_event_log（曝光/负反馈/商品点击） + v3_decom.common_ext_ai_task（试穿）
   -> decom.dws_asset_user_daily
 
 dim_asset + dws_asset_user_daily
@@ -128,7 +133,7 @@ dim_asset + dws_asset_user_daily
 
 ### 规则
 
-- `docs/rules/asset-mapping.md`：素材主数据、帖子素材映射、帖子详情页素材曝光、素材试穿、素材负反馈、素材模块/专栏归属
+- `docs/rules/asset-mapping.md`：素材主数据、帖子素材映射、帖子详情页素材曝光、素材试穿、素材负反馈、素材下方商品点击、素材模块/专栏归属
 - `docs/rules/tryon-mapping.md`：试穿任务类型与素材试穿映射
 - `docs/rules/data.md`：时间切天、去重、聚合规则
 
@@ -138,18 +143,19 @@ dim_asset + dws_asset_user_daily
 - chart（自上而下即 dashboard 展示顺序）：
   1. `每周新上线素材数据总览`（id=711）
   2. `每日试穿UV Top5`（id=712，`ranking_type='tryon_uv_top5'` 固定过滤）
-  3. `每日试穿UV Bottom50`（id=713，`ranking_type='tryon_uv_bottom50'` 固定过滤）
-  4. `每日负反馈率Top50`（id=714，`ranking_type='negative_feedback_rate_top50'` 固定过滤）
-  5. `素材明细`（id=715）
+  3. `每日素材下方商品点击UV Top5`（id=716，`ranking_type='product_click_uv_top5'` 固定过滤）
+  4. `每日试穿UV Bottom50`（id=713，`ranking_type='tryon_uv_bottom50'` 固定过滤）
+  5. `每日负反馈率Top50`（id=714，`ranking_type='negative_feedback_rate_top50'` 固定过滤）
+  6. `素材明细`（id=715）
 - 图表展示列均使用中文 label（`all_columns` 用 `{expressionType: SQL, label: 中文, sqlExpression: "列名 "}` 形式，`sqlExpression` 末尾补一个空格，这是当前 Superset 实例的已知实测修正方式）
 - dashboard：`【AI-Fashion】素材内容数据`（id=128，slug `ai-fashion-asset-content-data`）
 - native filter（顺序与作用范围均与 chart 自上而下顺序对齐，且已在 filter 名称中直接标注作用范围）：
   1. `周范围（周总览）`：`filter_select`，作用于 `week_range` 取值（数据集 289），不设默认值，仅作用于 chart 711
-  2. `日报日期（榜单+明细）`：`filter_time`，默认「美东昨日」（`DATEADD(DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day), -1, day) : DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day)`，与 dashboard 122《每日排行榜》一致的既有写法），作用于 chart 712/713/714/715
-  3. `内容模块（全部图表）`：`filter_select`，多选，不设默认值，作用于全部 5 个 chart
+  2. `日报日期（榜单+明细）`：`filter_time`，默认「美东昨日」（`DATEADD(DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day), -1, day) : DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day)`，与 dashboard 122《每日排行榜》一致的既有写法），作用于 chart 712/716/713/714/715
+  3. `内容模块（全部图表）`：`filter_select`，多选，不设默认值，作用于全部 6 个 chart
 
 ### 当前状态
 
 - 截至 `2026-07-27`，已完成 `dim_asset`（91,898 素材）、`dws_asset_user_daily`（`2026-02-09` 起）历史全量初始化
-- 截至 `2026-07-27`，已完成三张 ADS 表对齐 DWS 范围的历史回刷
-- 截至 `2026-07-27`，Superset dataset / chart / dashboard / native filter 已创建并通过 `chart/data` 真实查询验证
+- 截至 `2026-07-28`，新增「素材下方商品点击 UV」（`c_product.args.asset_code`，2026-07-25 起上报）：`dws_asset_user_daily` 加列 `product_click_pv`，三张 ADS 表加列 `product_click_uv`，全量回刷；新增榜单 `product_click_uv_top5`；Superset 新增 chart 716 并接入 dashboard 128，chart 711/715 插入新展示列，三个 native filter 作用范围同步更新
+- 截至 `2026-07-28`，Superset dataset / chart / dashboard / native filter 已创建并通过 `chart/data` 真实查询验证

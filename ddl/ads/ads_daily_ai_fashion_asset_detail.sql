@@ -19,3 +19,6 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_ai_fashion_asset_detail` (
 )
 PARTITION BY dt
 CLUSTER BY module, column_id, asset_code;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_ai_fashion_asset_detail`
+ADD COLUMN IF NOT EXISTS product_click_uv INT64;

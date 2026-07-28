@@ -21,3 +21,6 @@ DROP COLUMN IF EXISTS week_end_dt;
 
 ALTER TABLE `my-project-8584-jetonai.decom.ads_weekly_ai_fashion_asset_overview`
 ADD COLUMN IF NOT EXISTS week_range STRING;
+
+ALTER TABLE `my-project-8584-jetonai.decom.ads_weekly_ai_fashion_asset_overview`
+ADD COLUMN IF NOT EXISTS product_click_uv INT64;

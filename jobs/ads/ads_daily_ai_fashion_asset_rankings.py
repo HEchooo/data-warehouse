@@ -10,6 +10,7 @@
 - tryon_uv_top5：当日试穿 UV > 0 的素材，按试穿 UV 降序取前 5
 - tryon_uv_bottom50：当日曝光 UV > 0 的素材，按试穿 UV 升序取前 50
 - negative_feedback_rate_top50：当日曝光 UV > 0 的素材，按负反馈率降序取前 50
+- product_click_uv_top5：当日素材下方商品点击 UV > 0 的素材，按商品点击 UV 降序取前 5
 """
 
 from datetime import date, datetime, timezone
@@ -29,6 +30,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "ads" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 TRYON_UV_TOP_N = 5
+PRODUCT_CLICK_UV_TOP_N = 5
 BOTTOM_N = 50
 
 client = bigquery.Client(project=PROJECT_ID)
@@ -178,6 +180,7 @@ def run(dates: list[date]) -> None:
         online_days,
         exposure_pv,
         exposure_uv,
+        product_click_uv,
         tryon_count,
         tryon_uv,
         negative_feedback_pv,
@@ -186,13 +189,14 @@ def run(dates: list[date]) -> None:
         update_time
     )
     WITH
-    -- 日级素材宽表：曝光 PV/UV、试穿次数/UV、负反馈 PV/UV。
+    -- 日级素材宽表：曝光 PV/UV、商品点击 UV、试穿次数/UV、负反馈 PV/UV。
     day_asset_agg AS (
         SELECT
             dt,
             asset_code,
             SUM(exposure_pv) AS exposure_pv,
             COUNT(DISTINCT IF(exposure_pv > 0, user_id, NULL)) AS exposure_uv,
+            COUNT(DISTINCT IF(product_click_pv > 0, user_id, NULL)) AS product_click_uv,
             SUM(tryon_count) AS tryon_count,
             COUNT(DISTINCT IF(tryon_count > 0, user_id, NULL)) AS tryon_uv,
             SUM(negative_feedback_pv) AS negative_feedback_pv,
@@ -215,6 +219,7 @@ def run(dates: list[date]) -> None:
             DATE_DIFF(d.dt, a.publish_dt, DAY) AS online_days,
             d.exposure_pv,
             d.exposure_uv,
+            d.product_click_uv,
             d.tryon_count,
             d.tryon_uv,
             d.negative_feedback_pv,
@@ -236,6 +241,19 @@ def run(dates: list[date]) -> None:
         FROM day_asset_wide
         WHERE tryon_uv > 0
         QUALIFY rank_no <= {TRYON_UV_TOP_N}
+    ),
+    -- 每日 Top5 高商品点击 UV 素材。
+    product_click_uv_top AS (
+        SELECT
+            *,
+            'product_click_uv_top5' AS ranking_type,
+            ROW_NUMBER() OVER (
+                PARTITION BY dt
+                ORDER BY product_click_uv DESC, exposure_uv DESC, asset_code
+            ) AS rank_no
+        FROM day_asset_wide
+        WHERE product_click_uv > 0
+        QUALIFY rank_no <= {PRODUCT_CLICK_UV_TOP_N}
     ),
     -- 试穿 UV 最低的素材 Bottom50（候选池：当日有曝光的素材）。
     tryon_uv_bottom AS (
@@ -277,6 +295,7 @@ def run(dates: list[date]) -> None:
         online_days,
         exposure_pv,
         exposure_uv,
+        product_click_uv,
         tryon_count,
         tryon_uv,
         negative_feedback_pv,
@@ -285,6 +304,8 @@ def run(dates: list[date]) -> None:
         CURRENT_TIMESTAMP() AS update_time
     FROM (
         SELECT * FROM tryon_uv_top
+        UNION ALL
+        SELECT * FROM product_click_uv_top
         UNION ALL
         SELECT * FROM tryon_uv_bottom
         UNION ALL

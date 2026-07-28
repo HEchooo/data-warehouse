@@ -3,7 +3,7 @@
 落地 ``decom.dws_asset_user_daily``，粒度：``dt × asset_code × user_id``。
 
 依赖：
-- decom.dwd_event_log（帖子详情页素材曝光、素材负反馈埋点）
+- decom.dwd_event_log（帖子详情页素材曝光、素材负反馈、素材下方商品点击埋点）
 - v3_decom.common_ext_ai_task（素材试穿服务端任务）
 
 硬性条件：所有 dwd_event_log 来源只统计 prop_user_id IS NOT NULL AND prop_user_id != '' 的数据。
@@ -35,6 +35,9 @@ EXPOSURE_EVENT_NAMES = (
 )
 # 素材负反馈埋点。
 FEEDBACK_EVENT_NAMES = ("c_feedback_entry",)
+# 素材下方商品点击埋点（args.asset_code 自 2026-07-25 起上报，标量字符串）。
+# 注意与 dws_column_interaction_daily.py 的同名常量不是同一口径：那里是专栏级商品点击。
+PRODUCT_CLICK_EVENT_NAMES = ("c_product",)
 # 平台默认试穿任务类型（tryon-mapping.md）。
 TRYON_TASK_TYPES = ("QUICK_TRY_ON", "TRY_ON", "OUTFIT")
 
@@ -142,17 +145,21 @@ def get_dates_to_process(
     service_change_ts = service_change_ts_expr()
     exposure_event_names_sql = string_values_to_sql_list(EXPOSURE_EVENT_NAMES)
     feedback_event_names_sql = string_values_to_sql_list(FEEDBACK_EVENT_NAMES)
+    product_click_event_names_sql = string_values_to_sql_list(PRODUCT_CLICK_EVENT_NAMES)
     tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
     is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
         query = f"""
         WITH
-        -- 曝光 / 负反馈事件历史业务日。
+        -- 曝光 / 负反馈 / 商品点击事件历史业务日。
         event_dates AS (
             SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS dt
             FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
-            WHERE event_name IN ({exposure_event_names_sql}, {feedback_event_names_sql})
+            WHERE event_name IN (
+                    {exposure_event_names_sql}, {feedback_event_names_sql},
+                    {product_click_event_names_sql}
+                )
                 AND prop_user_id IS NOT NULL
                 AND CAST(prop_user_id AS STRING) != ''
                 AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
@@ -186,7 +193,10 @@ def get_dates_to_process(
         SELECT DISTINCT DATE({event_ts}, '{TORONTO_TZ}') AS source_dt
         FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`
         WHERE update_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {window_hours} HOUR)
-            AND event_name IN ({exposure_event_names_sql}, {feedback_event_names_sql})
+            AND event_name IN (
+                {exposure_event_names_sql}, {feedback_event_names_sql},
+                {product_click_event_names_sql}
+            )
             AND prop_user_id IS NOT NULL
             AND CAST(prop_user_id AS STRING) != ''
             AND DATE({event_ts}, '{TORONTO_TZ}') IS NOT NULL
@@ -228,6 +238,7 @@ def run_dws_asset_user_daily(dates: list[date]) -> None:
     - 曝光 PV（按 raw_event_id 去重）
     - 试穿次数（按 task_id 去重）
     - 负反馈 PV（按 raw_event_id 去重）
+    - 商品点击 PV（按 raw_event_id 去重）
     """
     if not dates:
         logging.info("没有新的 dws_asset_user_daily 日期需要处理")
@@ -236,6 +247,7 @@ def run_dws_asset_user_daily(dates: list[date]) -> None:
     dates_str = dates_to_sql_list(dates)
     exposure_event_names_sql = string_values_to_sql_list(EXPOSURE_EVENT_NAMES)
     feedback_event_names_sql = string_values_to_sql_list(FEEDBACK_EVENT_NAMES)
+    product_click_event_names_sql = string_values_to_sql_list(PRODUCT_CLICK_EVENT_NAMES)
     tryon_task_types_sql = string_values_to_sql_list(TRYON_TASK_TYPES)
     event_ts = event_ts_expr()
     service_ts = service_ts_expr()
@@ -254,6 +266,7 @@ def run_dws_asset_user_daily(dates: list[date]) -> None:
         exposure_pv,
         tryon_count,
         negative_feedback_pv,
+        product_click_pv,
         update_time
     )
     WITH
@@ -311,6 +324,33 @@ def run_dws_asset_user_daily(dates: list[date]) -> None:
         WHERE asset_code IS NOT NULL AND asset_code != ''
         GROUP BY dt, asset_code, user_id
     ),
+    -- 素材下方商品点击：c_product，只看已登录用户。
+    product_click_base AS (
+        SELECT
+            DATE({event_ts}, '{TORONTO_TZ}') AS dt,
+            JSON_VALUE(asset_code_json) AS asset_code,
+            CAST(prop_user_id AS STRING) AS user_id,
+            raw_event_id
+        FROM `{PROJECT_ID}.{DATASET_ID}.dwd_event_log`,
+        {asset_codes_unnest_expr("args.asset_code")} AS asset_code_json
+        WHERE DATE(logAt_timestamp) BETWEEN DATE_SUB(DATE '{min_dt}', INTERVAL 1 DAY)
+            AND DATE_ADD(DATE '{max_dt}', INTERVAL 1 DAY)
+            AND DATE({event_ts}, '{TORONTO_TZ}') IN ({dates_str})
+            AND event_name IN ({product_click_event_names_sql})
+            AND prop_user_id IS NOT NULL
+            AND CAST(prop_user_id AS STRING) != ''
+            AND args.asset_code IS NOT NULL
+    ),
+    product_click_daily AS (
+        SELECT
+            dt,
+            asset_code,
+            user_id,
+            COUNT(DISTINCT raw_event_id) AS product_click_pv
+        FROM product_click_base
+        WHERE asset_code IS NOT NULL AND asset_code != ''
+        GROUP BY dt, asset_code, user_id
+    ),
     -- 素材试穿：request_param.$.assetCode，限定平台默认试穿任务类型。
     tryon_daily AS (
         SELECT
@@ -326,13 +366,15 @@ def run_dws_asset_user_daily(dates: list[date]) -> None:
             AND DATE({service_ts}, '{TORONTO_TZ}') IN ({dates_str})
         GROUP BY dt, asset_code, user_id
     ),
-    -- 目标日期骨架：确保三份来源的 dt × asset_code × user_id 都能对齐补 0。
+    -- 目标日期骨架：确保四份来源的 dt × asset_code × user_id 都能对齐补 0。
     unioned_keys AS (
         SELECT dt, asset_code, user_id FROM exposure_daily
         UNION DISTINCT
         SELECT dt, asset_code, user_id FROM tryon_daily
         UNION DISTINCT
         SELECT dt, asset_code, user_id FROM feedback_daily
+        UNION DISTINCT
+        SELECT dt, asset_code, user_id FROM product_click_daily
     )
     SELECT
         k.dt,
@@ -341,11 +383,13 @@ def run_dws_asset_user_daily(dates: list[date]) -> None:
         COALESCE(e.exposure_pv, 0) AS exposure_pv,
         COALESCE(t.tryon_count, 0) AS tryon_count,
         COALESCE(f.negative_feedback_pv, 0) AS negative_feedback_pv,
+        COALESCE(p.product_click_pv, 0) AS product_click_pv,
         CURRENT_TIMESTAMP() AS update_time
     FROM unioned_keys k
     LEFT JOIN exposure_daily e USING (dt, asset_code, user_id)
     LEFT JOIN tryon_daily t USING (dt, asset_code, user_id)
     LEFT JOIN feedback_daily f USING (dt, asset_code, user_id)
+    LEFT JOIN product_click_daily p USING (dt, asset_code, user_id)
     ORDER BY k.dt, k.asset_code, k.user_id;
     """
     logging.info("开始处理: dws_asset_user_daily")

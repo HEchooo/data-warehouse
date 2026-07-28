@@ -70,6 +70,18 @@
 - 负反馈率：负反馈 UV / 曝光 UV
 - 截至 2026-07，`c_feedback_entry` 全历史事件都只带 `args.post` / `args.spu`，尚未见到 `args.asset_code` 上报；口径按 `args.asset_code` 正常实现，当前结果为 0 属预期，待埋点补齐后自动产出数据
 
+## 素材下方商品点击
+
+- 事件：`c_product`
+- 素材 ID 来源：JSON 字段 `args.asset_code`
+- `args.asset_code` 是**标量字符串**，与「帖子详情页素材曝光」小节一致；解析时同样需兼容标量/数组两种形态
+- 该字段 **从 2026-07-25 起才开始上报**，之前的事件不带该字段
+- `args.page_key` 目前只落在 `star_detail` / `magazine_detail` / `brand_detail` 三个帖子详情页，与素材曝光的页面范围一致，故不额外按 `page_key` 过滤
+- 有效用户条件：`prop_user_id IS NOT NULL AND prop_user_id != ''`
+- 商品点击 PV：按 `asset_code` 分组，`COUNT(DISTINCT raw_event_id)`（同一 `raw_event_id` 会因 `args.spu` 拆多行，必须按 `raw_event_id` 去重）
+- 商品点击 UV：按 `asset_code` 分组，`COUNT(DISTINCT prop_user_id)`
+- 当前只落地 UV，不产出对外可见的 PV 报表字段
+
 ## 素材模块 / 专栏归属
 
 - 素材模块由其首发帖（`publish_time` 最早的关联帖）的 `post_type` 派生：`2,4 -> star`、`5 -> magazine`、`6,7 -> brand`、`8 -> video`、`9 -> kol`，其余归为 `other`
@@ -80,5 +92,5 @@
 
 - 一次性临时取数可以直接读取素材主表、点赞表和 `dwd_event_log`。
 - 素材维度（稳定属性 + 模块/专栏归属）已下沉到 `DIM`：`decom.dim_asset`
-- 素材曝光 / 试穿 / 负反馈用户级事实已下沉到 `DWS`：`decom.dws_asset_user_daily`（粒度 `dt × asset_code × user_id`）
+- 素材曝光 / 试穿 / 负反馈 / 商品点击用户级事实已下沉到 `DWS`：`decom.dws_asset_user_daily`（粒度 `dt × asset_code × user_id`）
 - 后续素材相关报表应优先复用 `dim_asset` / `dws_asset_user_daily`，不要重新读取 `community_fashion_asset` / `community_post` / `dwd_event_log` 现算，避免报表层重复全历史扫描事件表
