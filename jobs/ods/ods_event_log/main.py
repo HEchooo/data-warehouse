@@ -173,6 +173,46 @@ def get_log_entity_list_from_content(file_content, gcs_key):
     return log_list
 
 
+def insert_rows_with_size_guard(
+    bigquery_client, table_ref, rows, gcs_key, error_messages
+):
+    """插入一批行到BigQuery，请求体超过10MB限制时自动二分拆批重试。
+
+    固定按1000行分批仍可能因个别行的args/ext字段过大而超过BigQuery
+    insertAll的10MB硬限制，导致整批失败。二分重试无需猜测安全批大小，
+    也能兜住这种个别超大行的情况。
+    """
+    if not rows:
+        return
+
+    try:
+        errors = bigquery_client.insert_rows_json(
+            table_ref, rows, skip_invalid_rows=True
+        )
+        if errors:
+            msg = f"❌ 插入数据时出现错误: {errors} gcs_key={gcs_key}"
+            print(msg)
+            error_messages.append(msg)
+        else:
+            print(f"✅ 成功插入 {len(rows)} 行数据到BigQuery gcs_key={gcs_key}")
+    except Exception as e:
+        if "Request payload size exceeds the limit" in str(e) and len(rows) > 1:
+            mid = len(rows) // 2
+            print(
+                f"⚠️ 批量插入请求体超限，拆分为 {mid} + {len(rows) - mid} 行重试 gcs_key={gcs_key}"
+            )
+            insert_rows_with_size_guard(
+                bigquery_client, table_ref, rows[:mid], gcs_key, error_messages
+            )
+            insert_rows_with_size_guard(
+                bigquery_client, table_ref, rows[mid:], gcs_key, error_messages
+            )
+        else:
+            msg = f"❌ 批量插入数据失败: {e} gcs_key={gcs_key}"
+            print(msg)
+            error_messages.append(msg)
+
+
 def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
     """
     将日志列表保存到BigQuery
@@ -228,7 +268,9 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
                 "ext_productCode": json.dumps(log.ext.get("productCode", None)),
                 "args": json.dumps(log.args) if isinstance(log.args, dict) else "{}",
                 "args_session_duration": (
-                    normalize_numeric_for_bigquery(log.args.get("session_duration", None))
+                    normalize_numeric_for_bigquery(
+                        log.args.get("session_duration", None)
+                    )
                     if isinstance(log.args, dict)
                     else None
                 ),
@@ -278,25 +320,10 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
 
             # 每1000行批量插入
             if len(rows_to_insert) >= 1000:
-                try:
-
-                    errors = bigquery_client.insert_rows_json(
-                        table_ref, rows_to_insert, skip_invalid_rows=True
-                    )
-                    if errors:
-                        msg = f"❌ 插入数据时出现错误: {errors} gcs_key={gcs_key}"
-                        print(msg)
-                        error_messages.append(msg)
-                    else:
-                        print(
-                            f"✅ 成功插入 {len(rows_to_insert)} 行数据到BigQuery gcs_key={gcs_key}"
-                        )
-                    rows_to_insert.clear()
-                except Exception as e:
-                    msg = f"❌ 批量插入数据失败: {e} gcs_key={gcs_key}"
-                    print(msg)
-                    error_messages.append(msg)
-                    rows_to_insert.clear()
+                insert_rows_with_size_guard(
+                    bigquery_client, table_ref, rows_to_insert, gcs_key, error_messages
+                )
+                rows_to_insert.clear()
 
         except Exception as e:
             print(f"❌ 处理日志实体时出错: {e} gcs_key={gcs_key}")
@@ -304,22 +331,9 @@ def save_log_list(log_list, bigquery_client, log_day, ctime, gcs_key):
 
     # 插入剩余的数据
     if rows_to_insert:
-        try:
-            errors = bigquery_client.insert_rows_json(
-                table_ref, rows_to_insert, skip_invalid_rows=True
-            )
-            if errors:
-                msg = f"❌ 插入剩余数据时出现错误: {errors} gcs_key={gcs_key}"
-                print(msg)
-                error_messages.append(msg)
-            else:
-                print(
-                    f"✅ 成功插入剩余 {len(rows_to_insert)} 行数据到BigQuery gcs_key={gcs_key}"
-                )
-        except Exception as e:
-            msg = f"❌ 插入剩余数据失败: {e} gcs_key={gcs_key}"
-            print(msg)
-            error_messages.append(msg)
+        insert_rows_with_size_guard(
+            bigquery_client, table_ref, rows_to_insert, gcs_key, error_messages
+        )
 
     # 本文件存在写入异常时，把原始报错汇总推送一条飞书告警
     if error_messages:
