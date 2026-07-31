@@ -5,3 +5,10 @@
 - `v3_decom.sku.purchase_price` 在 SKU 配置未完成时可能短暂出现 `99999`；如果直接参与 CNY 到 USD 换算，会产生远高于 GMV 的采购成本
 - 回填前应只针对支付成功订单涉及的 SKU 检查采购价范围、`99999` 数量、空采购价、空币种和未匹配 SKU
 - 如果异常 SKU 正在被业务侧修正，应等待源表更新完成后重新查询；不能在 ETL 中擅自把 `99999` 固化为 0 或其他采购价
+
+## 周报周口径曾误用 WEEK(SUNDAY)，已订正为 WEEK(MONDAY)
+
+- 背景：`dws_makepod_order_weekly` 最初的 `WEEK_START_EXPR` 沿用了【Makepod】高价值用户监控那次临时取数里业务方给的周日~周六范围，但看板本身标注「本看板时区为 Asia/Shanghai」，上海时区语境下自然周应为周一~周日；仓库其他周表（`ads_weekly_ai_fashion_*` 等）也均为 `WEEK(MONDAY)`
+- 2026-07-31 订正为 `WEEK(MONDAY)`，涉及 `jobs/dws/dws_makepod_order_weekly.py`、`jobs/ads/ads_weekly_makepod_paid_user_order.py`
+- 订正后 `week_start_dt` 整体位移一天，DELETE+INSERT 增量逻辑无法覆盖旧的周日分区值，必须先清空 `decom.dws_makepod_order_weekly` 全表触发全量重跑，`ads_weekly_makepod_paid_user_order` 走 staging+swap 全量重建即可自动对齐
+- 排查线索：看板明确写了时区，但某个 chart 的周范围起止日和其余同看板 chart 对不上，优先检查该 chart 对应的 `WEEK_START_EXPR` 是不是抄了别的临时口径

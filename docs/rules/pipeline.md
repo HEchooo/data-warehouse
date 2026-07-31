@@ -187,7 +187,7 @@
   - `dws_makepod_traffic_daily + dws_makepod_order_daily -> ads_daily_makepod`
 - Makepod 独立站周报链路：
   - `dim_makepod_user_channel + v3_decom.pay_order + decom.currency_conversion_dict -> dws_makepod_order_weekly -> ads_weekly_makepod_paid_user_order`
-  - 周口径固定为 `WEEK(SUNDAY)`（周日起），与仓库其他周表 `WEEK(MONDAY)` 不同，属 Makepod 主题既定差异，对齐业务方原始需求
+  - 周口径为上海时区自然周 `WEEK(MONDAY)`（周一起），与仓库其他周表一致（2026-07-31 前曾误用 `WEEK(SUNDAY)`，已订正）
   - `dws_makepod_order_weekly` 周维度支付人数不能由 `dws_makepod_order_daily` 的日值直接相加（跨天多次支付的用户会被重复计数），必须回 `v3_decom.pay_order` 明细按 `user_id` 在周窗口内整体去重后重新聚合
   - 粒度为 `week_start_dt × channel × order_group`；`order_group`（订单分组）按用户周内支付成功订单数分为 `1单 / 2单 / 3单及以上`，另有 `全部分组` 表示不分桶的原有汇总，口径对齐 `docs/topics/【Makepod】高价值用户监控/`（渠道对用户是固定属性，按 `user_id` 计数不会因渠道拆分重复放大）
   - `dws_makepod_order_weekly` 按固定 9 个渠道枚举 × 4 个订单分组枚举补齐周骨架（含 `Overall` 渠道、`全部分组`），供 `ads_weekly_makepod_paid_user_order` 用 `LAG` 计算周环比时不会跨过缺失周；`ads_weekly_makepod_paid_user_order` 出口再过滤掉全零的 周 × 渠道 × 订单分组 组合

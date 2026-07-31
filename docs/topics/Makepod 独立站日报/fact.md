@@ -4,7 +4,7 @@
 
 - 表：`decom.ads_daily_makepod`（日报）、`decom.ads_weekly_makepod_paid_user_order`（周报）
 - Dashboard：[【Makepod】平台看板](https://bi.alvinclub.ca/superset/dashboard/115/)（id=115）
-- 粒度：日报 `dt × channel`；周报 `week_start_dt（周日起自然周） × channel`
+- 粒度：日报 `dt × channel`；周报 `week_start_dt（周一起自然周） × channel`
 - 时区：`Asia/Shanghai`
 - 主题：Makepod 独立站流量与交易日汇总 / 周维度支付用户订单分布
 
@@ -34,7 +34,7 @@
 
 | 需求字段 | 落地字段 | 口径 |
 |---|---|---|
-| week_range | `week_range` | 按自然周分组，周日 ~ 周六，展示为 `2026-07-12 ~ 2026-07-18` |
+| week_range | `week_range` | 按自然周分组，周一 ~ 周日，展示为 `2026-07-13 ~ 2026-07-19` |
 | 渠道 | `channel` | 与日报一致的固定枚举，含 `Overall`（全站去重汇总，不是各渠道相加） |
 | 订单分组 | `order_group` | 按用户在同一周内的支付成功订单数分桶：`1单` / `2单` / `3单及以上`；另有 `全部分组`（不分桶的原有汇总，兼容既有展示）。口径对齐 `docs/topics/【Makepod】高价值用户监控/`：渠道对用户是固定属性，按 `user_id` 计数不会因渠道拆分重复放大 |
 | 支付用户数 | `pay_user_count` | 周内按 `user_id` 去重的支付成功（`pay_status = 4`）用户数；不能由日报 `pay_user_count` 按 7 天相加得出（跨天多次支付会被重复计数），需回 `v3_decom.pay_order` 明细在周窗口内整体去重 |
@@ -76,3 +76,4 @@
 - 截至 `2026-07-17`，Superset 物理 dataset `ads_daily_makepod`（id=261）已 refresh，明细图表（id=636）已新增 `采购成本（USD）/物流成本（USD）/毛利（USD）/毛利率` 四列
 - 截至 `2026-07-31`，周报 `dws_makepod_order_weekly` / `ads_weekly_makepod_paid_user_order` 已完成建表、ETL 脚本与编排上线；用户确认后已完成生产历史全量初始化（`dws_makepod_order_weekly` 9 个周 × 9 渠道，`ads_weekly_makepod_paid_user_order` 出口过滤后 22 行）与 Superset dataset（id=293）/chart（id=719）创建、dashboard 115 挂载与三个 filter 的 scope 调整；抽查历史周的支付用户数/订单数与 `docs/topics/【Makepod】高价值用户监控/query.sql` 的 2026-07-27 取数结果逐格一致（GMV 因汇率字典更新有合理小幅漂移）
 - 截至 `2026-07-31`（同日追加），根据用户反馈完成两处调整：① Superset chart 的三个周环比列改用内置 `success`/`error` 预设配色（`#ACE1C4` / `#EFA1AA`），比初版自定义深色更柔和；② 新增 `order_group`（订单分组）维度，粒度扩展为 `周 × 渠道 × 订单分组`，`dws_makepod_order_weekly` / `ads_weekly_makepod_paid_user_order` 均已 `ALTER TABLE ADD COLUMN order_group STRING` 并完成生产历史全量重建（`dws_makepod_order_weekly` 现为 9 周 × 9 渠道 × 4 订单分组 = 324 行，`ads_weekly_makepod_paid_user_order` 出口过滤后 65 行）；chart 719 新增「订单分组」展示列并调整排序；已校验同渠道下 3 个分桶行之和等于 `全部分组` 行，`Overall` 渠道同理成立
+- 截至 `2026-07-31`（同日再追加），根据用户反馈订正周口径：`dws_makepod_order_weekly` 原先误用 `WEEK(SUNDAY)`（周日起），与看板标注的 `Asia/Shanghai` 时区自然周不符，已改为 `WEEK(MONDAY)`（周一起），与仓库其他周表口径一致；`week_start_dt` 整体位移，已清空 `dws_makepod_order_weekly` 生产表并全量重跑（仍为 9 周 × 9 渠道 × 4 订单分组 = 324 行），`ads_weekly_makepod_paid_user_order` 走 staging+swap 全量重建（出口过滤后 67 行，因周边界位移与数据分布变化，行数较订正前的 65 行略有出入，属正常现象）；详见 `patterns.md`

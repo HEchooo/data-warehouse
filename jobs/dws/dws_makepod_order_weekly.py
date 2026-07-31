@@ -7,7 +7,7 @@
 - decom.dim_makepod_user_channel（用户渠道归属）
 - decom.currency_conversion_dict（汇率换算）
 
-粒度：week_start_dt（周日起自然周） × channel × order_group
+粒度：week_start_dt（周一起自然周） × channel × order_group
 
 背景：周维度支付用户数不能由 dws_makepod_order_daily 的日值直接相加——跨天多次支付的
 同一用户会被重复计数，必须回到 pay_order 明细按 user_id 在周窗口内整体去重后重新聚合。
@@ -37,8 +37,8 @@ TABLE_NAME = "dws_makepod_order_weekly"
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
 INCREMENTAL_WINDOW_HOURS = 6
 TENANT_CODE = "T18002707"
-# Makepod 周报口径固定周日 ~ 周六（与业务方口径对齐，跟仓库其他周表 WEEK(MONDAY) 不同）。
-WEEK_START_EXPR = "DATE_TRUNC({col}, WEEK(SUNDAY))"
+# Makepod 周报口径为上海时区自然周，周一 ~ 周日，与仓库其他周表 WEEK(MONDAY) 一致。
+WEEK_START_EXPR = "DATE_TRUNC({col}, WEEK(MONDAY))"
 
 client = bigquery.Client(project=PROJECT_ID)
 

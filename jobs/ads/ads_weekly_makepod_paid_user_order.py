@@ -6,7 +6,7 @@
 - decom.dws_makepod_order_weekly（周 × 渠道 × 订单分组支付用户/订单/GMV 事实，
   已按渠道枚举 × 订单分组枚举补齐周骨架）
 
-粒度：week_start_dt（周日起自然周） × channel × order_group
+粒度：week_start_dt（周一起自然周） × channel × order_group
 
 字段口径：
 - 支付用户数/支付订单数/支付GMV：直接取自 dws_makepod_order_weekly
