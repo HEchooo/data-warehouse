@@ -11,10 +11,9 @@
 
 背景：周维度支付用户数不能由 dws_makepod_order_daily 的日值直接相加——跨天多次支付的
 同一用户会被重复计数，必须回到 pay_order 明细按 user_id 在周窗口内整体去重后重新聚合。
-详见 docs/topics/【Makepod】高价值用户监控/patterns.md。
 
-order_group（订单分组）沿用【Makepod】高价值用户监控的分桶口径：按用户在同一周内的支付成功
-订单数分为 1单 / 2单 / 3单及以上；另外保留 "全部分组"（不分桶的原有汇总）以兼容既有展示。
+order_group（订单分组）：按用户在同一周内的支付成功订单数分为 1单 / 2单 / 3单及以上；
+另外保留 "全部分组"（不分桶的原有汇总）以兼容既有展示。
 """
 
 from datetime import date, datetime, timezone
@@ -256,7 +255,7 @@ def run_dws_makepod_order_weekly(week_starts: list[date]) -> None:
     - 支付 GMV（USD）
 
     order_group："全部分组"为不分桶汇总（兼容既有展示），其余按用户周内支付订单数分为
-    1单 / 2单 / 3单及以上，口径对齐【Makepod】高价值用户监控。
+    1单 / 2单 / 3单及以上。
     """
     if not week_starts:
         logging.info("没有新的 dws_makepod_order_weekly 周需要处理")
@@ -381,7 +380,7 @@ def run_dws_makepod_order_weekly(week_starts: list[date]) -> None:
         WHERE NULLIF(user_id, '') IS NOT NULL
         GROUP BY week_start_dt, user_id
     ),
-    -- 用户周内订单分桶：1单 / 2单 / 3单及以上，口径对齐【Makepod】高价值用户监控。
+    -- 用户周内订单分桶：1单 / 2单 / 3单及以上。
     user_week_bucket AS (
         SELECT
             week_start_dt,
