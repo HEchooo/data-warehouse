@@ -269,6 +269,18 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_makepod_order_weekly",
+      "stage": "DWS",
+      "name": "DWS Makepod 订单主题周事实 ETL",
+      "script": "jobs/dws/dws_makepod_order_weekly.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_makepod_user_channel"
+      ],
+      "schedule_group": "dws_makepod_order_weekly"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_push_recall_daily",
       "stage": "DWS",
       "name": "DWS push 召回主题主体级事实 ETL",
@@ -834,6 +846,18 @@
         "dws_makepod_order_daily"
       ],
       "schedule_group": "ads_daily_makepod"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_weekly_makepod_paid_user_order",
+      "stage": "ADS",
+      "name": "ADS Makepod 独立站周报支付用户订单分布 ETL",
+      "script": "jobs/ads/ads_weekly_makepod_paid_user_order.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_makepod_order_weekly"
+      ],
+      "schedule_group": "ads_weekly_makepod_paid_user_order"
     },
     {
       "layer": "ADS",

@@ -41,7 +41,7 @@
 | 衣橱概览 | `ads_daily_closet_overview` | [106](https://bi.alvinclub.ca/superset/dashboard/106/) | [fact.md](./衣橱概览/fact.md) | [patterns.md](./衣橱概览/patterns.md) |
 | push 数据看板 | `ads_daily_push` | [108](https://bi.alvinclub.ca/superset/dashboard/108/) | [fact.md](./push%20数据看板/fact.md) | [patterns.md](./push%20数据看板/patterns.md) |
 | Makepod 事件明细 | `dwd_makepod_event_log` | - | [fact.md](./Makepod%20事件明细/fact.md) | [patterns.md](./Makepod%20事件明细/patterns.md) |
-| Makepod 独立站日报 | `ads_daily_makepod` | [115](https://bi.alvinclub.ca/superset/dashboard/115/)（【Makepod】平台看板） | [fact.md](./Makepod%20独立站日报/fact.md) | [patterns.md](./Makepod%20独立站日报/patterns.md) |
+| Makepod 独立站日报 | `ads_daily_makepod` / `ads_weekly_makepod_paid_user_order` | [115](https://bi.alvinclub.ca/superset/dashboard/115/)（【Makepod】平台看板） | [fact.md](./Makepod%20独立站日报/fact.md) | [patterns.md](./Makepod%20独立站日报/patterns.md) |
 | 【AI-Fashion】Style Me 看板 | `ads_daily_ai_fashion_styleme` | [121](https://bi.alvinclub.ca/superset/dashboard/121/) | [fact.md](./【AI-Fashion】Style%20Me%20看板/fact.md) | [patterns.md](./【AI-Fashion】Style%20Me%20看板/patterns.md) |
 | 【AI-Fashion】素材内容数据 | `ads_weekly_ai_fashion_asset_overview` / `ads_daily_ai_fashion_asset_rankings` / `ads_daily_ai_fashion_asset_detail` | [128](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-asset-content-data/) | [fact.md](./【AI-Fashion】素材内容数据/fact.md) | [patterns.md](./【AI-Fashion】素材内容数据/patterns.md) |
 | 【Makepod】高价值用户监控 | 临时查询（未落 ADS 表） | - | [fact.md](./【Makepod】高价值用户监控/fact.md) | [patterns.md](./【Makepod】高价值用户监控/patterns.md) |
