@@ -57,6 +57,7 @@
 - `ads_weekly_ai_fashion_asset_overview`
 - `ads_daily_ai_fashion_asset_rankings`
 - `ads_daily_ai_fashion_asset_detail`
+- `ads_daily_ai_fashion_product_detail_promotion`
 
 ### 执行流程
 
@@ -103,6 +104,7 @@
 - `jobs/ads/ads_weekly_ai_fashion_asset_overview.py`
 - `jobs/ads/ads_daily_ai_fashion_asset_rankings.py`
 - `jobs/ads/ads_daily_ai_fashion_asset_detail.py`
+- `jobs/ads/ads_daily_ai_fashion_product_detail_promotion.py`
 
 日期规则：
 1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定待处理 `dt`
@@ -164,6 +166,7 @@
   - `ads_weekly_ai_fashion_asset_overview`
   - `ads_daily_ai_fashion_asset_rankings`
   - `ads_daily_ai_fashion_asset_detail`
+  - `ads_daily_ai_fashion_product_detail_promotion`
 - 固定窗口重刷或全量回刷能力，优先留在 `DWS` / `DIM` 层处理；不要重新引入共享 `ADS` 总入口来兜底
 
 
@@ -292,6 +295,15 @@
   - `dim_asset + dws_asset_user_daily -> ads_weekly_ai_fashion_asset_overview + ads_daily_ai_fashion_asset_rankings + ads_daily_ai_fashion_asset_detail`
   - 曝光只看 `v_brand_post_detail` / `v_magazine_post_detail` / `v_star_post_detail` 三个帖子详情页事件；试穿看 `common_ext_ai_task.request_param.$.assetCode`（`task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`）；负反馈看 `c_feedback_entry.args.asset_code`；素材下方商品点击看 `c_product.args.asset_code`（2026-07-25 起上报）
   - 周总览统计对象固定为“本周新上线素材”（`dim_asset.publish_dt` 落在当周），只保留 `brand`/`magazine`/`star` 三模块；日榜单与明细不限模块、不限新发布
+- AI-Fashion 商详页投放链路：
+  - `dwd_event_log -> dws_ai_fashion_product_detail_promotion_device_daily -> ads_daily_ai_fashion_product_detail_promotion`
+  - 只看 `v_product_detail` / `c_third_party_goods` 两个埋点（均为 `dwd_event_log` 落库后的小写形态；前端上报为 `v_Product_Detail`，落库时被 `jobs/dwd/dwd_event_log/dwd_event_log.py` 统一小写化，取数必须用小写）
+  - 投放流量界定为 `prop_url` 的 origin 严格等于 `https://alvinclub.com`（不含 www、不含 .ai / .ca），且 `prop_params` 的 `ac_channel` 与 `ac_creative` 同时非空；不限 `args.page_key`
+  - `c_third_party_goods` 与 LTA 主题（`dws_lta_thirdparty_event_daily`）共用（LTA 走 `mycch.me`），域名过滤是两个主题唯一的隔离手段，不得放宽
+  - DWS 粒度 `dt × ac_channel × ac_creative × device_id`，先按 `raw_event_id` 去重再分组，保证 ADS 端 `SUM(pv)` 等价于 `COUNT(DISTINCT raw_event_id)`；ADS 粒度 `dt × ac_creative`（含 `ac_creative='overall'` 全素材去重汇总行），未来加渠道维度不需要重建 DWS
+  - UV 按 `prop_device_id` 去重（与 `dws_product_detail_daily` 的 `COALESCE(prop_user_id, prop_device_id)` 口径不同，故独立建表）；`device_id` 为空的事件保留为 NULL，计入 PV 不计入 UV
+  - `overall` 行必须单独按设备全局去重，不能对各素材 UV 直接求和（同一设备当日可能看过多个素材）；素材明细行只出现实际有数据的组合，不做历史素材补零
+  - 该主题过滤后当前无数据：DWS 刻意不使用「目标表行数为 0 -> 全量」判定（会导致每轮调度全表扫描 `dwd_event_log` 且永远写不进行），只走「最近 6 小时 `update_time` + 固定补最近两天」，全量重刷由 `--full-refresh` 人工触发；ADS 从 `REPORT_START_DT` 起补零 `overall` 行，保证目标表永远有行
 - 默认要求：`ADS` 只消费本主题所需的 `DIM` / `DWS`；如果发现 `ADS` 直接读取 `ODS` / `DWD` / 外部源表，应优先视为待收口架构债，而不是常规模式
 - 总量和新增异常时，先确认自己走的是事件链路还是下载链路。
 - 非下载类 ADS 默认不要直接消费下载链路回刷日期；优先按自身依赖链路分发日期，避免全链路无效回刷。
