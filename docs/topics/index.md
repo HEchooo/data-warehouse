@@ -23,6 +23,7 @@
 | 试穿与商品行为临时取数（2026-05） | 临时查询（未落 ADS 表） | - | [fact.md](./试穿与商品行为临时取数（2026-05）/fact.md) | [patterns.md](./试穿与商品行为临时取数（2026-05）/patterns.md) |
 | 新老用户帖子浏览抽样临时取数（2026-06） | 临时查询（未落 ADS 表） | - | [fact.md](./新老用户帖子浏览抽样临时取数（2026-06）/fact.md) | [patterns.md](./新老用户帖子浏览抽样临时取数（2026-06）/patterns.md) |
 | 素材生产与互动全量临时取数（2026-07） | 临时查询（未落 ADS 表） | - | [fact.md](./素材生产与互动全量临时取数（2026-07）/fact.md) | [patterns.md](./素材生产与互动全量临时取数（2026-07）/patterns.md) |
+| 品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08） | 临时查询（未落 ADS 表） | - | [fact.md](./品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08）/fact.md) | [patterns.md](./品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08）/patterns.md) |
 | 产品 OKR 数据汇总 | `ads_weekly_ai_fashion_tryon_okr` / `ads_weekly_ai_fashion_tryon_okr_v2` / `ads_daily_ai_fashion_tryon_okr_v2` | [114（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/) / [117（Week）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-v2/) / [120（Day）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-day/) | [fact.md](./产品 OKR 数据汇总/fact.md) | [patterns.md](./产品 OKR 数据汇总/patterns.md) |
 | 首页新老用户曝光点击 | `ads_daily_user_home_module_performance` | [113](https://bi.alvinclub.ca/superset/dashboard/113/) | [fact.md](./首页新老用户曝光点击/fact.md) | [patterns.md](./首页新老用户曝光点击/patterns.md) |
 | 用户时长与访问频次 | `ads_daily_user_duration_frequency` | [95](https://bi.alvinclub.ca/superset/dashboard/95/) | [fact.md](./用户时长与访问频次/fact.md) | [patterns.md](./用户时长与访问频次/patterns.md) |
