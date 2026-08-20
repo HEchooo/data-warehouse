@@ -2,6 +2,12 @@
 
 ## 报表
 
+### 已废弃的旧口径
+
+- 旧表：`decom.ads_daily_social_content`
+- 旧 Dashboard：[【Social Content】社媒表现数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content/)（已归档为 Draft）
+- 该表仅保留作历史旧口径参考；新取数、报表及趋势分析一律使用 `decom.ads_daily_social_content_v2`，不得将两表数据直接拼接或比较。
+
 ### 中间表：`dws_social_video_snapshot_daily_v2`
 
 - 表：`decom.dws_social_video_snapshot_daily_v2`
