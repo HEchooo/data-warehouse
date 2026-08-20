@@ -107,13 +107,15 @@ def build_select_sql(dates: list[date]) -> str:
         WHERE dt IN UNNEST([{dates_sql}])
     ),
     -- 仅保留最近发布日日均 T+1 播放高于历史基准的播放上升账号。
+    -- 中间表为三张榜共用的池准入宽表，基准为 0 的账号无法计算上升比例，在此排除。
     boosted AS (
         SELECT
             *,
             SAFE_DIVIDE(recent_t1_avg_view_count, baseline_t1_avg_view_count) - 1
                 AS boost_ratio
         FROM fluctuation
-        WHERE recent_t1_avg_view_count > baseline_t1_avg_view_count
+        WHERE baseline_t1_avg_view_count > 0
+            AND recent_t1_avg_view_count > baseline_t1_avg_view_count
     )
     -- 榜单排序由展示层（chart）按上升比例完成，此处不再存储排名字段。
     SELECT
@@ -153,7 +155,8 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', channel, '|', creator_id))
                     AS unique_account_count,
-                COUNTIF(recent_t1_avg_view_count
+                COUNTIF(baseline_t1_avg_view_count <= 0
+                    OR recent_t1_avg_view_count
                         <= baseline_t1_avg_view_count)
                     AS invalid_boost_count,
                 COUNTIF(ABS(

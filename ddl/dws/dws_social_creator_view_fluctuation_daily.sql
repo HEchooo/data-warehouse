@@ -24,3 +24,9 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_social_creator_view_fluctuation_
 )
 PARTITION BY dt
 CLUSTER BY channel, creator_id;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_creator_view_fluctuation_daily`
+ADD COLUMN IF NOT EXISTS recent_3day_zero_day_count INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_creator_view_fluctuation_daily`
+ADD COLUMN IF NOT EXISTS recent_3day_start_dt DATE;

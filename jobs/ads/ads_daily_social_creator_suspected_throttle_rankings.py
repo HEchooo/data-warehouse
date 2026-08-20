@@ -108,13 +108,15 @@ def build_select_sql(dates: list[date]) -> str:
         WHERE dt IN UNNEST([{dates_sql}])
     ),
     -- 仅保留最近发布日日均 T+1 播放低于历史基准 30% 的疑似限流账号。
+    -- 中间表为三张榜共用的池准入宽表，基准为 0 的账号无法判断下降，在此排除。
     suspected AS (
         SELECT
             *,
             SAFE_DIVIDE(recent_t1_avg_view_count, baseline_t1_avg_view_count)
                 AS throttle_ratio
         FROM fluctuation
-        WHERE recent_t1_avg_view_count
+        WHERE baseline_t1_avg_view_count > 0
+            AND recent_t1_avg_view_count
                 < baseline_t1_avg_view_count * {THRESHOLD_RATIO}
     )
     -- 榜单排序由展示层（chart）按指标完成，此处不再存储排名字段。
@@ -163,7 +165,8 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', channel, '|', creator_id))
                     AS unique_account_count,
-                COUNTIF(recent_t1_avg_view_count
+                COUNTIF(baseline_t1_avg_view_count <= 0
+                    OR recent_t1_avg_view_count
                         >= baseline_t1_avg_view_count * threshold_ratio)
                     AS invalid_suspected_count,
                 COUNTIF(ABS(

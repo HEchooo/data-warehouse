@@ -1383,6 +1383,18 @@
     },
     {
       "layer": "ADS",
+      "table_name": "ads_daily_social_creator_zero_view_rankings",
+      "stage": "ADS",
+      "name": "ADS Social Content 连续零播放账号日榜 ETL",
+      "script": "jobs/ads/ads_daily_social_creator_zero_view_rankings.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_social_creator_view_fluctuation_daily"
+      ],
+      "schedule_group": "ads_daily_social_creator_zero_view_rankings"
+    },
+    {
+      "layer": "ADS",
       "table_name": "ads_daily_formal_video_increment",
       "stage": "ADS",
       "name": "ADS 正式号视频发布增量日报 ETL",

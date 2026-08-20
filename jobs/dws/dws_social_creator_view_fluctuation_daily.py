@@ -17,6 +17,8 @@ POOL_WINDOW_DAY_COUNT = 28
 BASELINE_DAY_COUNT = 7
 RECENT_DAY_COUNT = 1
 WEEKLY_PUBLISH_THRESHOLD = 3
+# 零播放观察窗口：最近 N 个发布日，供连续零播放榜判定「这 N 个发布日是否全为 0」。
+ZERO_WINDOW_DAY_COUNT = 3
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -243,7 +245,15 @@ def build_select_sql(dates: list[date]) -> str:
             -- 观察对象 = 最近发布日的当日日均播放（同日多条已在中间表取均值）。
             MAX(IF(day_recency_no <= {RECENT_DAY_COUNT}, t1_avg_view_count, NULL))
                 AS recent_t1_avg_view_count,
-            MAX(pool_published_video_count) AS pool_published_video_count
+            MAX(pool_published_video_count) AS pool_published_video_count,
+            -- 最近 3 个发布日中 T+1 播放为 0 的发布日数，取值 0 ~ 3。
+            COUNTIF(
+                day_recency_no <= {ZERO_WINDOW_DAY_COUNT}
+                    AND t1_avg_view_count = 0
+            ) AS recent_3day_zero_day_count,
+            -- 最近 3 个发布日中最早的发布日，即零播放观察窗口的起点。
+            MIN(IF(day_recency_no <= {ZERO_WINDOW_DAY_COUNT}, published_dt, NULL))
+                AS recent_3day_start_dt
         FROM ranked_days
         WHERE day_recency_no <= {BASELINE_DAY_COUNT + RECENT_DAY_COUNT}
         GROUP BY
@@ -277,12 +287,13 @@ def build_select_sql(dates: list[date]) -> str:
         pool_published_video_count,
         CAST(SAFE_DIVIDE(pool_published_video_count, 4) AS NUMERIC)
             AS weekly_avg_published_video_count,
+        recent_3day_zero_day_count,
+        recent_3day_start_dt,
         CURRENT_TIMESTAMP() AS update_time
     FROM account_window
     WHERE pool_published_video_count > {WEEKLY_PUBLISH_THRESHOLD * 4}
         AND baseline_active_day_count = {BASELINE_DAY_COUNT}
         AND recent_end_dt = DATE_SUB(dt, INTERVAL 1 DAY)
-        AND baseline_t1_avg_view_count > 0
     """
 
 
@@ -299,8 +310,7 @@ def validate(staging_table: str) -> None:
                     OR weekly_avg_published_video_count
                         <= {WEEKLY_PUBLISH_THRESHOLD}
                     OR baseline_active_day_count != {BASELINE_DAY_COUNT}
-                    OR recent_end_dt != DATE_SUB(dt, INTERVAL 1 DAY)
-                    OR baseline_t1_avg_view_count <= 0)
+                    OR recent_end_dt != DATE_SUB(dt, INTERVAL 1 DAY))
                     AS invalid_pool_sample_count,
                 COUNTIF(pool_window_start_dt
                         != DATE_SUB(dt, INTERVAL {POOL_WINDOW_DAY_COUNT} DAY)
@@ -308,7 +318,19 @@ def validate(staging_table: str) -> None:
                     OR baseline_start_dt > baseline_end_dt
                     OR recent_start_dt > recent_end_dt
                     OR baseline_end_dt > recent_start_dt)
-                    AS invalid_window_count
+                    AS invalid_window_count,
+                -- 最近 3 个发布日的零播放计数只能落在 0 ~ 3 之间。
+                COUNTIF(recent_3day_zero_day_count < 0
+                    OR recent_3day_zero_day_count > {ZERO_WINDOW_DAY_COUNT})
+                    AS invalid_zero_range_count,
+                -- 零播放计数与观察发布日播放量必须自洽：观察日有播放时计数不可满格。
+                COUNTIF(recent_t1_avg_view_count > 0
+                    AND recent_3day_zero_day_count = {ZERO_WINDOW_DAY_COUNT})
+                    AS invalid_zero_consistency_count,
+                -- 零播放窗口起点必须存在，且不晚于观察发布日。
+                COUNTIF(recent_3day_start_dt IS NULL
+                    OR recent_3day_start_dt > recent_end_dt)
+                    AS invalid_zero_window_start_count
             FROM `{staging_table}`
             """
         ).result()
@@ -319,6 +341,14 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("账号播放波动中间表校验失败：监控池或发布样本不满足准入条件")
     if result.invalid_window_count != 0:
         raise RuntimeError("账号播放波动中间表校验失败：日期窗口错误")
+    if result.invalid_zero_range_count != 0:
+        raise RuntimeError("账号播放波动中间表校验失败：最近 3 个发布日零播放计数超出取值范围")
+    if result.invalid_zero_consistency_count != 0:
+        raise RuntimeError(
+            "账号播放波动中间表校验失败：零播放计数与观察发布日播放量不一致"
+        )
+    if result.invalid_zero_window_start_count != 0:
+        raise RuntimeError("账号播放波动中间表校验失败：零播放观察窗口起点错误")
 
 
 def run(dates: list[date], full_refresh: bool = False) -> None:
