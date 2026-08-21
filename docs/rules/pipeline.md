@@ -270,8 +270,8 @@
 - 社媒内容链路：
   - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2 + dim_auto_publish_video_task -> dws_social_channel_daily_v2 -> ads_daily_social_content_v2`
   - YouTube 累计快照源为 `yt_video_stats_log.view_count / like_count`
-  - 日末累计除播放、点赞外还包含 `day_end_comments` / `day_end_shares`；YouTube 源表没有分享数字段，`day_end_shares` 保持空值，不用 0 兜底
-  - `day_end_comments` / `day_end_shares` 于 2026-08-21 新增，只回刷了最近 30 天，更早历史分区为空，需要时用 `--full-refresh` 人工回刷
+  - 日末累计除播放、点赞外还包含 `day_end_comments` / `day_end_shares`；YouTube 源表没有分享数字段，其 `day_end_shares` 保持空值，TikTok / Instagram 与其他指标一致按 0 起算
+  - `day_end_comments` / `day_end_shares` 于 2026-08-21 新增，并已从 2026-03-13 全量回刷完成
 - 橱窗号数据链路：
   - `videos.users -> dws_social_creator_snapshot_daily`
   - `dim_video + dws_social_video_state_daily_v2 + dws_social_creator_snapshot_daily -> ads_daily_social_affiliate_creator + ads_daily_social_affiliate_video`

@@ -184,10 +184,14 @@ def build_social_video_state_select_sql(dates: list[date]) -> str:
                 WHEN g.rn_in_window = 1 THEN COALESCE(seed.seed_day_end_comments, 0)
                 ELSE NULL
             END AS anchor_day_end_comments,
-            -- 分享数保留空值语义：YouTube 源表没有该指标，不能用 0 兜底伪装成真实值。
+            -- 分享数只对 YouTube 保留空值语义：该平台源表没有分享数字段，不能用 0 兜底伪装成真实值；
+            -- TikTok 与 Instagram 有该指标，与播放、点赞、评论一致按 0 起算。
             CASE
                 WHEN s.day_end_shares IS NOT NULL THEN s.day_end_shares
-                WHEN g.rn_in_window = 1 THEN seed.seed_day_end_shares
+                WHEN g.rn_in_window = 1 THEN COALESCE(
+                    seed.seed_day_end_shares,
+                    IF(g.channel = 'youtube', NULL, 0)
+                )
                 ELSE NULL
             END AS anchor_day_end_shares
         FROM video_date_grid g
@@ -239,7 +243,7 @@ def build_social_video_state_select_sql(dates: list[date]) -> str:
         COALESCE(day_end_views, 0) AS day_end_views,
         COALESCE(day_end_likes, 0) AS day_end_likes,
         COALESCE(day_end_comments, 0) AS day_end_comments,
-        day_end_shares,
+        COALESCE(day_end_shares, IF(channel = 'youtube', NULL, 0)) AS day_end_shares,
         CURRENT_TIMESTAMP() AS update_time
     FROM filled_state
     WHERE dt IN ({dates_str})
