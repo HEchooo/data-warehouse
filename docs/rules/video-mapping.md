@@ -32,6 +32,8 @@
 `videos.yt_videos.video_id = videos.yt_video_analytics_log.video_id`
 ### 完播比
 `videos.yt_video_analytics_log.avg_view_percentage`
+### 每日每个视频评论数
+`videos.yt_video_stats_log.comment_count`；YouTube 源表没有分享数字段，下游 `day_end_shares` 保持空值，不用 0 兜底
 ### 渠道 
 `channel_id`
 #### 渠道分为video部门渠道和jhonson部门渠道
@@ -51,6 +53,12 @@
 `videos.video_stats_log.video_id`
 `videos.video_stats_log.view_count`
 `videos.video_stats_log.like_count`
+`videos.video_stats_log.comment_count`
+`videos.video_stats_log.share_count`
+### 橱窗号
+`videos.users.usage_type = 'tiktok-affiliate'`
+账号粉丝数：`videos.users.follower_count`（STRING，需 `SAFE_CAST`；只有当前状态，无历史）
+`video_stats_log.user_name = users.username`，与 `video_stats_log.user_id = users.id` 等价；仓库统一走 `creator_id = users.id`
 ### 连接条件
 `videos.id = videos.video_stats_log.video_id`
 ### 完播比
@@ -72,6 +80,9 @@
 `videos.ig_media.media_id = videos.ig_media_stats_log.media_id`
 ### 完播比
 `ig_media_stats_log.avg_watch_time / 视频时长（服务端还没提供字段）`
+### 每日每个视频评论数和分享数
+`videos.ig_media_stats_log.comment_count`
+`videos.ig_media_stats_log.share_count`
 ### 博主
 `account_id`
 

@@ -114,7 +114,9 @@ def build_social_video_state_select_sql(dates: list[date]) -> str:
             dt,
             video_key,
             day_end_views,
-            day_end_likes
+            day_end_likes,
+            day_end_comments,
+            day_end_shares
         FROM `{source_table_id()}`
         WHERE dt BETWEEN (SELECT seed_dt FROM params) AND (SELECT max_dt FROM params)
     ),
@@ -122,12 +124,16 @@ def build_social_video_state_select_sql(dates: list[date]) -> str:
         SELECT
             video_key,
             day_end_views AS seed_day_end_views,
-            day_end_likes AS seed_day_end_likes
+            day_end_likes AS seed_day_end_likes,
+            day_end_comments AS seed_day_end_comments,
+            day_end_shares AS seed_day_end_shares
         FROM (
             SELECT
                 video_key,
                 day_end_views,
                 day_end_likes,
+                day_end_comments,
+                day_end_shares,
                 ROW_NUMBER() OVER (
                     PARTITION BY video_key
                     ORDER BY dt DESC
@@ -172,7 +178,18 @@ def build_social_video_state_select_sql(dates: list[date]) -> str:
                 WHEN s.day_end_likes IS NOT NULL THEN s.day_end_likes
                 WHEN g.rn_in_window = 1 THEN COALESCE(seed.seed_day_end_likes, 0)
                 ELSE NULL
-            END AS anchor_day_end_likes
+            END AS anchor_day_end_likes,
+            CASE
+                WHEN s.day_end_comments IS NOT NULL THEN s.day_end_comments
+                WHEN g.rn_in_window = 1 THEN COALESCE(seed.seed_day_end_comments, 0)
+                ELSE NULL
+            END AS anchor_day_end_comments,
+            -- 分享数保留空值语义：YouTube 源表没有该指标，不能用 0 兜底伪装成真实值。
+            CASE
+                WHEN s.day_end_shares IS NOT NULL THEN s.day_end_shares
+                WHEN g.rn_in_window = 1 THEN seed.seed_day_end_shares
+                ELSE NULL
+            END AS anchor_day_end_shares
         FROM video_date_grid g
         LEFT JOIN snapshot_daily s
             ON g.video_key = s.video_key
@@ -198,7 +215,17 @@ def build_social_video_state_select_sql(dates: list[date]) -> str:
                 PARTITION BY video_key
                 ORDER BY dt
                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ) AS day_end_likes
+            ) AS day_end_likes,
+            LAST_VALUE(anchor_day_end_comments IGNORE NULLS) OVER (
+                PARTITION BY video_key
+                ORDER BY dt
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) AS day_end_comments,
+            LAST_VALUE(anchor_day_end_shares IGNORE NULLS) OVER (
+                PARTITION BY video_key
+                ORDER BY dt
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) AS day_end_shares
         FROM state_base
     )
     SELECT
@@ -211,6 +238,8 @@ def build_social_video_state_select_sql(dates: list[date]) -> str:
         published_dt,
         COALESCE(day_end_views, 0) AS day_end_views,
         COALESCE(day_end_likes, 0) AS day_end_likes,
+        COALESCE(day_end_comments, 0) AS day_end_comments,
+        day_end_shares,
         CURRENT_TIMESTAMP() AS update_time
     FROM filled_state
     WHERE dt IN ({dates_str})
@@ -242,6 +271,8 @@ def run_dws_social_video_state_daily(dates: list[date]) -> None:
         published_dt,
         day_end_views,
         day_end_likes,
+        day_end_comments,
+        day_end_shares,
         update_time
     )
     {select_sql}
@@ -301,6 +332,8 @@ def run_dws_social_video_state_daily(dates: list[date]) -> None:
                     CAST(NULL AS DATE) AS published_dt,
                     CAST(NULL AS INT64) AS day_end_views,
                     CAST(NULL AS INT64) AS day_end_likes,
+                    CAST(NULL AS INT64) AS day_end_comments,
+                    CAST(NULL AS INT64) AS day_end_shares,
                     CAST(NULL AS TIMESTAMP) AS update_time
                 LIMIT 0
                 """

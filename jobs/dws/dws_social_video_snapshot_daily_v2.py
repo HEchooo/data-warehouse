@@ -97,6 +97,7 @@ def build_social_video_snapshot_select_sql(dates: list[date]) -> str:
         FROM `{dim_table_id()}`
         WHERE published_dt <= (SELECT max_dt FROM params)
     ),
+    -- 汇总三端累计快照日志；YouTube 源表没有分享数字段，保留空值不做兜底。
     raw_snapshot_log AS (
         SELECT
             video_key,
@@ -104,14 +105,18 @@ def build_social_video_snapshot_select_sql(dates: list[date]) -> str:
             collected_ts_utc,
             source_id,
             cum_views,
-            cum_likes
+            cum_likes,
+            cum_comments,
+            cum_shares
         FROM (
             SELECT
                 CONCAT('youtube:', CAST(video_id AS STRING)) AS video_key,
                 TIMESTAMP(collected_at, 'UTC') AS collected_ts_utc,
                 SAFE_CAST(id AS INT64) AS source_id,
                 SAFE_CAST(view_count AS INT64) AS cum_views,
-                SAFE_CAST(like_count AS INT64) AS cum_likes
+                SAFE_CAST(like_count AS INT64) AS cum_likes,
+                SAFE_CAST(comment_count AS INT64) AS cum_comments,
+                CAST(NULL AS INT64) AS cum_shares
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.yt_video_stats_log`
 
             UNION ALL
@@ -121,7 +126,9 @@ def build_social_video_snapshot_select_sql(dates: list[date]) -> str:
                 TIMESTAMP(collected_at, 'UTC') AS collected_ts_utc,
                 0 AS source_id,
                 SAFE_CAST(view_count AS INT64) AS cum_views,
-                SAFE_CAST(like_count AS INT64) AS cum_likes
+                SAFE_CAST(like_count AS INT64) AS cum_likes,
+                SAFE_CAST(comment_count AS INT64) AS cum_comments,
+                SAFE_CAST(share_count AS INT64) AS cum_shares
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.video_stats_log`
 
             UNION ALL
@@ -131,7 +138,9 @@ def build_social_video_snapshot_select_sql(dates: list[date]) -> str:
                 TIMESTAMP(collected_at, 'UTC') AS collected_ts_utc,
                 0 AS source_id,
                 SAFE_CAST(view_count AS INT64) AS cum_views,
-                SAFE_CAST(like_count AS INT64) AS cum_likes
+                SAFE_CAST(like_count AS INT64) AS cum_likes,
+                SAFE_CAST(comment_count AS INT64) AS cum_comments,
+                SAFE_CAST(share_count AS INT64) AS cum_shares
             FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.ig_media_stats_log`
         )
         WHERE collected_ts_utc IS NOT NULL
@@ -139,18 +148,23 @@ def build_social_video_snapshot_select_sql(dates: list[date]) -> str:
             AND DATE(collected_ts_utc, '{TORONTO_TZ}')
                 BETWEEN (SELECT min_dt FROM params) AND (SELECT max_dt FROM params)
     ),
+    -- 取每个 视频 × 自然日 的最后一条采集记录作为日末累计值。
     daily_latest_snapshot AS (
         SELECT
             video_key,
             dt,
             cum_views AS day_end_views,
-            cum_likes AS day_end_likes
+            cum_likes AS day_end_likes,
+            cum_comments AS day_end_comments,
+            cum_shares AS day_end_shares
         FROM (
             SELECT
                 video_key,
                 dt,
                 cum_views,
                 cum_likes,
+                cum_comments,
+                cum_shares,
                 ROW_NUMBER() OVER (
                     PARTITION BY video_key, dt
                     ORDER BY collected_ts_utc DESC, source_id DESC
@@ -169,6 +183,8 @@ def build_social_video_snapshot_select_sql(dates: list[date]) -> str:
         v.published_dt,
         s.day_end_views,
         s.day_end_likes,
+        s.day_end_comments,
+        s.day_end_shares,
         CURRENT_TIMESTAMP() AS update_time
     FROM daily_latest_snapshot s
     INNER JOIN video_dim v
@@ -202,6 +218,8 @@ def run_dws_social_video_snapshot_daily(dates: list[date]) -> None:
         published_dt,
         day_end_views,
         day_end_likes,
+        day_end_comments,
+        day_end_shares,
         update_time
     )
     {select_sql}
@@ -258,6 +276,8 @@ def run_dws_social_video_snapshot_daily(dates: list[date]) -> None:
                     CAST(NULL AS DATE) AS published_dt,
                     CAST(NULL AS INT64) AS day_end_views,
                     CAST(NULL AS INT64) AS day_end_likes,
+                    CAST(NULL AS INT64) AS day_end_comments,
+                    CAST(NULL AS INT64) AS day_end_shares,
                     CAST(NULL AS TIMESTAMP) AS update_time
                 LIMIT 0
                 """).result()

@@ -12,3 +12,9 @@ CREATE TABLE `my-project-8584-jetonai.decom.dws_social_video_state_daily_v2` (
 )
 PARTITION BY dt
 CLUSTER BY channel, creator_id, video_key;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_video_state_daily_v2`
+ADD COLUMN IF NOT EXISTS day_end_comments INT64;
+
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_video_state_daily_v2`
+ADD COLUMN IF NOT EXISTS day_end_shares INT64;

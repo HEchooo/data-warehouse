@@ -761,6 +761,16 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_social_creator_snapshot_daily",
+      "stage": "DWS",
+      "name": "DWS 社媒账号日快照 ETL",
+      "script": "jobs/dws/dws_social_creator_snapshot_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dws_social_creator_snapshot_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_social_creator_view_fluctuation_daily",
       "stage": "DWS",
       "name": "DWS Social Content 账号播放波动准入中间表 ETL",
@@ -1392,6 +1402,36 @@
         "dws_social_creator_view_fluctuation_daily"
       ],
       "schedule_group": "ads_daily_social_creator_zero_view_rankings"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_social_affiliate_creator",
+      "stage": "ADS",
+      "name": "ADS Social Content 橱窗号账号维度日报 ETL",
+      "script": "jobs/ads/ads_daily_social_affiliate_creator.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video",
+        "dws_social_video_snapshot_daily_v2",
+        "dws_social_video_state_daily_v2",
+        "dws_social_creator_snapshot_daily"
+      ],
+      "schedule_group": "ads_daily_social_affiliate_creator"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_social_affiliate_video",
+      "stage": "ADS",
+      "name": "ADS Social Content 橱窗号视频维度日报 ETL",
+      "script": "jobs/ads/ads_daily_social_affiliate_video.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video",
+        "dws_social_video_snapshot_daily_v2",
+        "dws_social_video_state_daily_v2",
+        "dws_social_creator_snapshot_daily"
+      ],
+      "schedule_group": "ads_daily_social_affiliate_video"
     },
     {
       "layer": "ADS",

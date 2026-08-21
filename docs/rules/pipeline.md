@@ -44,6 +44,8 @@
 - `ads_daily_social_content_attribute_v2`
 - `ads_daily_social_video_monitor_rankings_v2`
 - `ads_daily_social_creator_suspected_throttle_rankings`
+- `ads_daily_social_affiliate_creator`
+- `ads_daily_social_affiliate_video`
 - `ads_daily_formal_video_increment`
 - `ads_weekly_formal_video_increment_growth`
 - `ads_weekly_ai_fashion_tryon_okr`
@@ -92,6 +94,8 @@
 - `jobs/ads/ads_daily_social_content_attribute_v2.py`
 - `jobs/ads/ads_daily_social_video_monitor_rankings_v2.py`
 - `jobs/ads/ads_daily_social_creator_suspected_throttle_rankings.py`
+- `jobs/ads/ads_daily_social_affiliate_creator.py`
+- `jobs/ads/ads_daily_social_affiliate_video.py`
 - `jobs/ads/ads_daily_formal_video_increment.py`
 - `jobs/ads/ads_weekly_formal_video_increment_growth.py`
 - `jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
@@ -150,6 +154,8 @@
   - `ads_daily_social_content_attribute_v2`
   - `ads_daily_social_video_monitor_rankings_v2`
   - `ads_daily_social_creator_suspected_throttle_rankings`
+  - `ads_daily_social_affiliate_creator`
+  - `ads_daily_social_affiliate_video`
   - `ads_daily_formal_video_increment`
   - `ads_weekly_formal_video_increment_growth`
   - `ads_weekly_ai_fashion_tryon_okr`
@@ -264,6 +270,14 @@
 - 社媒内容链路：
   - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2 + dim_auto_publish_video_task -> dws_social_channel_daily_v2 -> ads_daily_social_content_v2`
   - YouTube 累计快照源为 `yt_video_stats_log.view_count / like_count`
+  - 日末累计除播放、点赞外还包含 `day_end_comments` / `day_end_shares`；YouTube 源表没有分享数字段，`day_end_shares` 保持空值，不用 0 兜底
+  - `day_end_comments` / `day_end_shares` 于 2026-08-21 新增，只回刷了最近 30 天，更早历史分区为空，需要时用 `--full-refresh` 人工回刷
+- 橱窗号数据链路：
+  - `videos.users -> dws_social_creator_snapshot_daily`
+  - `dim_video + dws_social_video_state_daily_v2 + dws_social_creator_snapshot_daily -> ads_daily_social_affiliate_creator + ads_daily_social_affiliate_video`
+  - 橱窗号范围为 `videos.users.usage_type = 'tiktok-affiliate'`，只有 TikTok 有这类账号；名单取账号日快照最新分区
+  - `videos.users` 是状态表没有历史，粉丝数只能逐日快照后相减，`dws_social_creator_snapshot_daily` 只重写当天分区，历史不可回溯
+  - 互动指标同时输出当日增量与日末累计，增量取 D / D-1 两个日末状态分区相减
 - 社媒属性维度链路：
   - `videos.video_upload_tasks + videos.video_upload_task_channels + dim_video -> dim_social_video_attribute`
   - `dim_social_video_attribute + dws_social_video_state_daily_v2 -> dws_social_attribute_daily_v2 -> ads_daily_social_content_attribute_v2`
