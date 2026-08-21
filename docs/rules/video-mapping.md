@@ -55,16 +55,37 @@
 `videos.video_stats_log.like_count`
 `videos.video_stats_log.comment_count`
 `videos.video_stats_log.share_count`
-### 橱窗号
-`videos.users.usage_type = 'tiktok-affiliate'`
-账号粉丝数：`videos.users.follower_count`（STRING，需 `SAFE_CAST`；只有当前状态，无历史）
-`video_stats_log.user_name = users.username`，与 `video_stats_log.user_id = users.id` 等价；仓库统一走 `creator_id = users.id`
 ### 连接条件
 `videos.id = videos.video_stats_log.video_id`
 ### 完播比
 `视频平均观看时长（服务端还没提供字段）/ videos.videos.duration`
 #### 博主
 `user_id`
+
+### 橱窗号（tiktok-affiliate）
+
+橱窗号是 TikTok 账号的一种用途分类，只有 TikTok 有这类账号，其他两端没有对应概念。
+
+| 内容 | 字段 / 口径 |
+|------|------|
+| 范围界定 | `videos.users.usage_type = 'tiktok-affiliate'`；`usage_type` 其余取值有 `ct-team` / `michael` / `test` / `default` / `ai-test`，都不属于橱窗号 |
+| 账号 ID | `videos.users.id`，对应 `dim_video.creator_id`（`channel = 'tiktok'`） |
+| 账号启用状态 | `videos.users.is_active = 1` |
+| 粉丝数 | `videos.users.follower_count`；STRING 类型需 `SAFE_CAST` 成 INT64 |
+| 其他账号计数 | `following_count` / `likes_count` / `video_count`，同为 STRING，需 `SAFE_CAST` |
+| 账号展示字段 | `display_name` / `username` / `profile_deep_link`，与「视频与账号展示字段」一节一致 |
+
+关联 key：
+
+- `video_stats_log.user_name = users.username` 与 `video_stats_log.user_id = users.id` 两条路径等价（实测同为 1146 条橱窗号视频）
+- 仓库统一走 `creator_id = users.id`，`username` 只作为展示 handle，不再引入第二套 join key
+
+`videos.users` 是状态表：
+
+- 只有当前值，没有任何历史版本，也没有按天的日志表
+- `updated_at` 只是最后一次变更时间，拿不到变更前的值，不能用来反推历史粉丝数
+- 因此「新增粉丝数」这类差值指标必须先逐日落快照再相减，落点是 `decom.dws_social_creator_snapshot_daily`（只重写当天分区，历史不可回溯）
+- 同类需求（新增关注、新增订阅）先确认源表是状态表还是日志表，再决定能不能给历史
 
 
 ## ins
