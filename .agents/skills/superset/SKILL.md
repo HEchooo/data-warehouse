@@ -129,6 +129,11 @@ description: 通过 Superset REST API 直接创建或修改 dataset、chart、da
 
 - dashboard 通常依赖 chart 已存在。
 - 如果目标是“改看板”，先分清要改的是 dashboard 自身元信息，还是其中 chart 的配置。
+- 只写 `position_json` 里的 `CHART-*` 节点**不足以**让图表渲染：还必须建立 chart ↔ dashboard 的归属关系，否则前端报 `There is no chart definition associated with this component, could it have been deleted?`，看板上是一个空白容器。
+  - 建立方式：`POST /api/v1/chart/` 时带 `dashboards: [<dashboard_id>]`，或事后 `PUT /api/v1/chart/{pk}` 补 `dashboards`；同时在 `params` 与 `query_context.form_data` 里写入同样的 `dashboards` 数组。
+  - 先建 dashboard 再回填 chart 归属时，`POST /api/v1/dashboard/` 拿不到还不存在的 chart 关系，所以这一步必须显式补，不会自动推导。
+  - 验收必须用 `GET /api/v1/dashboard/{id}/charts`：返回空数组就是归属没建成，此时 `position_json` 看起来完全正常，只看写请求返回 200 会漏掉这个问题。
+  - `position_json` 的 `CHART-*.meta.uuid` 是 UI 编辑时生成的可选字段，当前实例的 chart API 不暴露 `uuid`，用 API 建看板时可以不写，不影响渲染。
 
 ### 6. 创建或更新 dashboard filter
 
