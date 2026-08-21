@@ -74,7 +74,7 @@ decom.dwd_event_log（v_product_detail 曝光 + c_third_party_goods 点击跳转
 
 ### 规则
 
-- `docs/rules/pipeline.md`：`## 主链路` 中「AI-Fashion 商详页投放链路」小节
+- `docs/rules/pipeline.md`：`## 主链路` 的「站外与投放」链路拓扑，以及 `## 跨主题约束` 中 `c_third_party_goods` 的域名隔离要求
 - `docs/rules/data.md`：时间切天、去重、聚合规则
 
 ### Superset

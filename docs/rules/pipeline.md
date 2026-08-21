@@ -1,337 +1,104 @@
 # Pipeline 规则
 
-## ADS 日报编排
+本文件只承载**跨主题**的编排规则与全局链路拓扑。
 
-### 目标
+- 单个主题的字段口径、分母定义、窗口天数、Superset 对象，以 `docs/topics/<主题>/fact.md` 为准，本文件不复制
+- 表与脚本的清单以 `env/etl_config.json` 为准，本文件不镜像
 
-- 全部 ADS 日报都走独立表级入口
-- 共享 `ADS` 旧入口已退出主链路，不再作为编排入口
+## ADS 编排
+
+### 原则
+
+- 全部 ADS 报表都走独立表级入口，共享 `ADS` 旧入口已从仓库移除
 - 每张 `ADS` 表自己按本表上游判定待处理范围，不共享整层日期入口
+- `ADS` 只消费本主题所需的 `DIM` / `DWS`；发现 `ADS` 直接读 `ODS` / `DWD` / 外部源表，按待收口架构债处理，不当常规模式
+- 固定窗口重刷与全量回刷能力留在 `DWS` / `DIM` 层，不重新引入共享 `ADS` 总入口兜底
 
-独立表级入口包括：
-- `ads_daily_new`
-- `ads_daily_total`
-- `ads_daily_investor`
-- `ads_daily_post_performance`
-- `ads_daily_column_performance`
-- `ads_monthly_column_performance`
-- `ads_monthly_module_performance`
-- `ads_daily_content_performance`
-- `ads_daily_home_module_performance`
-- `ads_daily_thirdapp_channel_uv`
-- `ads_daily_launch_product_detail`
-- `ads_daily_launch_product_detail_dimension`
-- `ads_weekly_launch_product_detail_dimension`
-- `ads_monthly_launch_product_detail_dimension`
-- `ads_daily_launch_product_detail_video_source`
-- `ads_weekly_launch_product_detail_video_source`
-- `ads_monthly_launch_product_detail_video_source`
-- `ads_daily_lta_overview`
-- `ads_daily_lta_kol`
-- `ads_daily_lta_spu`
-- `ads_daily_tryon_confirm`
-- `ads_daily_post_tryon_confirm`
-- `ads_daily_tryon_add_cart_conversion`
-- `ads_daily_product_tryon_performance`
-- `ads_daily_user_duration_frequency`
-- `ads_daily_retention_user_feature`
-- `ads_daily_retention_user_duration_bucket`
-- `ads_daily_retention_user_follow_bucket`
-- `ads_daily_retention_user_new_follow_bucket`
-- `ads_daily_retention_user_tryon_bucket`
-- `ads_daily_retention_user_product_detail_bucket`
-- `ads_daily_social_content_v2`
-- `ads_daily_social_content_attribute_v2`
-- `ads_daily_social_video_monitor_rankings_v2`
-- `ads_daily_social_creator_suspected_throttle_rankings`
-- `ads_daily_social_affiliate_creator`
-- `ads_daily_social_affiliate_video`
-- `ads_daily_formal_video_increment`
-- `ads_weekly_formal_video_increment_growth`
-- `ads_weekly_ai_fashion_tryon_okr`
-- `ads_daily_ai_fashion_tryon_okr_v2`
-- `ads_daily_closet_overview`
-- `ads_daily_video_code_conversion`
-- `ads_daily_push`
-- `ads_daily_push_recall`
-- `ads_daily_makepod`
-- `ads_daily_ai_fashion_styleme`
-- `ads_weekly_ai_fashion_asset_overview`
-- `ads_daily_ai_fashion_asset_rankings`
-- `ads_daily_ai_fashion_asset_detail`
-- `ads_daily_ai_fashion_product_detail_promotion`
-- `ads_weekly_makepod_paid_user_order`
+### 入口清单
 
-### 执行流程
+入口清单的单一来源是 `env/etl_config.json`，不在文档里另存一份：
 
-独立表级入口：
-- `jobs/ads/ads_daily_new.py`
-- `jobs/ads/ads_daily_total.py`
-- `jobs/ads/ads_daily_investor.py`
-- `jobs/ads/ads_daily_post_performance.py`
-- `jobs/ads/ads_daily_column_performance.py`
-- `jobs/ads/ads_daily_content_performance.py`
-- `jobs/ads/ads_monthly_column_performance.py`
-- `jobs/ads/ads_monthly_module_performance.py`
-- `jobs/ads/ads_daily_home_module_performance.py`
-- `jobs/ads/ads_daily_thirdapp_channel_uv.py`
-- `jobs/ads/ads_daily_launch_product_detail.py`
-- `jobs/ads/ads_daily_lta_overview.py`
-- `jobs/ads/ads_daily_lta_kol.py`
-- `jobs/ads/ads_daily_lta_spu.py`
-- `jobs/ads/ads_daily_tryon_confirm.py`
-- `jobs/ads/ads_daily_post_tryon_confirm.py`
-- `jobs/ads/ads_daily_tryon_add_cart_conversion.py`
-- `jobs/ads/ads_daily_product_tryon_performance.py`
-- `jobs/ads/ads_daily_user_duration_frequency.py`
-- `jobs/ads/ads_daily_retention_user_feature.py`
-- `jobs/ads/ads_daily_retention_user_duration_bucket.py`
-- `jobs/ads/ads_daily_retention_user_follow_bucket.py`
-- `jobs/ads/ads_daily_retention_user_new_follow_bucket.py`
-- `jobs/ads/ads_daily_retention_user_tryon_bucket.py`
-- `jobs/ads/ads_daily_retention_user_product_detail_bucket.py`
-- `jobs/ads/ads_daily_social_content_v2.py`
-- `jobs/ads/ads_daily_social_content_attribute_v2.py`
-- `jobs/ads/ads_daily_social_video_monitor_rankings_v2.py`
-- `jobs/ads/ads_daily_social_creator_suspected_throttle_rankings.py`
-- `jobs/ads/ads_daily_social_affiliate_creator.py`
-- `jobs/ads/ads_daily_social_affiliate_video.py`
-- `jobs/ads/ads_daily_formal_video_increment.py`
-- `jobs/ads/ads_weekly_formal_video_increment_growth.py`
-- `jobs/ads/ads_weekly_ai_fashion_tryon_okr.py`
-- `jobs/ads/ads_daily_ai_fashion_tryon_okr_v2.py`
-- `jobs/ads/ads_daily_closet_overview.py`
-- `jobs/ads/ads_daily_video_code_conversion.py`
-- `jobs/ads/ads_daily_push.py`
-- `jobs/ads/ads_daily_push_recall.py`
-- `jobs/ads/ads_daily_makepod.py`
-- `jobs/ads/ads_daily_ai_fashion_styleme.py`
-- `jobs/ads/ads_weekly_ai_fashion_asset_overview.py`
-- `jobs/ads/ads_daily_ai_fashion_asset_rankings.py`
-- `jobs/ads/ads_daily_ai_fashion_asset_detail.py`
-- `jobs/ads/ads_daily_ai_fashion_product_detail_promotion.py`
-- `jobs/ads/ads_weekly_makepod_paid_user_order.py`
+```bash
+python3 -c "import json;[print(t['table_name'], t['script'], t['depends_on']) for t in json.load(open('env/etl_config.json'))['tasks'] if t['layer']=='ADS']"
+```
 
-日期规则：
-1. `ads_daily_new.py` 自己按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定待处理 `dt`
-2. `ads_daily_total.py` 自己按 `dws_device_daily + dws_user_daily` 的并集判定待处理 `dt`
-3. 专题型 `ADS` 只按自己的直接依赖判定待处理范围，例如专栏、帖子、试穿、社媒、投资人主题都不应复用其他主题的共享 `dt`
-4. 涉及次留的 `ADS`，需要把设备事实变更对应的 `DATE_SUB(dt, INTERVAL 1 DAY)` 一并补刷，保证成熟口径及时更新
-5. 如果某张 `ADS` 同时依赖事实表修正和维表修正，要同时评估：
-   - 当前分区是否需要重刷
-   - 历史受影响分区是否需要补刷
+新增 ADS 表时只需在 `env/etl_config.json` 增加一个 task（`layer` / `table_name` / `script` / `depends_on` / `schedule_group`），不需要回来改本文件。
 
-### 刷新模式
+### 日期判定
 
-- 按上游事实 `update_time` / 目标表水位判定 `dt`：
-  - `ads_daily_new`
-  - `ads_daily_total`
-  - `ads_daily_post_performance`
-  - `ads_daily_column_performance`
-  - `ads_monthly_column_performance`
-  - `ads_monthly_module_performance`
-  - `ads_daily_content_performance`
-  - `ads_daily_home_module_performance`
-  - `ads_daily_thirdapp_channel_uv`
-  - `ads_daily_launch_product_detail`
-  - `ads_daily_launch_product_detail_dimension`
-  - `ads_daily_launch_product_detail_video_source`
-  - `ads_daily_lta_overview`
-  - `ads_daily_lta_kol`
-  - `ads_daily_lta_spu`
-  - `ads_daily_tryon_confirm`
-  - `ads_daily_post_tryon_confirm`
-  - `ads_daily_tryon_add_cart_conversion`
-  - `ads_daily_product_tryon_performance`
-  - `ads_daily_user_duration_frequency`
-  - `ads_daily_retention_user_feature`
-  - `ads_daily_retention_user_duration_bucket`
-  - `ads_daily_retention_user_follow_bucket`
-  - `ads_daily_retention_user_new_follow_bucket`
-  - `ads_daily_retention_user_tryon_bucket`
-  - `ads_daily_retention_user_product_detail_bucket`
-  - `ads_daily_social_content_v2`
-  - `ads_daily_social_content_attribute_v2`
-  - `ads_daily_social_video_monitor_rankings_v2`
-  - `ads_daily_social_creator_suspected_throttle_rankings`
-  - `ads_daily_social_affiliate_creator`
-  - `ads_daily_social_affiliate_video`
-  - `ads_daily_formal_video_increment`
-  - `ads_weekly_formal_video_increment_growth`
-  - `ads_weekly_ai_fashion_tryon_okr`
-  - `ads_daily_ai_fashion_tryon_okr_v2`
-  - `ads_daily_closet_overview`
-  - `ads_daily_investor`
-  - `ads_daily_video_code_conversion`
-  - `ads_daily_push`
-  - `ads_daily_push_recall`
-  - `ads_daily_makepod`
-  - `ads_daily_ai_fashion_styleme`
-  - `ads_weekly_launch_product_detail_dimension`
-  - `ads_monthly_launch_product_detail_dimension`
-  - `ads_weekly_launch_product_detail_video_source`
-  - `ads_monthly_launch_product_detail_video_source`
-  - `ads_weekly_ai_fashion_asset_overview`
-  - `ads_daily_ai_fashion_asset_rankings`
-  - `ads_daily_ai_fashion_asset_detail`
-  - `ads_daily_ai_fashion_product_detail_promotion`
-  - `ads_weekly_makepod_paid_user_order`
-- 固定窗口重刷或全量回刷能力，优先留在 `DWS` / `DIM` 层处理；不要重新引入共享 `ADS` 总入口来兜底
+1. 默认模式：按上游事实 `update_time` 窗口 + 目标表水位判定待刷 `dt`，两者取并集
+2. `ads_daily_new` 按 `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily` 的并集判定；`ads_daily_total` 按 `dws_device_daily + dws_user_daily` 的并集判定
+3. 专题型 `ADS` 只按自己的直接依赖判定范围，不复用其他主题的 `dt`
+4. 涉及次留的 `ADS`，要把设备事实变更对应的 `DATE_SUB(dt, INTERVAL 1 DAY)` 一并补刷
+5. 同时依赖事实表修正和维表修正时，要分别评估当前分区重刷与历史受影响分区补刷
+6. 目标表过滤后可能长期为 0 行的主题，不要用「目标表行数为 0 -> 全量」判定，否则每轮调度都会全表扫描且永远写不进行；改用 `update_time` 窗口 + 固定补最近两天，全量重刷由 `--full-refresh` 人工触发
+7. 非下载类 `ADS` 不要直接消费下载链路的回刷日期，避免全链路无效回刷
 
+窗口增量、分区重算、固定回刷窗口的模式选择见 [window-incremental.md](./window-incremental.md)。
 
 ## 主链路
 
-- 事件链路：
-  - `ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily / dws_content_item_device_daily -> ads_*`
-- Makepod 事件链路：
-  - `ods_event_log + oss_key_process_log.makepod_analyze_state -> dwd_makepod_event_log`
-- Makepod 独立站日报链路：
-  - `dwd_makepod_event_log -> dim_makepod_device_first_visit -> dws_makepod_traffic_daily`
-  - `v3_decom.user_info -> dim_makepod_user_channel`
-  - `dim_makepod_user_channel -> dws_makepod_traffic_daily`
-  - `dim_makepod_user_channel + v3_decom.user_order + v3_decom.pay_order + v3_decom.user_order_item + v3_decom.sku + decom.currency_conversion_dict -> dws_makepod_order_daily`
-  - `dws_makepod_traffic_daily + dws_makepod_order_daily -> ads_daily_makepod`
-- Makepod 独立站周报链路：
-  - `dim_makepod_user_channel + v3_decom.pay_order + decom.currency_conversion_dict -> dws_makepod_order_weekly -> ads_weekly_makepod_paid_user_order`
-  - 周口径为上海时区自然周 `WEEK(MONDAY)`（周一起），与仓库其他周表一致（2026-07-31 前曾误用 `WEEK(SUNDAY)`，已订正）
-  - `dws_makepod_order_weekly` 周维度支付人数不能由 `dws_makepod_order_daily` 的日值直接相加（跨天多次支付的用户会被重复计数），必须回 `v3_decom.pay_order` 明细按 `user_id` 在周窗口内整体去重后重新聚合
-  - 粒度为 `week_start_dt × channel × order_group`；`order_group`（订单分组）按用户周内支付成功订单数分为 `1单 / 2单 / 3单及以上`，另有 `全部分组` 表示不分桶的原有汇总（渠道对用户是固定属性，按 `user_id` 计数不会因渠道拆分重复放大）
-  - `dws_makepod_order_weekly` 按固定 9 个渠道枚举 × 4 个订单分组枚举补齐周骨架（含 `Overall` 渠道、`全部分组`），供 `ads_weekly_makepod_paid_user_order` 用 `LAG` 计算周环比时不会跨过缺失周；`ads_weekly_makepod_paid_user_order` 出口再过滤掉全零的 周 × 渠道 × 订单分组 组合
-  - 用户数占比、GMV 占比分母固定为当周 `channel='Overall'` 且 `order_group='全部分组'` 的行（全站总计），不是各渠道或各订单分组相加
-- 平台内容链路：
-  - `dwd_event_log + v3 服务端行为表 -> dws_platform_content_daily -> ads_daily_content_performance`
-- 首页模块链路：
-  - `dwd_event_log -> dws_home_module_daily -> ads_daily_home_module_performance`
-- 第三方渠道曝光链路：
-  - `dwd_event_log -> dws_thirdapp_channel_device_daily -> ads_daily_thirdapp_channel_uv`
-- Launch 商详页总览链路：
-  - `dwd_event_log -> dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail`
-  - 只看 `event_name IN ('v_launch_product_detail','c_launch_product_detail_shopnow')` 两个埋点
-  - DWS 粒度为 `dt × video_id × channel × kol_name × country × merchant × device_id`，5 个维度均来自 `args` JSON
-  - PV 按 `raw_event_id` 去重求和；UV 按 `device_id` 去重计数（不能对多维度拆分后的行数直接 `COUNTIF`）；外跳率在 ADS 层用 `SAFE_DIVIDE` 轻派生
-- Launch 商详页多维度链路：
-  - `dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail_dimension + ads_weekly_launch_product_detail_dimension + ads_monthly_launch_product_detail_dimension`
-  - 粒度分别为 `dt / week_start_dt(周一起) / month × video_id × channel × kol_name × country × merchant`
-  - 只统计商品页 PV/UV；PV/UV 贡献占比分母为当期全维度合计（UV 合计按 `device_id` 去重，不对各维度 UV 求和）；人均访问次数 = PV / UV
-  - `dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail_video_source + ads_weekly_launch_product_detail_video_source + ads_monthly_launch_product_detail_video_source`
-  - 粒度分别为 `dt / week_start_dt(周一起) / month`（不拆维度）；按 `video_id = '无法识别来源'` 与否将 UV 分为有来源 UV / 无来源 UV，同一设备当期若两类事件都有会分别计入两个桶
-- LTA 看板链路：
-  - `dwd_event_log + v3_decom.kol_rel -> dws_lta_thirdparty_event_daily -> ads_daily_lta_overview + ads_daily_lta_kol + ads_daily_lta_spu`
-  - 只看 `args.current_url` 域名为 `mycch.me` 的 `v_third_party_page` / `v_third_party_goods` / `c_third_party_goods` 三事件
-  - 商品曝光在 DWD 已按商品拆多行且 `args` 一致，DWS 先按 `raw_event_id` 去重再按 `args.spu[]/args.spu_name[]` 同位展开到商品级
-- 试穿点击汇总链路：
-  - `dwd_event_log -> dws_tryon_confirm_daily -> ads_daily_tryon_confirm`
-- 帖子级试穿点击链路：
-  - `dwd_event_log -> dws_tryon_confirm_post_daily + dim_post -> ads_daily_post_tryon_confirm`
-- 试穿转化链路：
-  - `dwd_event_log -> dws_tryon_confirm_daily + dws_tryon_user_daily -> ads_daily_tryon_add_cart_conversion`
-- 商品试穿链路：
-  - `dwd_event_log -> dws_product_behavior_daily -> ads_daily_product_tryon_performance`
-- 用户时长频次链路：
-  - `dwd_event_log -> dws_device_activity_daily -> ads_daily_user_duration_frequency`
-- 用增链路：
-  - `dwd_event_log -> dim_device_first_active + dim_user_first_active -> dws_device_daily + dws_user_daily`
-  - `ods_appsflyer_download -> dws_appsflyer_download_daily`
-  - `dws_device_daily + dws_user_daily + dws_appsflyer_download_daily -> ads_daily_new`
-- 全量链路：
-  - `dws_device_daily + dws_user_daily -> ads_daily_total`
-- 留存特征链路：
-  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> dws_user_retention_feature_daily -> ads_daily_retention_user_feature`
-- 留存时长分桶链路：
-  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_duration_bucket`
-- 留存累计关注分桶链路：
-  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_follow_bucket`
-- 留存新增关注分桶链路：
-  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_new_follow_bucket`
-- 留存 AI 试穿次数分桶链路：
-  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_tryon_bucket`
-- 留存浏览商详次数分桶链路：
-  - `dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> ads_daily_retention_user_product_detail_bucket`
-- 投资人主题链路：
-  - `videos.* -> dim_auto_publish_video_task + dws_video_daily`
-  - `dwd_event_log -> dws_registered_app_device_daily + dws_registered_app_user_daily`
-  - `ods_appsflyer_download -> dws_appsflyer_download_daily`
-  - `dim_auto_publish_video_task + dws_video_daily + dws_appsflyer_download_daily + dws_registered_app_device_daily + dws_registered_app_user_daily -> ads_daily_investor`
-  - 当前现状：`ads_daily_investor` 已按独立入口运行，日期判断主要基于中层事实；但视频团队边界过滤仍在 `ADS` 聚合层做过渡性处理，后续应继续下沉到稳定中层
-- 专栏帖子快照链路：
-  - `v3_decom.community_post(status=1) -> dws_column_post_daily -> ads_daily_column_performance`
-- 专栏月级行为链路：
-  - `dwd_event_log + v3 服务端行为表 -> dws_column_interaction_monthly -> ads_monthly_column_performance`
-- 专栏月级帖子快照链路：
-  - `v3_decom.community_post(status=1) -> dws_column_post_daily -> dws_column_post_monthly -> ads_monthly_column_performance`
-- 模块月级行为链路：
-  - `dwd_event_log + v3 服务端行为表 -> dws_module_interaction_monthly -> ads_monthly_module_performance`
-- 模块月级帖子快照链路：
-  - `v3_decom.community_post(status=1) -> dws_column_post_daily -> dws_module_post_monthly -> ads_monthly_module_performance`
-- 下载链路：
-  - `ods_ios_download + ods_android_download -> dwd_download -> dws_download_daily`
-- AppsFlyer 下载链路：
-  - `ods_appsflyer_download -> dws_appsflyer_download_daily`
-- 社媒内容链路：
-  - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2 + dim_auto_publish_video_task -> dws_social_channel_daily_v2 -> ads_daily_social_content_v2`
-  - YouTube 累计快照源为 `yt_video_stats_log.view_count / like_count`
-  - 日末累计除播放、点赞外还包含 `day_end_comments` / `day_end_shares`；YouTube 源表没有分享数字段，其 `day_end_shares` 保持空值，TikTok / Instagram 与其他指标一致按 0 起算
-  - `day_end_comments` / `day_end_shares` 于 2026-08-21 新增，并已从 2026-03-13 全量回刷完成
-- 橱窗号数据链路：
-  - `videos.users -> dws_social_creator_snapshot_daily`
-  - `dim_video + dws_social_video_state_daily_v2 + dws_social_creator_snapshot_daily -> ads_daily_social_affiliate_creator + ads_daily_social_affiliate_video`
-  - 橱窗号范围为 `videos.users.usage_type = 'tiktok-affiliate'`，只有 TikTok 有这类账号；名单取账号日快照最新分区
-  - `videos.users` 是状态表没有历史，粉丝数只能逐日快照后相减，`dws_social_creator_snapshot_daily` 只重写当天分区，历史不可回溯
-  - 互动指标同时输出当日增量与日末累计，增量取 D / D-1 两个日末状态分区相减
-- 社媒属性维度链路：
-  - `videos.video_upload_tasks + videos.video_upload_task_channels + dim_video -> dim_social_video_attribute`
-  - `dim_social_video_attribute + dws_social_video_state_daily_v2 -> dws_social_attribute_daily_v2 -> ads_daily_social_content_attribute_v2`
-  - `dim_social_video_attribute` 只保留 `ext_info` 顶层存在 `video_task` key 的任务，并一次性解析视频属性、品牌与博主属性
-  - DWS 保留平均值和比率的分子分母，ADS 只做报表粒度轻派生
-- 社媒视频监控日榜链路：
-  - `videos.* -> dim_video`
-  - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_social_video_monitor_rankings_v2`
-  - 日榜 `dt=D` 固定读取 D 与 `target_dt=D-1` 两个完整视频日末状态分区，分别产出 `D-1` 发布和 `D-1` 前发布视频在 D 当日的增量 Views Top 10
-  - `dim_video + dws_social_video_snapshot_daily_v2 -> dws_social_creator_published_t1_daily -> ads_daily_social_creator_suspected_throttle_rankings`
-  - 疑似限流账号榜 `dt=D` 只使用 T+1 当天存在真实快照的视频；在 `D-28 ~ D-1` 监控池内按发布时间取最近 10 个有效样本，前 7 个为历史基准、后 3 个为近期观察；`dim_video.is_formal_video` 不参与该主题准入或排除判断
-- 正式号视频发布增量链路：
-  - `videos.platform_video_tags -> dim_video`
-  - `videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2`
-  - `dim_video + dws_social_video_state_daily_v2 -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`
-  - YouTube 累计播放与点赞复用 Social Content v2 的 `yt_video_stats_log.view_count / like_count` 口径
-- AI-Fashion 试穿 OKR 链路：
-  - `dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily`
-  - `dws_user_daily + dwd_event_log + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_user_daily`
-  - `dwd_event_log + dws_user_daily + dws_user_activity_daily + dws_user_retention_feature_daily + dws_ai_fashion_tryon_okr_daily -> ads_daily_ai_fashion_tryon_okr_v2`
-  - `dws_ai_fashion_tryon_okr_daily -> ads_weekly_ai_fashion_tryon_okr`
-  - `dws_ai_fashion_tryon_okr_daily + dws_ai_fashion_tryon_okr_user_daily + dws_user_activity_daily + dws_user_daily + dws_user_retention_feature_daily -> ads_weekly_ai_fashion_tryon_okr_v2`
-- 视频编码转化链路：
-  - `dwd_event_log + dim_user_first_active -> dws_video_code_search_user_daily`
-  - `videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dws_video_code_search_user_daily -> dws_video_code_conversion_daily`
-  - `dws_video_code_conversion_daily + dws_video_code_search_user_daily -> ads_daily_video_code_conversion`
-- 衣橱概览链路：
-  - `v3_decom.user_fashion_closet -> dim_user_closet_first_use`
-  - `dwd_event_log + dws_user_daily + dim_user_closet_first_use + v3_decom.user_fashion_closet -> dws_closet_daily -> ads_daily_closet_overview`
-- push 链路：
-  - `v3_decom.user_notice -> dws_push_daily -> ads_daily_push`
-- push 召回链路：
-  - `dwd_event_log -> dws_push_recall_daily -> ads_daily_push_recall`
-- AI-Fashion Style Me 链路：
-  - `dwd_event_log + v3_decom.common_ext_ai_task + dws_user_daily -> dws_ai_fashion_styleme_daily -> ads_daily_ai_fashion_styleme`
-- AI-Fashion 素材内容链路：
-  - `v3_decom.community_fashion_asset + v3_decom.community_post + dim_column -> dim_asset`
-  - `dwd_event_log + v3_decom.common_ext_ai_task -> dws_asset_user_daily`
-  - `dim_asset + dws_asset_user_daily -> ads_weekly_ai_fashion_asset_overview + ads_daily_ai_fashion_asset_rankings + ads_daily_ai_fashion_asset_detail`
-  - 曝光只看 `v_brand_post_detail` / `v_magazine_post_detail` / `v_star_post_detail` 三个帖子详情页事件；试穿看 `common_ext_ai_task.request_param.$.assetCode`（`task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')`）；负反馈看 `c_feedback_entry.args.asset_code`；素材下方商品点击看 `c_product.args.asset_code`（2026-07-25 起上报）
-  - 周总览统计对象固定为“本周新上线素材”（`dim_asset.publish_dt` 落在当周），只保留 `brand`/`magazine`/`star` 三模块；日榜单与明细不限模块、不限新发布
-- AI-Fashion 商详页投放链路：
-  - `dwd_event_log -> dws_ai_fashion_product_detail_promotion_device_daily -> ads_daily_ai_fashion_product_detail_promotion`
-  - 只看 `v_product_detail` / `c_third_party_goods` 两个埋点（均为 `dwd_event_log` 落库后的小写形态；前端上报为 `v_Product_Detail`，落库时被 `jobs/dwd/dwd_event_log/dwd_event_log.py` 统一小写化，取数必须用小写）
-  - 投放流量界定为 `prop_url` 的 origin 严格等于 `https://alvinclub.com`（不含 www、不含 .ai / .ca），且 `prop_params` 的 `ac_channel` 与 `ac_creative` 同时非空；不限 `args.page_key`
-  - `c_third_party_goods` 与 LTA 主题（`dws_lta_thirdparty_event_daily`）共用（LTA 走 `mycch.me`），域名过滤是两个主题唯一的隔离手段，不得放宽
-  - DWS 粒度 `dt × ac_channel × ac_creative × device_id`，先按 `raw_event_id` 去重再分组，保证 ADS 端 `SUM(pv)` 等价于 `COUNT(DISTINCT raw_event_id)`；ADS 粒度 `dt × ac_creative`（含 `ac_creative='overall'` 全素材去重汇总行），未来加渠道维度不需要重建 DWS
-  - UV 按 `prop_device_id` 去重（与 `dws_product_detail_daily` 的 `COALESCE(prop_user_id, prop_device_id)` 口径不同，故独立建表）；`device_id` 为空的事件保留为 NULL，计入 PV 不计入 UV
-  - `overall` 行必须单独按设备全局去重，不能对各素材 UV 直接求和（同一设备当日可能看过多个素材）；素材明细行只出现实际有数据的组合，不做历史素材补零
-  - 该主题过滤后当前无数据：DWS 刻意不使用「目标表行数为 0 -> 全量」判定（会导致每轮调度全表扫描 `dwd_event_log` 且永远写不进行），只走「最近 6 小时 `update_time` + 固定补最近两天」，全量重刷由 `--full-refresh` 人工触发；ADS 从 `REPORT_START_DT` 起补零 `overall` 行，保证目标表永远有行
-- 默认要求：`ADS` 只消费本主题所需的 `DIM` / `DWS`；如果发现 `ADS` 直接读取 `ODS` / `DWD` / 外部源表，应优先视为待收口架构债，而不是常规模式
-- 总量和新增异常时，先确认自己走的是事件链路还是下载链路。
-- 非下载类 ADS 默认不要直接消费下载链路回刷日期；优先按自身依赖链路分发日期，避免全链路无效回刷。
-- Batch 5 之后，试穿与商品 4 张 ADS 不再挂共享 `ADS` 旧入口的共享设备水位。
-- Batch 6 之后，用户时长与留存 2 张 ADS 也不再挂共享 `ADS` 旧入口。
-- Batch 7 之后，投资人报表也不再挂共享 `ADS` 旧入口。
-- Batch 8 之后，`ads_daily_new`、`ads_daily_total` 也已拆成独立入口，仓库内不再保留 ADS 共享旧入口。
+只列层级拓扑，口径细节见对应主题文档。
+
+### 基础事实
+
+- 事件链路：`ods_event_log -> dwd_event_log -> dws_device_daily / dws_user_daily / dws_content_item_device_daily -> ads_*`
+- 用增链路：`dwd_event_log -> dim_device_first_active + dim_user_first_active -> dws_device_daily + dws_user_daily`；`ods_appsflyer_download -> dws_appsflyer_download_daily`；三者 `-> ads_daily_new`
+- 全量链路：`dws_device_daily + dws_user_daily -> ads_daily_total`
+- 下载链路：`ods_ios_download + ods_android_download -> dwd_download -> dws_download_daily`
+- 用户活跃与留存：`dws_user_daily + dwd_event_log + v3 服务端行为 -> dws_user_activity_daily -> dws_user_retention_feature_daily -> ads_daily_retention_user_feature`；同一张 `dws_user_activity_daily` 还直接支撑 5 张留存分桶 ADS（时长 / 累计关注 / 新增关注 / 试穿次数 / 浏览商详次数）
+- 用户时长频次：`dwd_event_log -> dws_device_activity_daily -> ads_daily_user_duration_frequency`
+
+### 站内主题
+
+- 平台内容：`dwd_event_log + v3 服务端行为表 -> dws_platform_content_daily -> ads_daily_content_performance`
+- 首页模块：`dwd_event_log -> dws_home_module_daily -> ads_daily_home_module_performance`
+- 第三方渠道曝光：`dwd_event_log -> dws_thirdapp_channel_device_daily -> ads_daily_thirdapp_channel_uv`
+- 专栏与模块：`v3_decom.community_post(status=1) -> dws_column_post_daily -> ads_daily_column_performance`；月级为 `dws_column_post_monthly` / `dws_module_post_monthly` + `dws_column_interaction_monthly` / `dws_module_interaction_monthly` -> `ads_monthly_column_performance` / `ads_monthly_module_performance`
+- 试穿：`dwd_event_log -> dws_tryon_confirm_daily -> ads_daily_tryon_confirm`；`+ dim_post -> ads_daily_post_tryon_confirm`；`+ dws_tryon_user_daily -> ads_daily_tryon_add_cart_conversion`
+- 商品试穿：`dwd_event_log -> dws_product_behavior_daily -> ads_daily_product_tryon_performance`
+- 衣橱概览：`v3_decom.user_fashion_closet -> dim_user_closet_first_use`；`+ dwd_event_log + dws_user_daily -> dws_closet_daily -> ads_daily_closet_overview`
+- push：`v3_decom.user_notice -> dws_push_daily -> ads_daily_push`；召回为 `dwd_event_log -> dws_push_recall_daily -> ads_daily_push_recall`
+
+### 站外与投放
+
+- Launch 商详页：`dwd_event_log -> dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail`，同一张 DWS 还支撑多维度与视频来源的日 / 周 / 月 6 张 ADS
+- LTA 看板：`dwd_event_log + v3_decom.kol_rel -> dws_lta_thirdparty_event_daily -> ads_daily_lta_overview + ads_daily_lta_kol + ads_daily_lta_spu`
+- AI-Fashion 商详页投放：`dwd_event_log -> dws_ai_fashion_product_detail_promotion_device_daily -> ads_daily_ai_fashion_product_detail_promotion`
+- AI-Fashion Style Me：`dwd_event_log + v3_decom.common_ext_ai_task + dws_user_daily -> dws_ai_fashion_styleme_daily -> ads_daily_ai_fashion_styleme`
+- AI-Fashion 试穿 OKR：`dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily`（+ `dws_ai_fashion_tryon_okr_user_daily`）`-> ads_daily_ai_fashion_tryon_okr_v2 + ads_weekly_ai_fashion_tryon_okr(_v2)`
+- AI-Fashion 素材内容：`v3_decom.community_fashion_asset + v3_decom.community_post + dim_column -> dim_asset`；`dwd_event_log + v3_decom.common_ext_ai_task -> dws_asset_user_daily`；两者 `-> ads_weekly_ai_fashion_asset_overview + ads_daily_ai_fashion_asset_rankings + ads_daily_ai_fashion_asset_detail`
+
+### Makepod 独立站
+
+- 事件：`ods_event_log + oss_key_process_log.makepod_analyze_state -> dwd_makepod_event_log`
+- 日报：`dwd_makepod_event_log -> dim_makepod_device_first_visit -> dws_makepod_traffic_daily`；`v3_decom.user_info -> dim_makepod_user_channel`（同时供流量与订单）；`dim_makepod_user_channel + v3_decom.user_order / pay_order / user_order_item / sku + decom.currency_conversion_dict -> dws_makepod_order_daily`；两张 DWS `-> ads_daily_makepod`
+- 周报：`dim_makepod_user_channel + v3_decom.pay_order + decom.currency_conversion_dict -> dws_makepod_order_weekly -> ads_weekly_makepod_paid_user_order`
+- 周维度去重人数不能由日表日值相加（跨天多次支付会重复计数），必须回明细在周窗口内整体去重
+
+### 社媒与视频
+
+- 视频维表：`videos.*（含 platform_video_tags）-> dim_video`
+- 播放快照：`videos.yt_video_stats_log + videos.video_stats_log + videos.ig_media_stats_log + dim_video -> dws_social_video_snapshot_daily_v2 -> dws_social_video_state_daily_v2`
+  - `snapshot` 只有当天真实采集到的视频；`state` 按视频前向填充出日末全量状态，下游算增量统一读 `state`
+  - 日末字段含 `day_end_views / likes / comments / shares`；YouTube 源表没有分享数字段，其 `day_end_shares` 保持空值，TikTok 与 Instagram 按 0 起算
+- 社媒内容：`dws_social_video_state_daily_v2 + dim_auto_publish_video_task -> dws_social_channel_daily_v2 -> ads_daily_social_content_v2`
+- 社媒属性维度：`videos.video_upload_tasks + videos.video_upload_task_channels + dim_video -> dim_social_video_attribute`；`+ dws_social_video_state_daily_v2 -> dws_social_attribute_daily_v2 -> ads_daily_social_content_attribute_v2`
+- 视频监控日榜：`dim_video + dws_social_video_state_daily_v2 -> ads_daily_social_video_monitor_rankings_v2`
+- 疑似限流账号：`dim_video + dws_social_video_snapshot_daily_v2 -> dws_social_creator_published_t1_daily -> dws_social_creator_view_fluctuation_daily -> ads_daily_social_creator_suspected_throttle_rankings + ads_daily_social_creator_zero_view_rankings + ads_daily_social_creator_view_boost_rankings`
+- 橱窗号数据：`videos.users -> dws_social_creator_snapshot_daily`；`+ dim_video + dws_social_video_state_daily_v2 -> ads_daily_social_affiliate_creator + ads_daily_social_affiliate_video`
+  - `videos.users` 是状态表没有历史，粉丝这类「新增」指标只能逐日快照后相减，快照表只重写当天分区，历史不可回溯
+- 正式号视频发布增量：`dim_video + dws_social_video_state_daily_v2 -> ads_daily_formal_video_increment -> ads_weekly_formal_video_increment_growth`
+- 视频编码转化：`dwd_event_log + dim_user_first_active -> dws_video_code_search_user_daily`；`videos.video_upload_tasks + dim_auto_publish_video_task + dws_video_daily + dws_video_code_search_user_daily -> dws_video_code_conversion_daily -> ads_daily_video_code_conversion`
+- 投资人主题：`videos.* -> dim_auto_publish_video_task + dws_video_daily`；`dwd_event_log -> dws_registered_app_device_daily + dws_registered_app_user_daily`；`+ dws_appsflyer_download_daily -> ads_daily_investor`
+  - 遗留债：视频团队边界过滤仍在 `ADS` 聚合层做过渡处理，后续下沉到稳定中层
+
+## 跨主题约束
+
+这些约束会同时影响多个主题，改动前必须确认全部下游：
+
+- `dwd_event_log` 落库时统一把 `event_name` 小写化（`jobs/dwd/dwd_event_log/dwd_event_log.py`），所有 SQL 必须用小写事件名匹配；按前端抓包的大写形态取数会永远查不到数据
+- `c_third_party_goods` 被 LTA 与 AI-Fashion 商详页投放两个主题共用，域名过滤（LTA 走 `mycch.me`、投放走 `https://alvinclub.com`）是唯一的隔离手段，不得放宽
+- 周口径统一为 `WEEK(MONDAY)`（周一起），跨主题一致；2026-07-31 前 Makepod 曾误用 `WEEK(SUNDAY)`，已订正
+- 总量与新增异常时，先确认自己走的是事件链路还是下载链路
+- 首次 / 首日类口径不在增量脚本里现算，规则见 [code.md](./code.md)
