@@ -82,11 +82,19 @@ def get_report_start_date() -> date | None:
     query = f"""
     WITH affiliate_creator AS (
         {affiliate_creator_sql()}
+    ),
+    affiliate_video AS (
+        SELECT v.video_key
+        FROM `{table_id(DIM_VIDEO_TABLE_NAME)}` v
+        INNER JOIN affiliate_creator a
+            ON v.creator_id = a.creator_id
+        WHERE v.channel = '{AFFILIATE_CHANNEL}'
+            AND NOT v.is_pre_binding_video
     )
     SELECT MIN(s.dt) AS start_dt
     FROM `{table_id(VIDEO_SNAPSHOT_TABLE_NAME)}` s
-    INNER JOIN affiliate_creator a
-        ON s.creator_id = a.creator_id
+    INNER JOIN affiliate_video v
+        ON s.video_key = v.video_key
     WHERE s.channel = '{AFFILIATE_CHANNEL}'
     """
     rows = list(client.query(query).result())
@@ -163,7 +171,7 @@ def build_select_sql(dates: list[date]) -> str:
     affiliate_creator AS (
         {affiliate_creator_sql()}
     ),
-    -- 橱窗号视频展示属性，标题与链接统一来自视频维表。
+    -- 橱窗号视频展示属性，标题与链接统一来自视频维表；账号绑定前的存量视频不纳入报表。
     affiliate_video AS (
         SELECT
             v.creator_id,
@@ -177,6 +185,7 @@ def build_select_sql(dates: list[date]) -> str:
         INNER JOIN affiliate_creator a
             ON v.creator_id = a.creator_id
         WHERE v.channel = '{AFFILIATE_CHANNEL}'
+            AND NOT v.is_pre_binding_video
     ),
     -- 橱窗号视频在统计日与前一日的日末累计状态。
     video_state AS (
@@ -188,8 +197,8 @@ def build_select_sql(dates: list[date]) -> str:
             s.day_end_comments,
             s.day_end_shares
         FROM `{table_id(VIDEO_STATE_TABLE_NAME)}` s
-        INNER JOIN affiliate_creator a
-            ON s.creator_id = a.creator_id
+        INNER JOIN affiliate_video v
+            ON s.video_key = v.video_key
         WHERE s.channel = '{AFFILIATE_CHANNEL}'
             AND s.dt IN UNNEST([{state_dates_sql}])
     )
