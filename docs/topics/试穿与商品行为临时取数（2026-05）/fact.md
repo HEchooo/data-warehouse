@@ -67,6 +67,6 @@
 - 上游：`decom.dwd_event_log`、`decom.dim_user_first_active`、`v3_decom.common_ext_ai_task`
 - 规则：
   - `docs/rules/data.md`（时区与去重）
-  - `docs/rules/code.md`（分层职责）
+  - `docs/rules/layering.md`（分层职责）
   - `docs/rules/topics.md`（主题文档结构）
 - 查询文件：`docs/topics/试穿与商品行为临时取数（2026-05）/query.sql`
