@@ -56,6 +56,7 @@ def build_select_sql() -> str:
         ad_id,
         ad_name,
         store_id,
+        currency,
         spend,
         impressions,
         clicks,
@@ -84,7 +85,8 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', advertiser_id, '|', ad_id))
                     AS unique_key_count,
-                COUNTIF(spend > 0 AND clicks > 0 AND cpc IS NULL) AS broken_cpc_count
+                COUNTIF(spend > 0 AND clicks > 0 AND cpc IS NULL) AS broken_cpc_count,
+                COUNTIF(currency IS NULL) AS null_currency_count
             FROM `{staging_table}`
             """
         ).result()
@@ -95,6 +97,8 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("TikTok 广告投放日报校验失败：统计日、广告主和广告不唯一")
     if result.broken_cpc_count:
         raise RuntimeError("TikTok 广告投放日报校验失败：有消耗有点击的行算不出 CPC")
+    if result.null_currency_count:
+        raise RuntimeError("TikTok 广告投放日报校验失败：存在没有货币单位的金额行")
 
 
 def run() -> None:

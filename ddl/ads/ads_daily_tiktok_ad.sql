@@ -33,3 +33,7 @@ CREATE TABLE IF NOT EXISTS `my-project-8584-jetonai.decom.ads_daily_tiktok_ad` (
 )
 PARTITION BY dt
 CLUSTER BY advertiser_id, store_id, ad_id;
+
+-- 2026-08-27 新增货币单位，透传自 DWS；当前单一广告主恒为 USD。
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_tiktok_ad`
+    ADD COLUMN IF NOT EXISTS currency STRING;

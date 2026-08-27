@@ -136,6 +136,24 @@ def fetch_all_pages(session: requests.Session, path: str, params: dict) -> list[
         page += 1
 
 
+def fetch_currency(session: requests.Session) -> str:
+    """金额字段以广告主账户货币计价，报表接口不返回货币，只能从广告主信息取。"""
+    response = session.get(
+        f"{TIKTOK_API_BASE}/advertiser/info/",
+        params={"advertiser_ids": json.dumps([ADVERTISER_ID])},
+        timeout=60,
+    )
+    response.raise_for_status()
+    body = response.json()
+    if body.get("code") != 0:
+        raise RuntimeError(f"TikTok /advertiser/info/ 返回错误: {body.get('message')}")
+    currency = body["data"]["list"][0].get("currency")
+    if not currency:
+        raise RuntimeError("TikTok 广告主信息未返回货币单位，金额口径无法确定")
+    logging.info("广告主货币单位: %s", currency)
+    return currency
+
+
 def fetch_report(session: requests.Session, start_date: date, end_date: date) -> list[dict]:
     rows = fetch_all_pages(
         session,
@@ -186,7 +204,7 @@ def fetch_ad_stores(session: requests.Session, ad_ids: list[str]) -> dict[str, s
     return stores
 
 
-def build_rows(report_rows: list[dict], stores: dict[str, str | None]) -> list[dict]:
+def build_rows(report_rows: list[dict], stores: dict[str, str | None], currency: str) -> list[dict]:
     fetched_at = datetime.now(timezone.utc).isoformat()
     rows = []
     for item in report_rows:
@@ -205,6 +223,7 @@ def build_rows(report_rows: list[dict], stores: dict[str, str | None]) -> list[d
                 "store_id": stores.get(ad_id),
                 **{name: to_float(metrics.get(name)) for name in FLOAT_METRICS},
                 **{name: to_int(metrics.get(name)) for name in INT_METRICS},
+                "currency": currency,
                 "report_timezone": ADVERTISER_TZ,
                 "fetched_at": fetched_at,
                 "update_time": fetched_at,
@@ -221,7 +240,8 @@ def validate(staging_table: str, start_date: date, end_date: date) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', advertiser_id, '|', ad_id)) AS unique_key_count,
                 MIN(dt) AS min_dt,
-                MAX(dt) AS max_dt
+                MAX(dt) AS max_dt,
+                COUNTIF(currency IS NULL) AS null_currency_count
             FROM `{staging_table}`
             """
         ).result()
@@ -230,6 +250,8 @@ def validate(staging_table: str, start_date: date, end_date: date) -> None:
         raise RuntimeError("TikTok 广告投放日报校验失败：staging 无数据")
     if result.row_count != result.unique_key_count:
         raise RuntimeError("TikTok 广告投放日报校验失败：统计日、广告主和广告不唯一")
+    if result.null_currency_count:
+        raise RuntimeError("TikTok 广告投放日报校验失败：存在没有货币单位的金额行")
     if result.min_dt < start_date or result.max_dt > end_date:
         raise RuntimeError(
             f"TikTok 广告投放日报校验失败：统计日超出窗口 {result.min_dt} ~ {result.max_dt}"
@@ -253,10 +275,12 @@ def replace_partitions(rows: list[dict], start_date: date, end_date: date) -> No
             f"CREATE TABLE `{staging_table}` AS SELECT * FROM `{target_table}` WHERE 1 = 0"
         ).result()
 
-        # 用 load job 而不是 streaming insert：写完立即可查，且 staging 不带 streaming buffer 限制
+        # 用 load job 而不是 streaming insert：写完立即可查，且 staging 不带 streaming buffer 限制。
+        # job_id_prefix 让 SDK 每次自带随机后缀，避免网络抖动触发内部重试时撞 409 Already Exists。
         client.load_table_from_json(
             rows,
             staging_table,
+            job_id_prefix=f"tiktok_ods_{run_id}_",
             job_config=bigquery.LoadJobConfig(
                 schema=client.get_table(target_table).schema,
                 write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
@@ -294,11 +318,12 @@ def run(args: argparse.Namespace) -> None:
     session = requests.Session()
     session.headers["Access-Token"] = get_access_token()
 
+    currency = fetch_currency(session)
     report_rows = fetch_report(session, start_date, end_date)
     ad_ids = sorted({item["dimensions"]["ad_id"] for item in report_rows})
     stores = fetch_ad_stores(session, ad_ids) if ad_ids else {}
 
-    replace_partitions(build_rows(report_rows, stores), start_date, end_date)
+    replace_partitions(build_rows(report_rows, stores, currency), start_date, end_date)
 
 
 if __name__ == "__main__":

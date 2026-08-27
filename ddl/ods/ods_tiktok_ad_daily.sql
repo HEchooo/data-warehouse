@@ -48,3 +48,8 @@ CREATE TABLE IF NOT EXISTS `my-project-8584-jetonai.decom.ods_tiktok_ad_daily` (
 )
 PARTITION BY dt
 CLUSTER BY advertiser_id, store_id, ad_id;
+
+-- 2026-08-27 新增货币单位。金额字段（spend / cpc / cpm / 各类成本）都以广告主账户货币计价，
+-- 取自 /advertiser/info/ 的 currency；报表接口本身不返回货币。
+ALTER TABLE `my-project-8584-jetonai.decom.ods_tiktok_ad_daily`
+    ADD COLUMN IF NOT EXISTS currency STRING;

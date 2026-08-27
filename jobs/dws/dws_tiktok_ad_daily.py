@@ -54,6 +54,8 @@ def build_select_sql() -> str:
         ad_id,
         ad_name,
         NULLIF(store_id, '') AS store_id,
+        -- 金额以广告主账户货币计价，跨广告主聚合金额前必须先按 currency 分组或换算
+        currency,
         IFNULL(spend, 0) AS spend,
         IFNULL(impressions, 0) AS impressions,
         IFNULL(clicks, 0) AS clicks,
@@ -74,7 +76,8 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', advertiser_id, '|', ad_id))
                     AS unique_key_count,
-                COUNTIF(dt IS NULL OR advertiser_id IS NULL OR ad_id IS NULL) AS null_key_count
+                COUNTIF(dt IS NULL OR advertiser_id IS NULL OR ad_id IS NULL) AS null_key_count,
+                COUNTIF(currency IS NULL) AS null_currency_count
             FROM `{staging_table}`
             """
         ).result()
@@ -85,6 +88,8 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("TikTok 广告投放事实校验失败：统计日、广告主和广告不唯一")
     if result.null_key_count:
         raise RuntimeError("TikTok 广告投放事实校验失败：主键字段存在空值")
+    if result.null_currency_count:
+        raise RuntimeError("TikTok 广告投放事实校验失败：存在没有货币单位的金额行")
 
 
 def run() -> None:
