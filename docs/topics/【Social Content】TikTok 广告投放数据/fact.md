@@ -6,6 +6,7 @@
 - 报表表：`decom.ads_daily_tiktok_ad`，粒度 `dt × advertiser_id × ad_id`
 - Superset 物理 dataset：`ads_daily_tiktok_ad`（id=297），主时间列 `dt`
 - Superset chart：`723`（TikTok 广告投放日汇总，aggregate）、`724`（TikTok 广告投放明细（广告维度），raw）
+- 看板顶部有 `MARKDOWN-tiktok-ad-note` 说明组件，写明时区口径、店铺过滤范围、金额单位与率值算法；改口径时要同步改这里
 - 数据源：TikTok Business API `/report/integrated/get/`，`service_type=AUCTION` / `report_type=BASIC` / `data_level=AUCTION_AD`
 - 广告主：`7667456906528735239`（德赢-05），当前只接这一个广告主
 - 店铺过滤：两个 chart 都固定 `store_id = '7494736378860701060'`（makepod 店铺），非该店铺与无店铺的广告不进看板
@@ -57,11 +58,16 @@
 
 `spend` 与所有成本类字段都以广告主账户货币计价，货币本身不在报表接口里，来自 `/advertiser/info/` 的 `currency`。
 
-看板不把货币写死进列名，而是把 `currency` 作为**分组维度**：汇总 chart 按 `dt × currency` 分组，明细 chart 单独出一列「货币」。
-这样将来接入非 USD 广告主时会自动分行，不会把不同币种的金额悄悄加在一起。跨广告主汇总金额前必须先按 `currency` 分组，
-或用 `decom.currency_conversion_dict` 换算。
+`currency` 入库但**不上看板**：既不作为展示列，也不作为分组维度。看板改用两种方式表达货币：
+
+- 金额列的 `d3NumberFormat` 统一为 `$.2f`，数值自带 `$` 前缀
+- 顶部说明组件写明「金额单位为 USD」
 
 三层脚本都有 `currency IS NULL` 的校验：金额有值但没有货币标注，直接判为失败。
+
+**这里有一个明确的取舍：** 去掉货币分组维度后，如果将来接入非 USD 广告主，两种币种的金额会被直接相加而不会自动分行，
+`$` 前缀也会变成错的。届时必须做两件事之一：把 `currency` 加回分组维度，或用 `decom.currency_conversion_dict` 统一换算到单一币种。
+当前看板固定单广告主单店铺、`currency` 恒为 `USD`，所以这个风险尚未触发，但不能当成永久成立的前提。
 
 ### 数据边界
 
