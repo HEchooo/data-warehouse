@@ -54,6 +54,16 @@
       "schedule_group": "ods_daily"
     },
     {
+      "layer": "ODS",
+      "table_name": "ods_tiktok_ad_daily",
+      "stage": "ODS",
+      "name": "ODS TikTok 广告投放日报 ETL",
+      "script": "jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "ods_tiktok_ad_daily"
+    },
+    {
       "layer": "DWD",
       "table_name": "dwd_event_log",
       "stage": "DWD",
@@ -821,6 +831,18 @@
       "schedule_group": "dws_social_attribute_daily_v2"
     },
     {
+      "layer": "DWS",
+      "table_name": "dws_tiktok_ad_daily",
+      "stage": "DWS",
+      "name": "DWS TikTok 广告投放事实 ETL",
+      "script": "jobs/dws/dws_tiktok_ad_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "ods_tiktok_ad_daily"
+      ],
+      "schedule_group": "dws_tiktok_ad_daily"
+    },
+    {
       "layer": "ADS",
       "table_name": "ads_daily_closet_overview",
       "stage": "ADS",
@@ -1432,6 +1454,18 @@
         "dws_social_creator_snapshot_daily"
       ],
       "schedule_group": "ads_daily_social_affiliate_video"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_tiktok_ad",
+      "stage": "ADS",
+      "name": "ADS Social Content TikTok 广告投放日报 ETL",
+      "script": "jobs/ads/ads_daily_tiktok_ad.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_tiktok_ad_daily"
+      ],
+      "schedule_group": "ads_daily_tiktok_ad"
     },
     {
       "layer": "ADS",

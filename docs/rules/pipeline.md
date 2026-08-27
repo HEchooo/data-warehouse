@@ -65,6 +65,10 @@ python3 -c "import json;[print(t['table_name'], t['script'], t['depends_on']) fo
 - Launch 商详页：`dwd_event_log -> dws_launch_product_detail_device_daily -> ads_daily_launch_product_detail`，同一张 DWS 还支撑多维度与视频来源的日 / 周 / 月 6 张 ADS
 - LTA 看板：`dwd_event_log + v3_decom.kol_rel -> dws_lta_thirdparty_event_daily -> ads_daily_lta_overview + ads_daily_lta_kol + ads_daily_lta_spu`
 - AI-Fashion 商详页投放：`dwd_event_log -> dws_ai_fashion_product_detail_promotion_device_daily -> ads_daily_ai_fashion_product_detail_promotion`
+- TikTok 广告投放：`TikTok Business API -> ods_tiktok_ad_daily -> dws_tiktok_ad_daily -> ads_daily_tiktok_ad`
+  - `dt` 是广告主时区 `Etc/GMT+5`（固定 UTC-5，不含夏令时）自然日，与其余主题的美东自然日在夏令时期间相差 1 小时
+  - `DWS` 只固化可加的分子分母，CPC / CPM / CTR / CVR 等率值一律由下游 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算，不得对派生列求和或求平均
+  - 店铺来自 `/ad/get/` 而不是报表接口；非带货广告（`objective_type = VIDEO_VIEWS` 的 Smart+）没有店铺，看板按店铺过滤时会整体排除
 - AI-Fashion Style Me：`dwd_event_log + v3_decom.common_ext_ai_task + dws_user_daily -> dws_ai_fashion_styleme_daily -> ads_daily_ai_fashion_styleme`
 - AI-Fashion 试穿 OKR：`dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily`（+ `dws_ai_fashion_tryon_okr_user_daily`）`-> ads_daily_ai_fashion_tryon_okr_v2 + ads_weekly_ai_fashion_tryon_okr(_v2)`
 - AI-Fashion 素材内容：`v3_decom.community_fashion_asset + v3_decom.community_post + dim_column -> dim_asset`；`dwd_event_log + v3_decom.common_ext_ai_task -> dws_asset_user_daily`；两者 `-> ads_weekly_ai_fashion_asset_overview + ads_daily_ai_fashion_asset_rankings + ads_daily_ai_fashion_asset_detail`
