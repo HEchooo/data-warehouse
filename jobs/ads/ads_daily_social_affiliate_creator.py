@@ -14,11 +14,15 @@ TABLE_NAME = "ads_daily_social_affiliate_creator"
 VIDEO_STATE_TABLE_NAME = "dws_social_video_state_daily_v2"
 VIDEO_SNAPSHOT_TABLE_NAME = "dws_social_video_snapshot_daily_v2"
 CREATOR_SNAPSHOT_TABLE_NAME = "dws_social_creator_snapshot_daily"
+CREATOR_SHOP_TABLE_NAME = "dws_social_affiliate_creator_shop_daily"
 DIM_VIDEO_TABLE_NAME = "dim_video"
 # 橱窗号范围：服务端账号表的 usage_type 枚举，只有 TikTok 有这类账号。
 AFFILIATE_USAGE_TYPE = "tiktok-affiliate"
 AFFILIATE_CHANNEL = "tiktok"
 INCREMENTAL_WINDOW_HOURS = 6
+# 成交数据是 T+1 抓取，统计日已落地后仍可能补进成交行，固定回看最近几天。
+# ponytail: 固定 3 天回看，RPA 若回刷更久的历史需要 --full-refresh。
+SHOP_LOOKBACK_DAYS = 3
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -142,6 +146,15 @@ def get_dates_to_process() -> list[date]:
                 CURRENT_TIMESTAMP(), INTERVAL {INCREMENTAL_WINDOW_HOURS} HOUR
             )
     ),
+    -- 成交事实覆盖的近几天统计日必须重算，否则先落地的分区永远等不到后到的成交行。
+    shop_dates AS (
+        SELECT DISTINCT dt
+        FROM `{table_id(CREATOR_SHOP_TABLE_NAME)}`
+        WHERE channel = '{AFFILIATE_CHANNEL}'
+            AND dt >= DATE_SUB(
+                CURRENT_DATE('{TORONTO_TZ}'), INTERVAL {SHOP_LOOKBACK_DAYS} DAY
+            )
+    ),
     -- 目标表水位之后已就绪的统计日需要补齐。
     missing_dates AS (
         SELECT DISTINCT dt
@@ -158,6 +171,8 @@ def get_dates_to_process() -> list[date]:
         SELECT dt FROM changed_creator_dates
         UNION ALL
         SELECT DATE_ADD(dt, INTERVAL 1 DAY) AS dt FROM changed_creator_dates
+        UNION ALL
+        SELECT dt FROM shop_dates
         UNION ALL
         SELECT dt FROM missing_dates
     )
@@ -280,6 +295,20 @@ def build_select_sql(dates: list[date]) -> str:
             AND prev.dt = DATE_SUB(cur.dt, INTERVAL 1 DAY)
         WHERE cur.channel = '{AFFILIATE_CHANNEL}'
             AND cur.dt IN UNNEST([{dates_sql}])
+    ),
+    -- 账号成交：TikTok 后台自己的归因结果，不是视频商品 GMV 的求和。
+    creator_shop AS (
+        SELECT
+            dt,
+            account_handle,
+            currency,
+            gmv,
+            items_sold,
+            sku_order_count,
+            gmv_usd
+        FROM `{table_id(CREATOR_SHOP_TABLE_NAME)}`
+        WHERE channel = '{AFFILIATE_CHANNEL}'
+            AND dt IN UNNEST([{dates_sql}])
     )
     SELECT
         d.dt,
@@ -300,6 +329,12 @@ def build_select_sql(dates: list[date]) -> str:
         COALESCE(i.total_share_count, 0) AS total_share_count,
         f.follower_increment,
         f.total_follower_count,
+        -- RPA 未采集到该账号该统计日时成交字段保持空值，不是 0，见 fact.md 数据边界。
+        s.currency,
+        s.gmv,
+        s.items_sold,
+        s.sku_order_count,
+        s.gmv_usd,
         CURRENT_TIMESTAMP() AS update_time
     FROM date_list d
     CROSS JOIN affiliate_creator a
@@ -312,6 +347,9 @@ def build_select_sql(dates: list[date]) -> str:
     LEFT JOIN creator_follower f
         ON f.dt = d.dt
         AND f.creator_id = a.creator_id
+    LEFT JOIN creator_shop s
+        ON s.dt = d.dt
+        AND s.account_handle = a.account_handle
     """
 
 
@@ -327,7 +365,11 @@ def validate(staging_table: str) -> None:
                 COUNTIF(total_view_count < 0
                     OR total_like_count < 0
                     OR total_comment_count < 0) AS invalid_total_count,
-                COUNTIF(channel != '{AFFILIATE_CHANNEL}') AS invalid_channel_count
+                COUNTIF(channel != '{AFFILIATE_CHANNEL}') AS invalid_channel_count,
+                COUNTIF(gmv IS NOT NULL AND currency IS NULL) AS invalid_currency_count,
+                COUNTIF(gmv < 0
+                    OR items_sold < 0
+                    OR sku_order_count < 0) AS invalid_gmv_count
             FROM `{staging_table}`
             """
         ).result()
@@ -342,6 +384,10 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("橱窗号账号日报校验失败：存在负数日末累计值")
     if result.invalid_channel_count != 0:
         raise RuntimeError("橱窗号账号日报校验失败：存在非 TikTok 渠道行")
+    if result.invalid_currency_count != 0:
+        raise RuntimeError("橱窗号账号日报校验失败：存在没有货币单位的 GMV 行")
+    if result.invalid_gmv_count != 0:
+        raise RuntimeError("橱窗号账号日报校验失败：存在负数成交指标")
 
 
 def run(dates: list[date], full_refresh: bool = False) -> None:

@@ -17,6 +17,11 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_creator` 
     total_share_count INT64,
     follower_increment INT64,
     total_follower_count INT64,
+    currency STRING,
+    gmv NUMERIC,
+    items_sold INT64,
+    sku_order_count INT64,
+    gmv_usd NUMERIC,
     update_time TIMESTAMP
 )
 PARTITION BY dt

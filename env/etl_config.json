@@ -791,6 +791,26 @@
     },
     {
       "layer": "DWS",
+      "table_name": "dws_social_affiliate_video_product_daily",
+      "stage": "DWS",
+      "name": "DWS 橱窗号视频商品成交事实 ETL",
+      "script": "jobs/dws/dws_social_affiliate_video_product_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dws_social_affiliate_video_product_daily"
+    },
+    {
+      "layer": "DWS",
+      "table_name": "dws_social_affiliate_creator_shop_daily",
+      "stage": "DWS",
+      "name": "DWS 橱窗号账号成交事实 ETL",
+      "script": "jobs/dws/dws_social_affiliate_creator_shop_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "dws_social_affiliate_creator_shop_daily"
+    },
+    {
+      "layer": "DWS",
       "table_name": "dws_social_creator_view_fluctuation_daily",
       "stage": "DWS",
       "name": "DWS Social Content 账号播放波动准入中间表 ETL",
@@ -1458,7 +1478,8 @@
         "dim_video",
         "dws_social_video_snapshot_daily_v2",
         "dws_social_video_state_daily_v2",
-        "dws_social_creator_snapshot_daily"
+        "dws_social_creator_snapshot_daily",
+        "dws_social_affiliate_creator_shop_daily"
       ],
       "schedule_group": "ads_daily_social_affiliate_creator"
     },
@@ -1473,7 +1494,8 @@
         "dim_video",
         "dws_social_video_snapshot_daily_v2",
         "dws_social_video_state_daily_v2",
-        "dws_social_creator_snapshot_daily"
+        "dws_social_creator_snapshot_daily",
+        "dws_social_affiliate_video_product_daily"
       ],
       "schedule_group": "ads_daily_social_affiliate_video"
     },

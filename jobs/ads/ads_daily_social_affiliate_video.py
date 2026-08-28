@@ -14,11 +14,15 @@ TABLE_NAME = "ads_daily_social_affiliate_video"
 VIDEO_STATE_TABLE_NAME = "dws_social_video_state_daily_v2"
 VIDEO_SNAPSHOT_TABLE_NAME = "dws_social_video_snapshot_daily_v2"
 CREATOR_SNAPSHOT_TABLE_NAME = "dws_social_creator_snapshot_daily"
+VIDEO_PRODUCT_TABLE_NAME = "dws_social_affiliate_video_product_daily"
 DIM_VIDEO_TABLE_NAME = "dim_video"
 # 橱窗号范围：服务端账号表的 usage_type 枚举，只有 TikTok 有这类账号。
 AFFILIATE_USAGE_TYPE = "tiktok-affiliate"
 AFFILIATE_CHANNEL = "tiktok"
 INCREMENTAL_WINDOW_HOURS = 6
+# 商品成交是 T+1 抓取，统计日已落地后仍可能补进商品行，固定回看最近几天。
+# ponytail: 固定 3 天回看，RPA 若回刷更久的历史需要 --full-refresh。
+SHOP_LOOKBACK_DAYS = 3
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -133,6 +137,15 @@ def get_dates_to_process() -> list[date]:
                 CURRENT_TIMESTAMP(), INTERVAL {INCREMENTAL_WINDOW_HOURS} HOUR
             )
     ),
+    -- 商品成交事实覆盖的近几天统计日必须重算，否则先落地的分区永远等不到后到的商品行。
+    shop_dates AS (
+        SELECT DISTINCT dt
+        FROM `{table_id(VIDEO_PRODUCT_TABLE_NAME)}`
+        WHERE channel = '{AFFILIATE_CHANNEL}'
+            AND dt >= DATE_SUB(
+                CURRENT_DATE('{TORONTO_TZ}'), INTERVAL {SHOP_LOOKBACK_DAYS} DAY
+            )
+    ),
     -- 目标表水位之后已就绪的统计日需要补齐。
     missing_dates AS (
         SELECT DISTINCT dt
@@ -145,6 +158,8 @@ def get_dates_to_process() -> list[date]:
         SELECT dt FROM changed_video_dates
         UNION ALL
         SELECT DATE_ADD(dt, INTERVAL 1 DAY) AS dt FROM changed_video_dates
+        UNION ALL
+        SELECT dt FROM shop_dates
         UNION ALL
         SELECT dt FROM missing_dates
     )
@@ -201,6 +216,21 @@ def build_select_sql(dates: list[date]) -> str:
             ON s.video_key = v.video_key
         WHERE s.channel = '{AFFILIATE_CHANNEL}'
             AND s.dt IN UNNEST([{state_dates_sql}])
+    ),
+    -- 视频商品成交：一个视频当日挂多个商品就出多行，互动指标在这几行里重复出现。
+    video_product AS (
+        SELECT
+            dt,
+            video_key,
+            product_title,
+            product_url,
+            currency,
+            gmv,
+            items_sold,
+            gmv_usd
+        FROM `{table_id(VIDEO_PRODUCT_TABLE_NAME)}`
+        WHERE channel = '{AFFILIATE_CHANNEL}'
+            AND dt IN UNNEST([{dates_sql}])
     )
     -- 单视频当日增量：前一日无状态说明视频当天首发，累计值即当日增量。
     SELECT
@@ -216,6 +246,9 @@ def build_select_sql(dates: list[date]) -> str:
         v.video_link,
         v.published_ts_utc,
         v.published_dt,
+        -- 视频没有匹配到商品时商品与成交字段保持空值，不是 0，见 fact.md 数据边界。
+        p.product_title,
+        p.product_url,
         cur.day_end_views - COALESCE(prev.day_end_views, 0) AS view_increment,
         cur.day_end_views AS total_view_count,
         cur.day_end_likes - COALESCE(prev.day_end_likes, 0) AS like_increment,
@@ -224,6 +257,10 @@ def build_select_sql(dates: list[date]) -> str:
         cur.day_end_comments AS total_comment_count,
         cur.day_end_shares - COALESCE(prev.day_end_shares, 0) AS share_increment,
         cur.day_end_shares AS total_share_count,
+        p.currency,
+        p.gmv,
+        p.items_sold,
+        p.gmv_usd,
         CURRENT_TIMESTAMP() AS update_time
     FROM video_state cur
     INNER JOIN affiliate_video v
@@ -233,6 +270,9 @@ def build_select_sql(dates: list[date]) -> str:
     LEFT JOIN video_state prev
         ON cur.video_key = prev.video_key
         AND prev.dt = DATE_SUB(cur.dt, INTERVAL 1 DAY)
+    LEFT JOIN video_product p
+        ON p.dt = cur.dt
+        AND p.video_key = cur.video_key
     WHERE cur.dt IN UNNEST([{dates_sql}])
     """
 
@@ -243,14 +283,17 @@ def validate(staging_table: str) -> None:
             f"""
             SELECT
                 COUNT(*) AS row_count,
-                COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', video_key))
-                    AS unique_video_count,
+                COUNT(DISTINCT CONCAT(
+                    CAST(dt AS STRING), '|', video_key, '|', IFNULL(product_title, '')
+                )) AS unique_video_count,
                 COUNTIF(published_dt > dt) AS invalid_published_count,
                 COUNTIF(total_view_count < 0
                     OR total_like_count < 0
                     OR total_comment_count < 0) AS invalid_total_count,
                 COUNTIF(channel != '{AFFILIATE_CHANNEL}') AS invalid_channel_count,
-                COUNTIF(video_key IS NULL OR video_key = '') AS invalid_video_key_count
+                COUNTIF(video_key IS NULL OR video_key = '') AS invalid_video_key_count,
+                COUNTIF(gmv IS NOT NULL AND currency IS NULL) AS invalid_currency_count,
+                COUNTIF(gmv < 0 OR items_sold < 0) AS invalid_gmv_count
             FROM `{staging_table}`
             """
         ).result()
@@ -258,7 +301,7 @@ def validate(staging_table: str) -> None:
     if result.row_count == 0:
         raise RuntimeError("橱窗号视频日报校验失败：staging 无数据")
     if result.row_count != result.unique_video_count:
-        raise RuntimeError("橱窗号视频日报校验失败：统计日和视频不唯一")
+        raise RuntimeError("橱窗号视频日报校验失败：统计日、视频和商品不唯一")
     if result.invalid_published_count != 0:
         raise RuntimeError("橱窗号视频日报校验失败：存在发布日期晚于统计日的视频")
     if result.invalid_total_count != 0:
@@ -267,6 +310,10 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("橱窗号视频日报校验失败：存在非 TikTok 渠道行")
     if result.invalid_video_key_count != 0:
         raise RuntimeError("橱窗号视频日报校验失败：存在空 video_key")
+    if result.invalid_currency_count != 0:
+        raise RuntimeError("橱窗号视频日报校验失败：存在没有货币单位的 GMV 行")
+    if result.invalid_gmv_count != 0:
+        raise RuntimeError("橱窗号视频日报校验失败：存在负数 GMV 或成交件数")
 
 
 def run(dates: list[date], full_refresh: bool = False) -> None:

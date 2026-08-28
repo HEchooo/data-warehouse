@@ -11,6 +11,8 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_video` (
     video_link STRING,
     published_ts_utc TIMESTAMP,
     published_dt DATE,
+    product_title STRING,
+    product_url STRING,
     view_increment INT64,
     total_view_count INT64,
     like_increment INT64,
@@ -19,6 +21,10 @@ CREATE TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_video` (
     total_comment_count INT64,
     share_increment INT64,
     total_share_count INT64,
+    currency STRING,
+    gmv NUMERIC,
+    items_sold INT64,
+    gmv_usd NUMERIC,
     update_time TIMESTAMP
 )
 PARTITION BY dt
