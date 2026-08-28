@@ -1,4 +1,4 @@
-# 【Social Content】TikTok 广告投放数据
+# 【Social Content】Makepod 店铺 TK 广告投放数据
 
 本主题下有**两套互不相通的投放数据**，同一个 dashboard（id=133）分区展示：
 
@@ -15,7 +15,7 @@
 
 ## 报表
 
-- Dashboard：[【Social Content】TikTok 广告投放数据](https://bi.alvinclub.ca/superset/dashboard/133/)（id=133，slug `social-content-tiktok-ad`）
+- Dashboard：[【Social Content】Makepod 店铺 TK 广告投放数据](https://bi.alvinclub.ca/superset/dashboard/133/)（id=133，slug `social-content-tiktok-ad`）
 - 报表表：`decom.ads_daily_tiktok_ad`，粒度 `dt × advertiser_id × ad_id`
 - Superset 物理 dataset：`ads_daily_tiktok_ad`（id=297），主时间列 `dt`
 - Superset chart：`723`（TikTok 广告投放日汇总，aggregate）、`724`（TikTok 广告投放明细（广告维度），raw）

@@ -1,4 +1,4 @@
--- 【Social Content】TikTok 广告投放数据日报，粒度 dt × advertiser_id × ad_id
+-- 【Social Content】Makepod 店铺 TK 广告投放数据日报，粒度 dt × advertiser_id × ad_id
 -- 同时保留可加的分子分母与单行派生率值：
 -- 明细行直接看派生列，Superset 汇总必须用 SUM(分子) / SUM(分母) 的 SQL metric，不能对派生列求和或求平均。
 CREATE TABLE IF NOT EXISTS `my-project-8584-jetonai.decom.ads_daily_tiktok_ad` (

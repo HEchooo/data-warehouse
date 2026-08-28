@@ -1,4 +1,4 @@
-# 【Social Content】TikTok 广告投放数据 · 踩坑记录
+# 【Social Content】Makepod 店铺 TK 广告投放数据 · 踩坑记录
 
 ## TikTok 后台列名与 API metric 的对应靠 URL 参数反查
 

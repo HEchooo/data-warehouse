@@ -1,4 +1,4 @@
-"""ADS 【Social Content】TikTok 广告投放数据日报 ETL。
+"""ADS 【Social Content】Makepod 店铺 TK 广告投放数据日报 ETL。
 
 粒度 dt × advertiser_id × ad_id，与 TikTok 后台 AUCTION_AD 报表逐列对齐。
 
