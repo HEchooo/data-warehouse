@@ -64,6 +64,16 @@
       "schedule_group": "ods_tiktok_ad_daily"
     },
     {
+      "layer": "ODS",
+      "table_name": "ods_tiktok_gmv_max_daily",
+      "stage": "ODS",
+      "name": "ODS TikTok GMV Max 投放日报 ETL",
+      "script": "jobs/ods/ods_tiktok_gmv_max_daily/ods_tiktok_gmv_max_daily.py",
+      "enabled": true,
+      "depends_on": [],
+      "schedule_group": "ods_tiktok_gmv_max_daily"
+    },
+    {
       "layer": "DWD",
       "table_name": "dwd_event_log",
       "stage": "DWD",
@@ -843,6 +853,18 @@
       "schedule_group": "dws_tiktok_ad_daily"
     },
     {
+      "layer": "DWS",
+      "table_name": "dws_tiktok_gmv_max_daily",
+      "stage": "DWS",
+      "name": "DWS TikTok GMV Max 投放事实 ETL",
+      "script": "jobs/dws/dws_tiktok_gmv_max_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "ods_tiktok_gmv_max_daily"
+      ],
+      "schedule_group": "dws_tiktok_gmv_max_daily"
+    },
+    {
       "layer": "ADS",
       "table_name": "ads_daily_closet_overview",
       "stage": "ADS",
@@ -1466,6 +1488,18 @@
         "dws_tiktok_ad_daily"
       ],
       "schedule_group": "ads_daily_tiktok_ad"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_tiktok_gmv_max",
+      "stage": "ADS",
+      "name": "ADS Social Content TikTok GMV Max 投放日报 ETL",
+      "script": "jobs/ads/ads_daily_tiktok_gmv_max.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_tiktok_gmv_max_daily"
+      ],
+      "schedule_group": "ads_daily_tiktok_gmv_max"
     },
     {
       "layer": "ADS",

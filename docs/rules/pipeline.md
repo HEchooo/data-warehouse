@@ -69,6 +69,10 @@ python3 -c "import json;[print(t['table_name'], t['script'], t['depends_on']) fo
   - `dt` 是广告主时区 `Etc/GMT+5`（固定 UTC-5，不含夏令时）自然日，与其余主题的美东自然日在夏令时期间相差 1 小时
   - `DWS` 只固化可加的分子分母，CPC / CPM / CTR / CVR 等率值一律由下游 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算，不得对派生列求和或求平均
   - 店铺来自 `/ad/get/` 而不是报表接口；非带货广告（`objective_type = VIDEO_VIEWS` 的 Smart+）没有店铺，看板按店铺过滤时会整体排除
+- TikTok GMV Max 投放：`TikTok Business API -> ods_tiktok_gmv_max_daily -> dws_tiktok_gmv_max_daily -> ads_daily_tiktok_gmv_max`
+  - 与上面的普通竞价投放是两条独立链路，接口是 `/gmv_max/report/get/`，最细层级只有广告计划，没有广告组 / 广告
+  - `gross_revenue` 是商品全渠道归因（付费 + 自然 + 达人），与普通投放的广告归因收入不是同一指标，两套收入禁止相加
+  - 接口带 `stat_time_day` 时单次窗口最多 30 天，`ODS` 内部按 30 天切片；报表按 campaign × 天返回笛卡尔积，`DWS` 过滤全零填充行
 - AI-Fashion Style Me：`dwd_event_log + v3_decom.common_ext_ai_task + dws_user_daily -> dws_ai_fashion_styleme_daily -> ads_daily_ai_fashion_styleme`
 - AI-Fashion 试穿 OKR：`dwd_event_log + dim_user_first_active + v3_decom.common_ext_ai_task -> dws_ai_fashion_tryon_okr_daily`（+ `dws_ai_fashion_tryon_okr_user_daily`）`-> ads_daily_ai_fashion_tryon_okr_v2 + ads_weekly_ai_fashion_tryon_okr(_v2)`
 - AI-Fashion 素材内容：`v3_decom.community_fashion_asset + v3_decom.community_post + dim_column -> dim_asset`；`dwd_event_log + v3_decom.common_ext_ai_task -> dws_asset_user_daily`；两者 `-> ads_weekly_ai_fashion_asset_overview + ads_daily_ai_fashion_asset_rankings + ads_daily_ai_fashion_asset_detail`

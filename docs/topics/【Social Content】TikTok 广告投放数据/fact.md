@@ -1,5 +1,18 @@
 # 【Social Content】TikTok 广告投放数据
 
+本主题下有**两套互不相通的投放数据**，同一个 dashboard（id=133）分区展示：
+
+| | 普通竞价投放 | GMV Max（智能高效计划） |
+|------|------|------|
+| 接口 | `/report/integrated/get/` | `/gmv_max/report/get/` |
+| 最细层级 | 广告（`ad_id`） | 广告计划（`campaign_id`） |
+| 消耗字段 | `spend` | `cost` |
+| 收入口径 | 广告归因转化 | 商品全渠道归因收入（付费 + 自然 + 达人） |
+| 有曝光点击 | 有 | 无 |
+
+**两套的金额可以分别看，收入绝对不能相加**：GMV Max 的总收入把自然流量和达人订单也算进去了，
+和广告归因收入不是同一个业务指标。详见下方「GMV Max 投放」章节。
+
 ## 报表
 
 - Dashboard：[【Social Content】TikTok 广告投放数据](https://bi.alvinclub.ca/superset/dashboard/133/)（id=133，slug `social-content-tiktok-ad`）
@@ -103,4 +116,140 @@ python3 jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py
 python3 jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py --start-date 2026-08-01 --end-date 2026-08-22
 python3 jobs/dws/dws_tiktok_ad_daily.py
 python3 jobs/ads/ads_daily_tiktok_ad.py
+```
+
+---
+
+# GMV Max 投放
+
+TikTok GMV Max（后台叫「智能高效计划」，页面 `ads.tiktok.com/i18n/gmv-max/dashboard`）是自动化带货投放：
+平台自己选素材、自己创建和暂停底层广告，所以对外没有广告组 / 广告层级。
+
+## 报表
+
+- Dashboard：与普通投放同一个（id=133），GMV Max 部分在下半区
+- 报表表：`decom.ads_daily_tiktok_gmv_max`，粒度 `dt × advertiser_id × store_id × campaign_id`
+- Superset 物理 dataset：`ads_daily_tiktok_gmv_max`（id=298），主时间列 `dt`
+- Superset chart：`725`（TikTok GMV Max 投放日汇总，aggregate）、`726`（TikTok GMV Max 投放明细（计划维度），raw）
+- 说明文案与普通投放共用看板顶部的 `MARKDOWN-tiktok-ad-note`，其中写明了两套数据不能相加、总收入的全渠道归因口径与 ROI 是倍数；改口径时要同步改这里，不要再单独加说明组件
+- 数据源：TikTok Business API `/gmv_max/report/get/`，`dimensions=["campaign_id","stat_time_day"]`
+- 店铺：`/gmv_max/store/list/` 返回的 `store_id`，当前只有 `7494736378860701060`（MAKEPOD，`is_gmv_max_available=true`）
+- 不加店铺过滤：GMV Max 报表本身按店铺逐个查，表里只有可投 GMV Max 的店铺
+
+## 字段
+
+### 落地字段
+
+| 后台列名 | 落地字段 | API metric | 口径 |
+|------|------|------|------|
+| 成本 | `cost` | `cost` | 直接取。注意不叫 `spend` |
+| SKU 订单数 | `orders` | `orders` | 直接取 |
+| 平均下单成本 | `cost_per_order` | `cost_per_order` | `成本 / SKU 订单数` |
+| 总收入 | `gross_revenue` | `gross_revenue` | 商品全渠道归因收入，见下方数据边界 |
+| ROI | `roi` | `roi` | `总收入 / 成本`，**是倍数不是百分比** |
+| — | `currency` | `currency` | GMV Max 报表接口直接返回，不需要再查 `/advertiser/info/` |
+
+维度字段：`dt`（取 `stat_time_day`，广告主时区自然日）、`advertiser_id`、`store_id`、`campaign_id`、`campaign_name`。
+
+### 接口支持但故意不落库的字段
+
+看板只要上面五个指标，以下字段接口给得出来，需要时再加回三层：
+
+| 字段 | 说明 |
+|------|------|
+| `net_cost` | 调整后成本，**仅 campaign 级可用**，商品级 / 素材级报表不支持。与 `cost` 实测差别不小（`2026-08-27` 是 63.91 vs 28.79），TikTok 未公开差额构成，不适合直接上看板 |
+| `roas_bid` | 目标 ROI，**计划当前配置快照**，每天返回同一个值，跨天聚合只能取 `MAX` / `ANY_VALUE`，求和一定错 |
+| `target_roi_budget` | 广告计划预算，同样是当前配置快照 |
+| `operation_status` | 计划当前启停状态，不是当天的历史状态 |
+
+### 实测不可用的 metric
+
+以下名字在 campaign 级都被接口拒绝（`Invalid metric(s)`），**不要再加进 `REPORT_METRICS`**：
+
+- 曝光点击类：`impressions`、`clicks`、`spend`、`product_impressions`、`product_clicks`、`product_click_rate`、`ad_click_rate`、`ad_conversion_rate`
+- 退款类：`refund_gmv`、`net_sales`、`refunded_ad_cost`
+- 其他：`gmv`、`sku_orders`、`cost_per_sku_order`、`product_name`、`item_group_id`、`objective_type`、`gmv_max_promotion_type`、`budget`、`create_time`、`campaign_status`、`secondary_status`
+
+可用但当前无值、故意不落库的：`bid_type`（恒为 `CUSTOM`）、`max_delivery_budget`（恒为 0）、
+`schedule_type` / `schedule_start_time` / `schedule_end_time` / `tt_account_name`（返回空串或 `0`）、`live_views`（无直播计划）。
+
+### 可加与不可加
+
+`ADS` 表同时落可加的分子分母（`cost` / `orders` / `gross_revenue`）与单行派生值（`cost_per_order` / `roi`）。
+
+- 明细 chart（726）直接展示派生列，只用于逐行看单个计划
+- 汇总 chart（725）的 `平均下单成本` 与 `ROI` 都是 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算
+- **新增任何汇总 chart 时不得对 `cost_per_order` / `roi` 求和或求平均**
+
+### 货币
+
+`cost`、`gross_revenue`、`cost_per_order` 都以广告主账户货币计价。与普通投放不同，GMV Max 报表接口
+直接返回 `currency`，不需要额外查 `/advertiser/info/`。
+
+三层脚本都有 `currency IS NULL` 的致命校验：金额有值但没有货币标注，直接判为失败。
+
+`currency` 入库但**不上看板**，与普通投放一致：既不作为展示列，也不作为分组维度。货币改用两种方式表达：
+
+- 金额列的 `d3NumberFormat` 统一为 `$.2f`，数值自带 `$` 前缀（`ROI` 是倍数用 `.2f`，`SKU 订单数` 用 `,d`）
+- 顶部 `MARKDOWN-tiktok-ad-note` 说明组件写明金额单位
+
+改 chart 格式时注意 `column_config` 的值必须是 `{"d3NumberFormat": "$.2f"}` 这样的对象，
+写成字符串 `"$.2f"` 不会报错，但格式静默失效，看板上就是裸数字。`params` 与 `query_context.form_data`
+两处都要写。
+
+**这里有一个明确的取舍：** 与普通投放同源——当前固定单广告主单店铺、`currency` 恒为 `USD`，所以直接用 `$` 前缀成立。
+一旦接入非 USD 广告主，两种币种的金额会被直接相加而不会自动分行，`$` 前缀也会变成错的。届时必须做两件事之一：
+把 `currency` 加回分组维度，或用 `decom.currency_conversion_dict` 统一换算到单一币种。
+
+## 数据边界
+
+| 边界 | 说明 |
+|------|------|
+| 总收入归因 | **商品全渠道归因**：只要商品在 GMV Max 计划里，来自该商品的订单都会计入，包含付费广告、自然流量与达人订单；用户完全没看过广告也可能被算进来。所以 GMV Max 的 ROI 与普通投放的 ROAS 不是同一指标，收入不能相加 |
+| 退款 | `gross_revenue` = 客户支付 − 销售税 + 平台折扣，**不扣退款**。退款后净额 API 拿不到（`refund_gmv` / `net_sales` / `refunded_ad_cost` 全部被拒），要就得另接 TikTok Shop 订单 / 财务接口 |
+| 查询窗口 | 带 `stat_time_day` 时**单次最多 30 天**，超出直接 `code=40002`。ODS 内部按 30 天切片，回填 41 天窗口会自动切成两段 |
+| 翻页 | `page_size` 上限 1000，30 天 campaign 级就有 1050 行，必须翻页 |
+| store 参数 | `store_ids` 单次只接受一个店铺，多店铺要逐个循环 |
+| 全零填充行 | 报表接口按 campaign × 天返回笛卡尔积，计划未投放的日子也给一行 `cost=0 / orders=0`。`ODS` 原样保留（保真），`DWS` 过滤掉。实测回填 32 天：ODS 1120 行 → DWS 83 行 |
+| 报表起点 | `2026-07-28`，与普通投放账户 `create_time` 同一天 |
+| 时区 | `dt` 是广告主时区 `Etc/GMT+5`（固定 UTC-5，不含夏令时）自然日，与 `ods_tiktok_ad_daily` 同源。后台页面显示的「(UTC-05:00) 北美东部标准时间」与此一致 |
+| 归因回溯 | 订单与收入会在归因窗口内继续回填，计划停投后当天的 `gross_revenue` 仍可能变化。ODS 默认重刷 `CURRENT_DATE-6 ~ CURRENT_DATE`（7 天），比普通投放的 4 天窗口更长 |
+| 无广告层 | `adgroup_id` / `ad_id` 作为 dimension 会被拒绝（`Invalid dimension(s)`）。商品级是 `item_group_id`，素材级是 `item_id`（TikTok Post ID，**不是 ad_id**），当前都没落库 |
+| 直播计划 | `LIVE_GMV_MAX` 类型的计划数为 0，当前只有 `PRODUCT_GMV_MAX`。有直播计划时 `room_id` 维度需要额外传 `campaign_ids` |
+| 后台对账口径 | 后台「广告计划数据分析」页的折线图包含计划运行期**前后各 ≤30 天**的商品全渠道订单，属于对比视图，不是该计划的归因数据；API 只返回运行期数据。对账要看页面顶部卡片，不要看折线图 |
+
+## 依赖
+
+- 原始层：`decom.ods_tiktok_gmv_max_daily`（TikTok Business API 直连）
+- 事实层：`decom.dws_tiktok_gmv_max_daily`（只固化可加分子分母，派生值不落库；同时过滤全零填充行）
+- 报表层：`decom.ads_daily_tiktok_gmv_max`
+- 脚本：`jobs/ods/ods_tiktok_gmv_max_daily/ods_tiktok_gmv_max_daily.py`, `jobs/dws/dws_tiktok_gmv_max_daily.py`, `jobs/ads/ads_daily_tiktok_gmv_max.py`
+- DDL：`ddl/ods/ods_tiktok_gmv_max_daily.sql`, `ddl/dws/dws_tiktok_gmv_max_daily.sql`, `ddl/ads/ads_daily_tiktok_gmv_max.sql`
+- 编排：`env/etl_config.json` 中的独立表级入口 `ods_tiktok_gmv_max_daily`、`dws_tiktok_gmv_max_daily`、`ads_daily_tiktok_gmv_max`
+- 凭据：与普通投放共用 Secret Manager `prod-ads-runner-tiktok-access-token`，无需额外授权（`Reporting > GMV MAX Report` scope 实测已具备）
+- 省略 `DWD`：源数据已是平台聚合好的日报，无去重与多源关联需求，类型清洗在 `ODS` 落库时完成
+- 省略 `DIM`：店铺与计划映射只有本主题使用
+- 性能：单店铺一年万行量级，`DWS` / `ADS` 走全表重建；`ODS` 只替换窗口分区
+
+## 未落地字段
+
+第一版只做 campaign 级。以下需要时再加：
+
+| 粒度 | dimensions | 额外要求 |
+|------|------|------|
+| 商品级 | `item_group_id` + `stat_time_day` | 必须传 `filtering.campaign_ids`，且不能带 `net_cost` |
+| 素材级 | `item_id` + `stat_time_day` | 必须同时传 `filtering.campaign_ids` 与 `item_group_ids`；`item_id` 会出现 `-1`（无归属素材的消耗） |
+| 小时级 | `stat_time_hour` | 单次窗口最多 1 天 |
+
+计划配置（Max Delivery / Creative Boost 时段）在 `/campaign/gmv_max/info/` 与 `/campaign/gmv_max/session/*`，当前未接。
+
+## 运行
+
+```bash
+# 默认回刷 CURRENT_DATE-6 ~ CURRENT_DATE（广告主时区，7 天窗口）
+python3 jobs/ods/ods_tiktok_gmv_max_daily/ods_tiktok_gmv_max_daily.py
+# 回填历史窗口，超过 30 天会自动切片
+python3 jobs/ods/ods_tiktok_gmv_max_daily/ods_tiktok_gmv_max_daily.py --start-date 2026-07-28 --end-date 2026-08-28
+python3 jobs/dws/dws_tiktok_gmv_max_daily.py
+python3 jobs/ads/ads_daily_tiktok_gmv_max.py
 ```
