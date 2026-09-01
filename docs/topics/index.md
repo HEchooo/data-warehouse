@@ -5,46 +5,58 @@
 - `fact.md`：既定事实
 - `patterns.md`：踩坑记录
 
+## 业务线枚举
+
+以下名称是机器校验用的固定值；主题可用逗号分隔多个业务线。
+
+- `Alvin's Club App`
+- `Alvin's Club 商详页 Launch 投放`
+- `Makepod 独立站`
+- `ECN 视频`
+- `MyCCH`
+- `TikTok Makepod 小店`
+- `TikTok 橱窗号`
+
 ## 主题导航
 
-| 主题 | 表 | Dashboard | 文档 | 踩坑记录 |
-|---|---|---|---|---|
-| 全量报表 | `ads_daily_total` | [89](https://bi.alvinclub.ca/superset/dashboard/89/) | [fact.md](./全量报表/fact.md) | [patterns.md](./全量报表/patterns.md) |
-| 用增报表 | `ads_daily_new` | [88](https://bi.alvinclub.ca/superset/dashboard/88/) | [fact.md](./用增报表/fact.md) | [patterns.md](./用增报表/patterns.md) |
-| 平台整体内容表现 | `ads_daily_content_performance` | [91](https://bi.alvinclub.ca/superset/dashboard/91/) | [fact.md](./平台整体内容表现/fact.md) | [patterns.md](./平台整体内容表现/patterns.md) |
-| 首页模块曝光与点击明细 | `ads_daily_home_module_performance` | [92](https://bi.alvinclub.ca/superset/dashboard/92/) | [fact.md](./首页模块曝光与点击明细/fact.md) | [patterns.md](./首页模块曝光与点击明细/patterns.md) |
-| 模块追踪明细 | `ads_monthly_module_performance` | [105](https://bi.alvinclub.ca/superset/dashboard/105/) | [fact.md](./模块追踪明细/fact.md) | [patterns.md](./模块追踪明细/patterns.md) |
-| 内容维度日报 | `ads_daily_post_performance` | [94](https://bi.alvinclub.ca/superset/dashboard/94/) | [fact.md](./内容维度日报/fact.md) | [patterns.md](./内容维度日报/patterns.md) |
-| 专栏追踪明细 | `ads_daily_column_performance` / `ads_monthly_column_performance` | [93](https://bi.alvinclub.ca/superset/dashboard/93/) / [104](https://bi.alvinclub.ca/superset/dashboard/104/) | [fact.md](./专栏追踪明细/fact.md) | [patterns.md](./专栏追踪明细/patterns.md) |
-| 穿搭工具点击使用 | `ads_daily_tryon_confirm` / `ads_daily_post_tryon_confirm` | [96](https://bi.alvinclub.ca/superset/dashboard/96/) | [fact.md](./穿搭工具点击使用/fact.md) | [patterns.md](./穿搭工具点击使用/patterns.md) |
-| 试穿结果转化 | `ads_daily_tryon_add_cart_conversion` | [97](https://bi.alvinclub.ca/superset/dashboard/97/) | [fact.md](./试穿结果转化/fact.md) | [patterns.md](./试穿结果转化/patterns.md) |
-| 商详页试穿维度 | `ads_daily_product_tryon_performance` | [98](https://bi.alvinclub.ca/superset/dashboard/98/) | [fact.md](./商详页试穿维度/fact.md) | [patterns.md](./商详页试穿维度/patterns.md) |
-| 新老用户试穿渗透率 | `ads_daily_user_tryon_penetration` / `ads_daily_user_tryon_penetration_app_version` | [110](https://bi.alvinclub.ca/superset/dashboard/110/) | [fact.md](./新老用户试穿渗透率/fact.md) | [patterns.md](./新老用户试穿渗透率/patterns.md) |
-| 试穿与商品行为临时取数（2026-05） | 临时查询（未落 ADS 表） | - | [fact.md](./试穿与商品行为临时取数（2026-05）/fact.md) | [patterns.md](./试穿与商品行为临时取数（2026-05）/patterns.md) |
-| 新老用户帖子浏览抽样临时取数（2026-06） | 临时查询（未落 ADS 表） | - | [fact.md](./新老用户帖子浏览抽样临时取数（2026-06）/fact.md) | [patterns.md](./新老用户帖子浏览抽样临时取数（2026-06）/patterns.md) |
-| 素材生产与互动全量临时取数（2026-07） | 临时查询（未落 ADS 表） | - | [fact.md](./素材生产与互动全量临时取数（2026-07）/fact.md) | [patterns.md](./素材生产与互动全量临时取数（2026-07）/patterns.md) |
-| 品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08） | 临时查询（未落 ADS 表） | - | [fact.md](./品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08）/fact.md) | [patterns.md](./品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08）/patterns.md) |
-| 产品 OKR 数据汇总 | `ads_weekly_ai_fashion_tryon_okr` / `ads_weekly_ai_fashion_tryon_okr_v2` / `ads_daily_ai_fashion_tryon_okr_v2` | [114（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/) / [117（Week）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-v2/) / [120（Day）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-day/) | [fact.md](./产品 OKR 数据汇总/fact.md) | [patterns.md](./产品 OKR 数据汇总/patterns.md) |
-| 首页新老用户曝光点击 | `ads_daily_user_home_module_performance` | [113](https://bi.alvinclub.ca/superset/dashboard/113/) | [fact.md](./首页新老用户曝光点击/fact.md) | [patterns.md](./首页新老用户曝光点击/patterns.md) |
-| 用户时长与访问频次 | `ads_daily_user_duration_frequency` | [95](https://bi.alvinclub.ca/superset/dashboard/95/) | [fact.md](./用户时长与访问频次/fact.md) | [patterns.md](./用户时长与访问频次/patterns.md) |
-| 投资人报表【核心业务报表】 | `ads_daily_investor` | [101](https://bi.alvinclub.ca/superset/dashboard/101/) | [fact.md](./投资人报表【核心业务报表】/fact.md) | [patterns.md](./投资人报表【核心业务报表】/patterns.md) |
-| 【Social Content】社媒表现数据看板v2 | `ads_daily_social_content_v2` | [116](https://bi.alvinclub.ca/superset/dashboard/social-content-v2/) | [fact.md](./【Social Content】社媒表现数据看板/fact.md) | [patterns.md](./【Social Content】社媒表现数据看板/patterns.md) |
-| 【Social Content】属性维度数据 | `ads_daily_social_content_attribute_v2` | [124](https://bi.alvinclub.ca/superset/dashboard/social-content-attribute-data/) | [fact.md](./【Social Content】属性维度数据/fact.md) | [patterns.md](./【Social Content】属性维度数据/patterns.md) |
-| 【Social Content】每日排行榜 | `ads_daily_social_video_monitor_rankings_v2` / `virtual_social_content_video_monitor_rankings_v2` | [122](https://bi.alvinclub.ca/superset/dashboard/122/) | [fact.md](./【Social Content】每日排行榜/fact.md) | [patterns.md](./【Social Content】每日排行榜/patterns.md) |
-| 【Social Content】疑似限流账号监控 | `ads_daily_social_creator_suspected_throttle_rankings` | [123](https://bi.alvinclub.ca/superset/dashboard/social-content-suspected-throttle-monitor/) | [fact.md](./【Social Content】疑似限流账号监控/fact.md) | [patterns.md](./【Social Content】疑似限流账号监控/patterns.md) |
-| 【Social Content】橱窗号数据 | `ads_daily_social_affiliate_creator` / `ads_daily_social_affiliate_video` | [130](https://bi.alvinclub.ca/superset/dashboard/130/) / [131](https://bi.alvinclub.ca/superset/dashboard/131/) | [fact.md](./【Social Content】橱窗号数据/fact.md) | [patterns.md](./【Social Content】橱窗号数据/patterns.md) |
-| 【Social Content】Makepod 店铺 TK 广告投放数据 | `ads_daily_tiktok_ad` | [133](https://bi.alvinclub.ca/superset/dashboard/133/) | [fact.md](./【Social Content】Makepod 店铺 TK 广告投放数据/fact.md) | [patterns.md](./【Social Content】Makepod 店铺 TK 广告投放数据/patterns.md) |
-| 【AI-Fashion】账号发布数据增量看板 | `ads_daily_formal_video_increment` / `ads_weekly_formal_video_increment_growth` | [109](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-formal-video-increment/) | [fact.md](./【AI-Fashion】账号发布数据增量看板/fact.md) | [patterns.md](./【AI-Fashion】账号发布数据增量看板/patterns.md) |
-| 留存用户特征数据 | `ads_daily_retention_user_feature` / `ads_daily_retention_user_duration_bucket` / `ads_daily_retention_user_follow_bucket` / `ads_daily_retention_user_new_follow_bucket` / `ads_daily_retention_user_tryon_bucket` / `ads_daily_retention_user_product_detail_bucket` | [103](https://bi.alvinclub.ca/superset/dashboard/103/) | [fact.md](./留存用户特征数据/fact.md) | [patterns.md](./留存用户特征数据/patterns.md) |
-| 视频编码转化 | `ads_daily_video_code_conversion` | [107](https://bi.alvinclub.ca/superset/dashboard/107/) | [fact.md](./视频编码转化/fact.md) | [patterns.md](./视频编码转化/patterns.md) |
-| 第三方渠道曝光 UV 看板 | `ads_daily_thirdapp_channel_uv` | [111](https://bi.alvinclub.ca/superset/dashboard/111/) | [fact.md](./第三方渠道曝光%20UV%20看板/fact.md) | [patterns.md](./第三方渠道曝光%20UV%20看板/patterns.md) |
-| 【Launch】商详页总览 | `ads_daily_launch_product_detail` | [126](https://bi.alvinclub.ca/superset/dashboard/launch-product-detail-overview/) | [fact.md](./【Launch】商详页总览/fact.md) | [patterns.md](./【Launch】商详页总览/patterns.md) |
-| 【Launch】商详页多维度 | `ads_daily_launch_product_detail_dimension` / `ads_weekly_launch_product_detail_dimension` / `ads_monthly_launch_product_detail_dimension` / `ads_daily_launch_product_detail_video_source` / `ads_weekly_launch_product_detail_video_source` / `ads_monthly_launch_product_detail_video_source` | [127](https://bi.alvinclub.ca/superset/dashboard/launch-product-detail-dimension/) | [fact.md](./【Launch】商详页多维度/fact.md) | [patterns.md](./【Launch】商详页多维度/patterns.md) |
-| LTA 数据看板 | `ads_daily_lta_overview` / `ads_daily_lta_kol` / `ads_daily_lta_spu` | [125](https://bi.alvinclub.ca/superset/dashboard/125/) | [fact.md](./LTA%20数据看板/fact.md) | [patterns.md](./LTA%20数据看板/patterns.md) |
-| 衣橱概览 | `ads_daily_closet_overview` | [106](https://bi.alvinclub.ca/superset/dashboard/106/) | [fact.md](./衣橱概览/fact.md) | [patterns.md](./衣橱概览/patterns.md) |
-| push 数据看板 | `ads_daily_push` | [108](https://bi.alvinclub.ca/superset/dashboard/108/) | [fact.md](./push%20数据看板/fact.md) | [patterns.md](./push%20数据看板/patterns.md) |
-| Makepod 事件明细 | `dwd_makepod_event_log` | - | [fact.md](./Makepod%20事件明细/fact.md) | [patterns.md](./Makepod%20事件明细/patterns.md) |
-| Makepod 独立站日报 | `ads_daily_makepod` / `ads_weekly_makepod_paid_user_order` | [115](https://bi.alvinclub.ca/superset/dashboard/115/)（【Makepod】平台看板） | [fact.md](./Makepod%20独立站日报/fact.md) | [patterns.md](./Makepod%20独立站日报/patterns.md) |
-| 【AI-Fashion】Style Me 看板 | `ads_daily_ai_fashion_styleme` | [121](https://bi.alvinclub.ca/superset/dashboard/121/) | [fact.md](./【AI-Fashion】Style%20Me%20看板/fact.md) | [patterns.md](./【AI-Fashion】Style%20Me%20看板/patterns.md) |
-| 【AI-Fashion】素材内容数据 | `ads_weekly_ai_fashion_asset_overview` / `ads_daily_ai_fashion_asset_rankings` / `ads_daily_ai_fashion_asset_detail` | [128](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-asset-content-data/) | [fact.md](./【AI-Fashion】素材内容数据/fact.md) | [patterns.md](./【AI-Fashion】素材内容数据/patterns.md) |
-| 【AI-Fashion】商详页投放 | `ads_daily_ai_fashion_product_detail_promotion` | [129](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-detail-promotion/) | [fact.md](./【AI-Fashion】商详页投放/fact.md) | [patterns.md](./【AI-Fashion】商详页投放/patterns.md) |
+| 主题 | 业务线 | 表 | Dashboard | 文档 | 踩坑记录 |
+|---|---|---|---|---|---|
+| 全量报表 | `Alvin's Club App` | `ads_daily_total` | [89](https://bi.alvinclub.ca/superset/dashboard/89/) | [fact.md](./全量报表/fact.md) | [patterns.md](./全量报表/patterns.md) |
+| 用增报表 | `Alvin's Club App` | `ads_daily_new` | [88](https://bi.alvinclub.ca/superset/dashboard/88/) | [fact.md](./用增报表/fact.md) | [patterns.md](./用增报表/patterns.md) |
+| 平台整体内容表现 | `Alvin's Club App` | `ads_daily_content_performance` | [91](https://bi.alvinclub.ca/superset/dashboard/91/) | [fact.md](./平台整体内容表现/fact.md) | [patterns.md](./平台整体内容表现/patterns.md) |
+| 首页模块曝光与点击明细 | `Alvin's Club App` | `ads_daily_home_module_performance` | [92](https://bi.alvinclub.ca/superset/dashboard/92/) | [fact.md](./首页模块曝光与点击明细/fact.md) | [patterns.md](./首页模块曝光与点击明细/patterns.md) |
+| 模块追踪明细 | `Alvin's Club App` | `ads_monthly_module_performance` | [105](https://bi.alvinclub.ca/superset/dashboard/105/) | [fact.md](./模块追踪明细/fact.md) | [patterns.md](./模块追踪明细/patterns.md) |
+| 内容维度日报 | `Alvin's Club App` | `ads_daily_post_performance` | [94](https://bi.alvinclub.ca/superset/dashboard/94/) | [fact.md](./内容维度日报/fact.md) | [patterns.md](./内容维度日报/patterns.md) |
+| 专栏追踪明细 | `Alvin's Club App` | `ads_daily_column_performance` / `ads_monthly_column_performance` | [93](https://bi.alvinclub.ca/superset/dashboard/93/) / [104](https://bi.alvinclub.ca/superset/dashboard/104/) | [fact.md](./专栏追踪明细/fact.md) | [patterns.md](./专栏追踪明细/patterns.md) |
+| 穿搭工具点击使用 | `Alvin's Club App` | `ads_daily_tryon_confirm` / `ads_daily_post_tryon_confirm` | [96](https://bi.alvinclub.ca/superset/dashboard/96/) | [fact.md](./穿搭工具点击使用/fact.md) | [patterns.md](./穿搭工具点击使用/patterns.md) |
+| 试穿结果转化 | `Alvin's Club App` | `ads_daily_tryon_add_cart_conversion` | [97](https://bi.alvinclub.ca/superset/dashboard/97/) | [fact.md](./试穿结果转化/fact.md) | [patterns.md](./试穿结果转化/patterns.md) |
+| 商详页试穿维度 | `Alvin's Club App` | `ads_daily_product_tryon_performance` | [98](https://bi.alvinclub.ca/superset/dashboard/98/) | [fact.md](./商详页试穿维度/fact.md) | [patterns.md](./商详页试穿维度/patterns.md) |
+| 新老用户试穿渗透率 | `Alvin's Club App` | `ads_daily_user_tryon_penetration` / `ads_daily_user_tryon_penetration_app_version` | [110](https://bi.alvinclub.ca/superset/dashboard/110/) | [fact.md](./新老用户试穿渗透率/fact.md) | [patterns.md](./新老用户试穿渗透率/patterns.md) |
+| 试穿与商品行为临时取数（2026-05） | `Alvin's Club App` | 临时查询（未落 ADS 表） | - | [fact.md](./试穿与商品行为临时取数（2026-05）/fact.md) | [patterns.md](./试穿与商品行为临时取数（2026-05）/patterns.md) |
+| 新老用户帖子浏览抽样临时取数（2026-06） | `Alvin's Club App` | 临时查询（未落 ADS 表） | - | [fact.md](./新老用户帖子浏览抽样临时取数（2026-06）/fact.md) | [patterns.md](./新老用户帖子浏览抽样临时取数（2026-06）/patterns.md) |
+| 素材生产与互动全量临时取数（2026-07） | `Alvin's Club App` | 临时查询（未落 ADS 表） | - | [fact.md](./素材生产与互动全量临时取数（2026-07）/fact.md) | [patterns.md](./素材生产与互动全量临时取数（2026-07）/patterns.md) |
+| 品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08） | `Alvin's Club App` | 临时查询（未落 ADS 表） | - | [fact.md](./品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08）/fact.md) | [patterns.md](./品牌帖子点击率与新用户首次点击内容占比临时取数（2026-08）/patterns.md) |
+| 产品 OKR 数据汇总 | `Alvin's Club App` | `ads_weekly_ai_fashion_tryon_okr` / `ads_weekly_ai_fashion_tryon_okr_v2` / `ads_daily_ai_fashion_tryon_okr_v2` | [114（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/) / [117（Week）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-v2/) / [120（Day）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-day/) | [fact.md](./产品 OKR 数据汇总/fact.md) | [patterns.md](./产品 OKR 数据汇总/patterns.md) |
+| 首页新老用户曝光点击 | `Alvin's Club App` | `ads_daily_user_home_module_performance` | [113](https://bi.alvinclub.ca/superset/dashboard/113/) | [fact.md](./首页新老用户曝光点击/fact.md) | [patterns.md](./首页新老用户曝光点击/patterns.md) |
+| 用户时长与访问频次 | `Alvin's Club App` | `ads_daily_user_duration_frequency` | [95](https://bi.alvinclub.ca/superset/dashboard/95/) | [fact.md](./用户时长与访问频次/fact.md) | [patterns.md](./用户时长与访问频次/patterns.md) |
+| 投资人报表【核心业务报表】 | `Alvin's Club App`, `ECN 视频`, `TikTok 橱窗号` | `ads_daily_investor` | [101](https://bi.alvinclub.ca/superset/dashboard/101/) | [fact.md](./投资人报表【核心业务报表】/fact.md) | [patterns.md](./投资人报表【核心业务报表】/patterns.md) |
+| 【Social Content】社媒表现数据看板 | `ECN 视频`, `TikTok 橱窗号` | `ads_daily_social_content_v2` | [116](https://bi.alvinclub.ca/superset/dashboard/social-content-v2/) | [fact.md](./【Social Content】社媒表现数据看板/fact.md) | [patterns.md](./【Social Content】社媒表现数据看板/patterns.md) |
+| 【Social Content】属性维度数据 | `ECN 视频`, `TikTok 橱窗号` | `ads_daily_social_content_attribute_v2` | [124](https://bi.alvinclub.ca/superset/dashboard/social-content-attribute-data/) | [fact.md](./【Social Content】属性维度数据/fact.md) | [patterns.md](./【Social Content】属性维度数据/patterns.md) |
+| 【Social Content】每日排行榜 | `ECN 视频`, `TikTok 橱窗号` | `ads_daily_social_video_monitor_rankings_v2` / `virtual_social_content_video_monitor_rankings_v2` | [122](https://bi.alvinclub.ca/superset/dashboard/122/) | [fact.md](./【Social Content】每日排行榜/fact.md) | [patterns.md](./【Social Content】每日排行榜/patterns.md) |
+| 【Social Content】疑似限流账号监控 | `ECN 视频`, `TikTok 橱窗号` | `ads_daily_social_creator_suspected_throttle_rankings` | [123](https://bi.alvinclub.ca/superset/dashboard/social-content-suspected-throttle-monitor/) | [fact.md](./【Social Content】疑似限流账号监控/fact.md) | [patterns.md](./【Social Content】疑似限流账号监控/patterns.md) |
+| 【Social Content】橱窗号数据 | `TikTok 橱窗号` | `ads_daily_social_affiliate_creator` / `ads_daily_social_affiliate_video` | [130](https://bi.alvinclub.ca/superset/dashboard/130/) / [131](https://bi.alvinclub.ca/superset/dashboard/131/) | [fact.md](./【Social Content】橱窗号数据/fact.md) | [patterns.md](./【Social Content】橱窗号数据/patterns.md) |
+| 【Social Content】Makepod 店铺 TK 广告投放数据 | `TikTok Makepod 小店` | `ads_daily_tiktok_ad` | [133](https://bi.alvinclub.ca/superset/dashboard/133/) | [fact.md](./【Social Content】Makepod 店铺 TK 广告投放数据/fact.md) | [patterns.md](./【Social Content】Makepod 店铺 TK 广告投放数据/patterns.md) |
+| ECN 数据看板 | `ECN 视频` | `ads_daily_formal_video_increment` / `ads_weekly_formal_video_increment_growth` | [109](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-formal-video-increment/) | [fact.md](./ECN 数据看板/fact.md) | [patterns.md](./ECN 数据看板/patterns.md) |
+| 留存用户特征数据 | `Alvin's Club App` | `ads_daily_retention_user_feature` / `ads_daily_retention_user_duration_bucket` / `ads_daily_retention_user_follow_bucket` / `ads_daily_retention_user_new_follow_bucket` / `ads_daily_retention_user_tryon_bucket` / `ads_daily_retention_user_product_detail_bucket` | [103](https://bi.alvinclub.ca/superset/dashboard/103/) | [fact.md](./留存用户特征数据/fact.md) | [patterns.md](./留存用户特征数据/patterns.md) |
+| 视频编码转化 | `Alvin's Club App`, `ECN 视频`, `TikTok 橱窗号` | `ads_daily_video_code_conversion` | [107](https://bi.alvinclub.ca/superset/dashboard/107/) | [fact.md](./视频编码转化/fact.md) | [patterns.md](./视频编码转化/patterns.md) |
+| 第三方渠道外链跳转数据 | `Alvin's Club App` | `ads_daily_thirdapp_channel_uv` | [111](https://bi.alvinclub.ca/superset/dashboard/111/) | [fact.md](./第三方渠道外链跳转数据/fact.md) | [patterns.md](./第三方渠道外链跳转数据/patterns.md) |
+| 【Launch】商详页总览 | `Alvin's Club 商详页 Launch 投放` | `ads_daily_launch_product_detail` | [126](https://bi.alvinclub.ca/superset/dashboard/launch-product-detail-overview/) | [fact.md](./【Launch】商详页总览/fact.md) | [patterns.md](./【Launch】商详页总览/patterns.md) |
+| 【Launch】商详页多维度 | `Alvin's Club 商详页 Launch 投放` | `ads_daily_launch_product_detail_dimension` / `ads_weekly_launch_product_detail_dimension` / `ads_monthly_launch_product_detail_dimension` / `ads_daily_launch_product_detail_video_source` / `ads_weekly_launch_product_detail_video_source` / `ads_monthly_launch_product_detail_video_source` | [127](https://bi.alvinclub.ca/superset/dashboard/launch-product-detail-dimension/) | [fact.md](./【Launch】商详页多维度/fact.md) | [patterns.md](./【Launch】商详页多维度/patterns.md) |
+| LTA 数据看板 | `MyCCH` | `ads_daily_lta_overview` / `ads_daily_lta_kol` / `ads_daily_lta_spu` | [125](https://bi.alvinclub.ca/superset/dashboard/125/) | [fact.md](./LTA%20数据看板/fact.md) | [patterns.md](./LTA%20数据看板/patterns.md) |
+| 衣橱概览 | `Alvin's Club App` | `ads_daily_closet_overview` | [106](https://bi.alvinclub.ca/superset/dashboard/106/) | [fact.md](./衣橱概览/fact.md) | [patterns.md](./衣橱概览/patterns.md) |
+| push 数据看板 | `Alvin's Club App` | `ads_daily_push` | [108](https://bi.alvinclub.ca/superset/dashboard/108/) | [fact.md](./push%20数据看板/fact.md) | [patterns.md](./push%20数据看板/patterns.md) |
+| Makepod 事件明细 | `Makepod 独立站` | `dwd_makepod_event_log` | - | [fact.md](./Makepod%20事件明细/fact.md) | [patterns.md](./Makepod%20事件明细/patterns.md) |
+| Makepod 独立站日报 | `Makepod 独立站` | `ads_daily_makepod` / `ads_weekly_makepod_paid_user_order` | [115](https://bi.alvinclub.ca/superset/dashboard/115/)（【Makepod】平台看板） | [fact.md](./Makepod%20独立站日报/fact.md) | [patterns.md](./Makepod%20独立站日报/patterns.md) |
+| 【AI-Fashion】Style Me 看板 | `Alvin's Club App` | `ads_daily_ai_fashion_styleme` | [121](https://bi.alvinclub.ca/superset/dashboard/121/) | [fact.md](./【AI-Fashion】Style%20Me%20看板/fact.md) | [patterns.md](./【AI-Fashion】Style%20Me%20看板/patterns.md) |
+| 【AI-Fashion】素材内容数据 | `Alvin's Club App` | `ads_weekly_ai_fashion_asset_overview` / `ads_daily_ai_fashion_asset_rankings` / `ads_daily_ai_fashion_asset_detail` | [128](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-asset-content-data/) | [fact.md](./【AI-Fashion】素材内容数据/fact.md) | [patterns.md](./【AI-Fashion】素材内容数据/patterns.md) |
+| 【AI-Fashion】商详页投放 | `Alvin's Club App` | `ads_daily_ai_fashion_product_detail_promotion` | [129](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-detail-promotion/) | [fact.md](./【AI-Fashion】商详页投放/fact.md) | [patterns.md](./【AI-Fashion】商详页投放/patterns.md) |
