@@ -136,6 +136,6 @@
 ## 绑定前存量视频
 `videos.platform_video_tags.tag_type = 'origin' AND videos.platform_video_tags.tag_value = 'pre_binding'`
 
-指账号接入平台之前就已存在的存量视频，落地为 `dim_video.is_pre_binding_video`。
+指账号接入平台之前就已存在的存量视频。数仓在 `dim_video` 落库时按 `video_key` 直接排除，不进入下游任何表。
 
-注意：这类 tag 行的 `platform_channel_id` 与服务端账号主键（`videos.users.id` 等）**不同源**，直接按账号 id 关联会全部落空；只能按 `platform_video_id` 拼 `video_key` 关联视频，再由 `dim_video.creator_id` 回到账号。
+注意：这类 tag 行的 `platform_channel_id` 与服务端账号主键（`videos.users.id` 等）**不同源**，只能按 `platform_video_id` 拼 `video_key` 识别后排除，不能按账号 id 关联。

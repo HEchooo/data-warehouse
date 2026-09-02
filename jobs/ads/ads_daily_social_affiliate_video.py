@@ -93,7 +93,6 @@ def get_report_start_date() -> date | None:
         INNER JOIN affiliate_creator a
             ON v.creator_id = a.creator_id
         WHERE v.channel = '{AFFILIATE_CHANNEL}'
-            AND NOT v.is_pre_binding_video
     )
     SELECT MIN(s.dt) AS start_dt
     FROM `{table_id(VIDEO_SNAPSHOT_TABLE_NAME)}` s
@@ -186,7 +185,7 @@ def build_select_sql(dates: list[date]) -> str:
     affiliate_creator AS (
         {affiliate_creator_sql()}
     ),
-    -- 橱窗号视频展示属性，标题与链接统一来自视频维表；账号绑定前的存量视频不纳入报表。
+    -- 橱窗号视频展示属性，标题与链接统一来自视频维表；绑定前存量视频已在 dim_video 落库时排除。
     affiliate_video AS (
         SELECT
             v.creator_id,
@@ -200,7 +199,6 @@ def build_select_sql(dates: list[date]) -> str:
         INNER JOIN affiliate_creator a
             ON v.creator_id = a.creator_id
         WHERE v.channel = '{AFFILIATE_CHANNEL}'
-            AND NOT v.is_pre_binding_video
     ),
     -- 橱窗号视频在统计日与前一日的日末累计状态。
     video_state AS (

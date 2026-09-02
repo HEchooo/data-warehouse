@@ -39,3 +39,7 @@ ADD COLUMN IF NOT EXISTS is_active_account BOOL;
 -- 绑定前存量视频：platform_video_tags 的 tag_type='origin' AND tag_value='pre_binding'
 ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
 ADD COLUMN IF NOT EXISTS is_pre_binding_video BOOL;
+
+-- 绑定前存量视频改在 dim_video 落库时直接排除，不再保留标记字段
+ALTER TABLE `my-project-8584-jetonai.decom.dim_video`
+DROP COLUMN IF EXISTS is_pre_binding_video;

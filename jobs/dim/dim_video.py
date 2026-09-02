@@ -115,8 +115,8 @@ def build_select_sql() -> str:
             AND NULLIF(CAST(platform_video_id AS STRING), '') IS NOT NULL
         GROUP BY channel, creator_id, video_id, video_key
     ),
-    -- 绑定前存量视频标记：账号接入前就已存在的视频，下游报表按需排除。
-    -- tag 表的 platform_channel_id 与服务端账号主键不同源，只能按 video_key 关联。
+    -- 绑定前存量视频：账号接入前就已存在的视频，数仓全链路不纳入。
+    -- tag 表的 platform_channel_id 与服务端账号主键不同源，只能按 video_key 识别后排除。
     pre_binding_video_tag AS (
         SELECT DISTINCT
             CONCAT(platform, ':', CAST(platform_video_id AS STRING)) AS video_key
@@ -244,7 +244,6 @@ def build_select_sql() -> str:
         deduped_video.is_social_content_video,
         formal_video_tag.formal_tag_created_ts_utc IS NOT NULL AS is_formal_video,
         formal_video_tag.formal_tag_created_ts_utc,
-        pre_binding_video_tag.video_key IS NOT NULL AS is_pre_binding_video,
         CURRENT_TIMESTAMP() AS update_time
     FROM deduped_video
     LEFT JOIN formal_video_tag
@@ -254,6 +253,7 @@ def build_select_sql() -> str:
     LEFT JOIN active_account
         ON deduped_video.channel = active_account.channel
         AND deduped_video.creator_id = active_account.creator_id
+    WHERE pre_binding_video_tag.video_key IS NULL
     """
 
 
@@ -284,8 +284,7 @@ def run_dim_video() -> None:
             COUNTIF(is_social_content_video IS NULL) AS invalid_social_content_flag_rows,
             COUNTIF(is_active_account IS NULL) AS invalid_active_account_flag_rows,
             COUNTIF(is_formal_video AND formal_tag_created_ts_utc IS NULL)
-                AS invalid_formal_video_rows,
-            COUNTIF(is_pre_binding_video IS NULL) AS invalid_pre_binding_flag_rows
+                AS invalid_formal_video_rows
         FROM `{staging_table_id}`
         """
         validation_row = list(client.query(validation_query).result())[0]
@@ -299,8 +298,6 @@ def run_dim_video() -> None:
             raise RuntimeError("dim_video 校验失败：存在空账号启用标记")
         if validation_row.invalid_formal_video_rows != 0:
             raise RuntimeError("dim_video 校验失败：正式号视频缺少 tag 创建时间")
-        if validation_row.invalid_pre_binding_flag_rows != 0:
-            raise RuntimeError("dim_video 校验失败：存在空绑定前存量视频标记")
 
         client.query(
             f"""

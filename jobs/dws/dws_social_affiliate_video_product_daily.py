@@ -21,6 +21,7 @@ DATASET_ID = "decom"
 VIDEO_SOURCE_DATASET_ID = "videos"
 TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "dws_social_affiliate_video_product_daily"
+DIM_VIDEO_TABLE_NAME = "dim_video"
 SOURCE_TABLE_NAME = "tiktok_shop_rpa_video_stats_snapshots"
 CURRENCY_DICT_TABLE_NAME = "currency_conversion_dict"
 AFFILIATE_CHANNEL = "tiktok"
@@ -108,6 +109,10 @@ def build_select_sql() -> str:
         s.fetched_at,
         CURRENT_TIMESTAMP() AS update_time
     FROM latest_snapshot s
+    -- 视频范围与 dim_video 对齐，绑定前存量视频已在维表落库时排除。
+    INNER JOIN `{table_id(DIM_VIDEO_TABLE_NAME)}` v
+        ON v.channel = '{AFFILIATE_CHANNEL}'
+        AND v.video_key = CONCAT('{AFFILIATE_CHANNEL}:', s.tiktok_video_id)
     LEFT JOIN currency_rate_dim r
         ON r.from_currency = UPPER(s.currency)
     """

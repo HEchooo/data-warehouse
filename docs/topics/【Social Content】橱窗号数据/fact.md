@@ -9,7 +9,7 @@
 - Superset 物理 dataset：`ads_daily_social_affiliate_creator`（id=295）、`ads_daily_social_affiliate_video`（id=296），主时间列均为 `dt`
 - Superset chart：`721`（账号维度日报 table）、`722`（视频维度日报 table）
 - 橱窗号范围：`videos.users.usage_type = 'tiktok-affiliate'`，当前 10 个账号，只有 TikTok 有这类账号
-- 视频范围：排除账号绑定前的存量视频（`dim_video.is_pre_binding_video = TRUE`，来源 `platform_video_tags` 的 `tag_type='origin' AND tag_value='pre_binding'`），只统计绑定后新发布的视频；1161 个橱窗号视频中排除 1114 个，剩 47 个，10 个账号全部保留
+- 视频范围：绑定前存量视频（`platform_video_tags` 的 `tag_type='origin' AND tag_value='pre_binding'`）已在 `dim_video` 落库时排除，只统计绑定后新发布的视频；1161 个橱窗号视频中排除 1114 个，剩 47 个，10 个账号全部保留
 - 统计口径：所有互动指标同时给出 `当日增量` 与 `日末累计`；增量 = `D 日末累计 - D-1 日末累计`
 - 成交口径：GMV / 成交商品件数 / 订单笔数只出**当日值**，不做累计列，因为源数据本身就是 TikTok Shop 后台的当日报表
 - `dt` 为已完整结束的美东自然日；Superset 默认用 Advanced Time Range 将实例 `now` 向后平移 5 小时后截日，严格筛选一个完整美东日
@@ -62,7 +62,7 @@
 | 边界 | 说明 |
 |------|------|
 | 报表起点 | `2026-08-12`（美东），即橱窗号视频在 `dws_social_video_snapshot_daily_v2` 的首个真实快照日；更早分区没有采集数据，不产出 |
-| 存量视频排除 | 橱窗号视频绝大多数是账号绑定前的存量视频（每个账号 84%~98%），已按 `is_pre_binding_video` 排除。排除后每个账号只剩 3~9 个视频，历史所有分区的播放、点赞、评论、分享、视频数都会大幅下降；粉丝数取账号快照，不受影响 |
+| 存量视频排除 | 橱窗号视频绝大多数是账号绑定前的存量视频（每个账号 84%~98%），已在 `dim_video` 落库时排除。排除后每个账号只剩 3~9 个视频，历史所有分区的播放、点赞、评论、分享、视频数都会大幅下降；粉丝数取账号快照，不受影响 |
 | 采集范围扩大 | 橱窗号视频采集覆盖是逐步放开的：`08-12/08-13` 约 162 个视频、`08-14 ~ 08-16` 约 420 个、`08-17` 起才覆盖全部 1146 个视频。`08-14` 与 `08-17` 的播放、评论、分享增量包含新纳入采集视频的历史存量，不代表当日真实增量，`08-17` 之前的增量口径不可用于趋势判断 |
 | 粉丝数历史 | `videos.users` 只有当前状态，没有历史，粉丝快照从 `dws_social_creator_snapshot_daily` 首次运行日（`2026-08-21`）起逐日累积；`2026-08-22` 起才有第一个可用的 `follower_increment`，更早分区的粉丝字段恒为空 |
 | 分享数平台差异 | `day_end_shares` 只有 YouTube 保持空值（源表没有该字段）；TikTok 与 Instagram 与播放、点赞、评论一致按 0 起算。橱窗号只涉及 TikTok，两个维度的分享数字段都不会出现空值 |
