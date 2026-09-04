@@ -50,6 +50,7 @@
 补充说明：
 - 用户原始描述中的 `decom.dwd_event_id` 在当前仓库/数据集中不存在；本主题实际使用 `decom.dwd_event_log`
 - 本主题 `ADS` 只消费 `DWS`，不直接读取 `DWD` 或外部源表
+- 播放增量来自不经过 `dim_video` 的 `decom.dws_video_daily`，因此不会自动排除 pre-binding 视频，当前仍可能包含账号绑定前的存量视频
 - 当前未做历史回填；若要让既有历史日期按新口径重刷，需要单独确认回填窗口
 
 ## 依赖

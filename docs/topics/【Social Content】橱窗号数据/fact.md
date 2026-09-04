@@ -62,7 +62,7 @@
 | 边界 | 说明 |
 |------|------|
 | 报表起点 | `2026-08-12`（美东），即橱窗号视频在 `dws_social_video_snapshot_daily_v2` 的首个真实快照日；更早分区没有采集数据，不产出 |
-| 存量视频排除 | 橱窗号视频绝大多数是账号绑定前的存量视频（每个账号 84%~98%），已在 `dim_video` 落库时排除。排除后每个账号只剩 3~9 个视频，历史所有分区的播放、点赞、评论、分享、视频数都会大幅下降；粉丝数取账号快照，不受影响 |
+| 存量视频排除 | 橱窗号视频绝大多数是账号绑定前的存量视频（每个账号 84%~98%），已在 `dim_video` 落库时排除。重算后每个账号只剩 3~9 个视频，受影响分区的播放、点赞、评论、分享、视频数都会大幅下降；默认只重刷最近 30 天，更早分区需要 `--full-refresh` 才会清除旧数据；粉丝数取账号快照，不受影响 |
 | 采集范围扩大 | 橱窗号视频采集覆盖是逐步放开的：`08-12/08-13` 约 162 个视频、`08-14 ~ 08-16` 约 420 个、`08-17` 起才覆盖全部 1146 个视频。`08-14` 与 `08-17` 的播放、评论、分享增量包含新纳入采集视频的历史存量，不代表当日真实增量，`08-17` 之前的增量口径不可用于趋势判断 |
 | 粉丝数历史 | `videos.users` 只有当前状态，没有历史，粉丝快照从 `dws_social_creator_snapshot_daily` 首次运行日（`2026-08-21`）起逐日累积；`2026-08-22` 起才有第一个可用的 `follower_increment`，更早分区的粉丝字段恒为空 |
 | 分享数平台差异 | `day_end_shares` 只有 YouTube 保持空值（源表没有该字段）；TikTok 与 Instagram 与播放、点赞、评论一致按 0 起算。橱窗号只涉及 TikTok，两个维度的分享数字段都不会出现空值 |
@@ -80,7 +80,7 @@
 - 账号快照：`decom.dws_social_creator_snapshot_daily`（`videos.users` 逐日快照，只重写当天分区，历史不可回溯）
 - 视频播放事实：`decom.dws_social_video_snapshot_daily_v2` → `decom.dws_social_video_state_daily_v2`
 - 视频维表：`decom.dim_video`
-- 视频商品成交事实：`decom.dws_social_affiliate_video_product_daily`（`dt × video_key × product_title`）
+- 视频商品成交事实：`decom.dws_social_affiliate_video_product_daily`（`dt × video_key × product_title`），通过 `dim_video` 限定视频范围
 - 账号成交事实：`decom.dws_social_affiliate_creator_shop_daily`（`dt × account_handle`）
 - 成交源表：`videos.tiktok_shop_rpa_video_stats_snapshots`、`videos.tiktok_shop_rpa_account_stats_snapshots`（RPA 抓取 TikTok Shop 后台），汇率来自 `decom.currency_conversion_dict`
 - 脚本：`jobs/dws/dws_social_creator_snapshot_daily.py`, `jobs/dws/dws_social_affiliate_video_product_daily.py`, `jobs/dws/dws_social_affiliate_creator_shop_daily.py`, `jobs/ads/ads_daily_social_affiliate_creator.py`, `jobs/ads/ads_daily_social_affiliate_video.py`

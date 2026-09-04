@@ -136,6 +136,8 @@
 ## 绑定前存量视频
 `videos.platform_video_tags.tag_type = 'origin' AND videos.platform_video_tags.tag_value = 'pre_binding'`
 
-指账号接入平台之前就已存在的存量视频。数仓在 `dim_video` 落库时按 `video_key` 直接排除，不进入下游任何表。
+指账号接入平台之前就已存在的存量视频。数仓在 `dim_video` 落库时按 `video_key` 直接排除，因此所有以 `dim_video` 作为视频准入范围的下游链路都会排除这类视频。
+
+该规则不是原始视频源的全局过滤：不经过 `dim_video` 的旁路不会自动排除。目前 `decom.dws_video_daily` 直接读取三端原始视频表，因此其下游投资人报表和视频编码转化仍可能包含绑定前存量视频。
 
 注意：这类 tag 行的 `platform_channel_id` 与服务端账号主键（`videos.users.id` 等）**不同源**，只能按 `platform_video_id` 拼 `video_key` 识别后排除，不能按账号 id 关联。

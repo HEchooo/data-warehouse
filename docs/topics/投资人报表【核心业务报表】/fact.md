@@ -77,6 +77,7 @@
 
 补充说明：
 - 投资人报表里的视频播放类指标仍复用 `decom.dws_video_daily`；YouTube 累计播放快照已切到 v2 源 `videos.yt_video_stats_log.view_count`，TikTok / Ins 仍分别使用 `videos.video_stats_log.view_count` / `videos.ig_media_stats_log.view_count`
+- `decom.dws_video_daily` 不经过 `dim_video`，因此投资人报表不会自动套用 `dim_video` 的 pre-binding 视频排除规则，当前仍可能包含账号绑定前的存量视频
 - 根据 `docs/rules/video-mapping.md`，当前 jhonson 团队口径按 YouTube 排除 bob 团队测试渠道和内部渠道实现；TikTok / Ins 在该文档中未定义团队边界，因此暂维持原有全量口径
 - 投资人报表与 Social Content v2 使用同一组 10 个 YouTube 排除频道；这两个报表的视频范围不按 `decom.dim_video.is_formal_video` 做例外保留
 - `新增视频`、`活跃视频数` 现在统一通过 `decom.dim_auto_publish_video_task` 做自动发布 `task_id` 跨平台去重；只有能稳定映射到唯一 `task_id` 的自动发布视频会去重，同一 `task_id` 只要存在至少一个成功平台就作为一个统一视频参与计数；手动发布视频不去重
