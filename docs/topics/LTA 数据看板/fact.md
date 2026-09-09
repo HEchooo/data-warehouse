@@ -1,5 +1,11 @@
 # LTA 数据看板
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | LTA 数据看板 | MyCCH、mycch.me 曝光点击看板 |
+
 ## 报表
 
 只看 `args.current_url` 域名为 `mycch.me` 的三个第三方事件：`v_third_party_page`（页面曝光）、`v_third_party_goods`（商品曝光）、`c_third_party_goods`（商品点击）。日期按 `prop_timezone` 解释后转 `America/New_York` 切美东业务日。

@@ -1,5 +1,11 @@
 # push 数据看板
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | push 数据看板 | AI-Fashion push 数据看板、push 消息召回看板、push 召回数据 |
+
 ## 报表
 
 ### `ads_daily_push`
