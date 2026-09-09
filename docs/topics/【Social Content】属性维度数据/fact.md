@@ -1,5 +1,14 @@
 # 【Social Content】属性维度数据
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 指标 | 日增 Views / Likes | 日增播放量、日增点赞数 |
+| 指标 | 新视频 7 天平均播放数 | 新视频 7 日平均 Views、T+7 平均播放量 |
+| 指标 | 赞播率 | 点赞率、Like Rate |
+| 维度 | 博主属性 | 账号属性、Creator 属性 |
+
 ## 报表
 
 - Dashboard：[【Social Content】属性维度数据](https://bi.alvinclub.ca/superset/dashboard/social-content-attribute-data/)（id=124）

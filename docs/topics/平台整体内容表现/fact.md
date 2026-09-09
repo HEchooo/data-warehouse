@@ -1,5 +1,16 @@
 # 平台整体内容表现
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 指标 | DAU | 日活、日活用户数、活跃用户数 |
+| 指标 | 内容曝光 UV | 内容曝光人数、内容展示用户数 |
+| 指标 | 内容曝光 PV | 内容曝光次数、内容展示量 |
+| 指标 | product_click_rate | 商品点击率、商品 CTR |
+| 指标 | 试穿渗透率 | 试穿率、Try On Rate |
+| 指标 | follow_conversion_rate | 关注率、Follow Rate |
+
 ## 报表
 
 - 表：`ads_daily_content_performance`

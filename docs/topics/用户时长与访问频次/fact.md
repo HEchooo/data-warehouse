@@ -1,5 +1,18 @@
 # 用户时长与访问频次
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 指标 | DAU | 日活、日活设备数、活跃设备数 |
+| 指标 | MAU | 月活、月活设备数、月活跃设备数 |
+| 指标 | dau_mau | DAU/MAU、用户粘性、Stickiness |
+| 指标 | avg_duration_min | 人均停留时长、平均使用时长 |
+| 指标 | avg_visit_freq | 人均访问频次、平均启动次数 |
+| 指标 | next_day_retention_rate | 次日留存率、D1 留存率 |
+| 指标 | day_7_retention_rate | 7 日留存率、D7 留存率 |
+| 指标 | day_30_retention_rate | 30 日留存率、D30 留存率 |
+
 ## 报表
 
 - 表：`ads_daily_user_duration_frequency`

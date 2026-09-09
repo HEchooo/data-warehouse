@@ -6,6 +6,11 @@
 |---|---|---|
 | 主题 | Makepod 店铺 TK 广告投放数据 | Social Content TikTok 广告投放数据、TikTok 投放看板 |
 | 投放类型 | GMV Max | 智能高效计划 |
+| 指标 | 消耗 | 广告花费、广告成本、Spend、Cost |
+| 指标 | 点击率 | CTR、目标页面点击率 |
+| 指标 | 转化率 | CVR、成效率 |
+| 指标 | ROAS | 普通投放回报、广告投产比 |
+| 指标 | ROI | GMV Max 投放回报、GMV Max 投产比 |
 
 本主题下有**两套互不相通的投放数据**，同一个 dashboard（id=133）分区展示：
 

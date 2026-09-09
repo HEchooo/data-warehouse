@@ -1,5 +1,15 @@
 # 【Launch】商详页多维度
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 指标 | 商品页 UV | 商详页访问人数、商详页曝光 UV |
+| 指标 | 商品页 PV | 商详页访问次数、商详页曝光 PV |
+| 指标 | 人均访问次数 | 人均商详访问量、人均商品页 PV |
+| 维度 | 视频代码 | 视频编码、Video Code |
+| 维度 | 红人账号 | 达人账号、KOL 账号 |
+
 ## 报表
 
 - 明细表：`ads_daily_launch_product_detail_dimension`（粒度 `dt`）/ `ads_weekly_launch_product_detail_dimension`（粒度 `week_start_dt`，周一至周日）/ `ads_monthly_launch_product_detail_dimension`（粒度 `month`）

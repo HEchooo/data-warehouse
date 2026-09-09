@@ -1,5 +1,15 @@
 # 全量报表
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 指标 | 设备数 | DAU、活跃设备数、日活设备数 |
+| 指标 | 用户数 | 注册用户 DAU、活跃注册用户数 |
+| 指标 | next_day_retention_rate | 次日留存率、D1 留存率 |
+| 指标 | avg_duration_sec | 人均停留时长、平均使用时长 |
+| 指标 | avg_content_consume_count | 人均内容消费、人均浏览内容数 |
+
 ## 报表
 
 - 表：`ads_daily_total`

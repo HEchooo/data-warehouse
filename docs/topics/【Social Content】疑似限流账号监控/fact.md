@@ -1,5 +1,14 @@
 # 【Social Content】疑似限流账号监控
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 指标 | T+1 篇均播放 | 次日平均播放量、发布后 1 日平均 Views |
+| 指标 | 限流指数 | 疑似限流分、播放下降指数 |
+| 指标 | 最近 3 个发布日零播放 | 连续零播放、零播放账号 |
+| 指标 | 发布频率 | 发布日数、活跃发布日数 |
+
 ## 报表
 
 - Dashboard：[【Social Content】疑似限流账号监控](https://bi.alvinclub.ca/superset/dashboard/social-content-suspected-throttle-monitor/)（id=123），独立看板，不接入现有每日排行榜 Dashboard
