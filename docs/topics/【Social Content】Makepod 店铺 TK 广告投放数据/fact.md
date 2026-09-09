@@ -1,5 +1,12 @@
 # 【Social Content】Makepod 店铺 TK 广告投放数据
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | Makepod 店铺 TK 广告投放数据 | Social Content TikTok 广告投放数据、TikTok 投放看板 |
+| 投放类型 | GMV Max | 智能高效计划 |
+
 本主题下有**两套互不相通的投放数据**，同一个 dashboard（id=133）分区展示：
 
 | | 普通竞价投放 | GMV Max（智能高效计划） |

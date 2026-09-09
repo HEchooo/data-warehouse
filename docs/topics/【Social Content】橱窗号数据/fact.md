@@ -1,5 +1,11 @@
 # 【Social Content】橱窗号数据
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | Social Content 橱窗号数据 | 橱窗号看板、TikTok 橱窗号、橱窗号账号数据、橱窗号视频数据 |
+
 ## 报表
 
 - Dashboard：[【Social Content】橱窗号数据（账号维度）](https://bi.alvinclub.ca/superset/dashboard/130/)（id=130）

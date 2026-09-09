@@ -1,5 +1,11 @@
 # 【AI-Fashion】Style Me 看板
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | Style Me 看板 | StyleMe 看板、Style Me 日报、StyleMe 日报 |
+
 ## 报表
 
 ### 主题总览

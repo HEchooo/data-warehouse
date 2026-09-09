@@ -4,7 +4,7 @@
 
 | 类型 | 标准名称 | 别名 |
 |---|---|---|
-| 主题 | Makepod 独立站日报 | Makepod 站、Makepod 日报、独立站日报、Makepod 平台看板 |
+| 主题 | Makepod 独立站日报 | Makepod 站、Makepod 日报、独立站日报、Makepod 平台看板、AI-Fashion Makepod 独立站日报 |
 | 指标 | 支付用户数 | 付费人数、付费用户、购买用户 |
 | 指标 | 支付金额 | GMV、成交额、销售额 |
 

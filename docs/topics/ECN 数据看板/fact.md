@@ -1,5 +1,11 @@
 # ECN 数据看板
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | ECN 数据看板 | AI-Fashion 账号发布数据增量看板 |
+
 ## 报表
 
 ### 最终报表：`ads_daily_formal_video_increment`

@@ -1,5 +1,11 @@
 # 【Social Content】每日排行榜
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | Social Content 每日排行榜 | Social Content 视频监控看板 |
+
 ## 报表
 
 - Dashboard：[【Social Content】每日排行榜](https://bi.alvinclub.ca/superset/dashboard/122/)（id=122）
