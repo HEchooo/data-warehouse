@@ -6,10 +6,10 @@
 |---|---|---|
 | 主题 | 内容维度日报 | 内容维度日报（日×帖子） |
 | 指标 | post_exposure_uv | 帖子曝光 UV、内容曝光人数 |
-| 指标 | read_rate | 阅读率、内容点击率、CTR |
-| 指标 | like_rate | 点赞率、Like Rate |
-| 指标 | follow_rate | 关注率、Follow Rate |
-| 指标 | tryon_total_count | 试穿数、试穿次数 |
+| 指标 | read_rate | 阅读率 |
+| 指标 | like_rate | 点赞率 |
+| 指标 | follow_rate | 关注率 |
+| 指标 | tryon_total_count | 帖子试穿次数 |
 
 ## 报表
 

@@ -1,15 +1,5 @@
 # Makepod 事件明细
 
-## 检索别名
-
-| 类型 | 标准名称 | 别名 |
-|---|---|---|
-| 字段 | 事件名 | event_name、埋点事件 |
-| 字段 | 设备 ID | prop_device_id、device_id |
-| 字段 | 用户 ID | prop_user_id、user_id |
-| 字段 | product_code | 商品编码、SPU、args_spu |
-| 字段 | sku_code | SKU 编码、args_sku |
-
 ## 报表
 
 - 表：`decom.dwd_makepod_event_log`
