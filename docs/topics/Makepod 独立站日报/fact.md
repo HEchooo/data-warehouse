@@ -1,5 +1,13 @@
 # Makepod 独立站日报
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | Makepod 独立站日报 | Makepod 日报、独立站日报、Makepod 平台看板 |
+| 指标 | 支付用户数 | 付费人数、付费用户、购买用户 |
+| 指标 | 支付金额 | GMV、成交额、销售额 |
+
 ## 报表
 
 - 表：`decom.ads_daily_makepod`（日报）、`decom.ads_weekly_makepod_paid_user_order`（周报）
