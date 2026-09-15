@@ -29,6 +29,7 @@
 ## 行为规则
 
 - 不在未验证前声称任务完成
+- 提交前运行 `python3 scripts/check_knowledge.py`，确保 topic 索引、ADS 归属、知识引用和字段声明一致
 - 本项目直接在 `main` 分支提交并推送，不新建 feature/fix 分支（除非用户明确要求走分支或 PR）
 - 严格遵守 [docs/rules](./docs/rules) 中的规则
 - **新建表或调整链路前**，先按 [docs/rules/layering.md](./docs/rules/layering.md) 判断该表属于哪一层、这一层是否真的需要存在；空转层（内容等价于 `SELECT * FROM 上一层`）不要建
