@@ -146,6 +146,11 @@ Chart 实际展示列（精简版，见下方 Superset 小节）：
 | 负反馈 UV | `negative_feedback_uv` | `c_feedback_entry` 的 `COUNT(DISTINCT prop_user_id)` |
 | 负反馈率 | `negative_feedback_rate` | `negative_feedback_uv / exposure_uv` |
 
+补充说明：
+
+- 周总览 UV 按 `prop_user_id` 在自然周内去重；日榜与明细 UV 按业务日、素材去重，不能由日 UV 相加得到周 UV
+- `negative_feedback_rate` 的分母为 0 时返回 `NULL`；跨素材或跨周期必须分别汇总负反馈 UV 与曝光 UV 后重算
+
 ## 已落地字段
 
 需求字段已全部落地，无缺口。

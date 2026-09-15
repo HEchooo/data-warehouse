@@ -44,6 +44,7 @@
 - 固定模块：`star`, `magazine`, `brand`, `feeds`
 - 登录用户口径：所有指标仅纳入 `prop_user_id` 非空的事件
 - 事件映射：`v_home_* / c_home_*`
+- `click_rate` 和 `avg_click_count_per_user` 的分母为 0 时落 `0`；跨天或跨模块必须汇总对应分子、分母后重算
 
 ## 依赖
 

@@ -86,6 +86,7 @@
   - 不再使用事件自带 `args_star / args_magazine / args_brand` 做商品事件专栏归因
   - `args_post` 无法映射到帖子或专栏的商品事件，不进入该专栏明细表
 - `follow_total_count`、`like_post_count`、`tryon_post_count` 仍保留次数口径，不属于 UV 人数指标
+- 所有人均值和率值在分母为 0 时落 `0`；跨日、跨月或跨专栏必须从相应周期的去重分子、分母重算
 - `column_id → column_name` 映射：`dim_column`
 - `dws_column_post_daily` 只承载帖子在线存量快照，不承载试穿日发生指标
 - `dws_column_interaction_daily` 承接专栏曝光、商品事件、试穿、点赞、关注和 7 日关注转化分子分母

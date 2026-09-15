@@ -107,6 +107,8 @@
 
 - 该主题只看正式号视频，不再额外维护 AI-Fashion 账号名单
 - YouTube 累计播放与点赞复用 Social Content v2 链路，来源为 `videos.yt_video_stats_log.view_count / like_count`；TikTok、Instagram 数据源保持不变
+- 日增播放、日增点赞和新增视频数可跨日求和；累计账号/视频数、平均 LTV 和所有增长倍数不可跨日或跨周求和、平均
+- 平均 LTV 无样本时落 `0`；周增长倍数首周固定为 `1`，非首周的前周均值为 0 时返回 `NULL`
 - ECN 日表从 `2026-03-30` 开始，而 v2 状态链路从 `2026-03-13` 开始构建，能够承接日增量首日差分和 7 天 LTV 所需历史
 - `dim_video` 保留 Social Content 原有 YouTube AI 团队排除规则，但正式号 tag 命中的视频会作为例外保留
 - 内容账号总数不按视频发布时间或正式号 tag `created_at` 累计，而是按账号下第一个正式号视频首次采集到 `views > 0` 的日期累计；账号进入正式号集合后，后续每日都计入

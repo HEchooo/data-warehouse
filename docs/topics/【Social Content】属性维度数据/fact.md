@@ -61,6 +61,12 @@
 | `decom.dws_social_attribute_daily_v2` | `metric_scope`、属性维度与各指标分子分母 |
 | `decom.ads_daily_social_content_attribute_v2` | 报表粒度字段与平均值 / 比率轻派生 |
 
+补充说明：
+
+- 视频平均值和赞播率都必须用表内对应的总播放、点赞和样本数分子分母重算，不能跨日期、渠道或属性直接平均
+- 分母为 0 时平均值与比率返回 `NULL`；`NULL` 表示无有效样本，不表示指标为 0
+- `全部渠道` 已按统一视频键去重，不能与单渠道行一起聚合
+
 ## 依赖
 
 - 上游任务：`videos.video_upload_task_channels`、`videos.video_upload_tasks`

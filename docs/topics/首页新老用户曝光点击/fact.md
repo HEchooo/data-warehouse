@@ -49,6 +49,8 @@
 - 新老用户分群复用 `decom.dim_user_first_active` 下沉后的 `first_active_date`，不在 ADS 直接现算"首日访问"
 - 曝光/点击 UV 口径与 `decom.dws_home_module_daily` 完全对齐：`prop_user_id IS NOT NULL AND prop_user_id != ''`，事件名 `v_home_* / c_home_*`
 - 4 个模块的点击率（`click_uv / exposure_uv`）不物化，统一由 Superset chart metric 现算
+- 点击率分母为 0 时返回 `NULL`；跨天、跨模块或跨用户组必须汇总去重分子、分母后重算
+- 新用户与老用户是互斥 cohort，但同一用户跨天会重复出现，UV 不能跨天求和
 - 历史回填范围：`2026-05-01` 至今
 
 ## 依赖

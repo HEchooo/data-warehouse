@@ -39,7 +39,7 @@
 | 活跃注册用户数 | `user_count` | 用户 | 当日有主动埋点事件且 `prop_user_id IS NOT NULL` 的去重用户数 | 按目标 `platform` 过滤 | 不可跨天或跨平台直接求和 |
 | 人均停留时长 | `avg_duration_sec` | 设备 | `SUM(session_duration_sec) / COUNT(DISTINCT prop_device_id)`；`app_launch.args_session_duration` 按 `COALESCE(raw_event_id, hash_id)` 去重，单位秒 | 按目标 `platform` 过滤 | 不可跨天或跨平台求和、平均 |
 | 人均内容消费 | `avg_content_consume_count` | 设备 | `SUM(content_consume_count) / COUNT(DISTINCT prop_device_id)`；内容消费事件为 `v_product_detail`、`v_star_post_detail`、`v_magazine_post_detail`、`v_brand_post_detail`、`v_kol_post_detail` | 按目标 `platform` 过滤 | 不可跨天或跨平台求和、平均 |
-| 次日留存率 | `next_day_retention_rate` | 设备 cohort | 次日同平台仍活跃设备数 / 当日活跃设备总数 | 按目标 `platform` 过滤 | 不可跨天或跨平台求和、平均 |
+| 次日留存率 | `next_day_retention_rate` | 设备 cohort | 次日同平台仍活跃设备数 / 当日活跃设备总数；当前表未区分“观察日未成熟”和“成熟后 0 留存”，两者都会落 `0`，因此只能查询已走完次日的 cohort | 按目标 `platform` 过滤；排除尚未走完次日的 cohort | 不可跨天或跨平台求和、平均 |
 
 ## 依赖
 

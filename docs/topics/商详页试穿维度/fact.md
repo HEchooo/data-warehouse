@@ -41,6 +41,7 @@
 - SPU：`dwd_event_log.product_code`
 - SKU：`dwd_event_log.args_sku`，去掉首尾双引号，`''/null` 视为 NULL
 - 访客去重：`visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))`
+- `exposure_uv`、`add_cart_uv` 均按访客去重；不可跨天、SPU 或 SKU 直接求和，汇总时必须回到访客级事实重算
 
 ## 依赖
 

@@ -68,6 +68,7 @@
   - `args_post -> dim_post.post_code -> dim_post.column_id -> dim_column.module`
   - `args_post` 无法映射到帖子或模块的商品事件，不进入该模块明细表
 - `follow_total_count`、`like_post_count`、`tryon_post_count` 仍保留次数口径，不属于 UV 人数指标
+- 所有人均值和率值在分母为 0 时落 `0`；跨月或跨模块必须从相应粒度的去重分子、分母重算
 - `点赞关注率` 的分母使用服务端真实新增关注人数 `new_follow_count`
 - `dws_module_interaction_monthly` 承接月级去重后的模块曝光、商品事件、试穿、点赞、新增关注以及点赞关注交集人数
 - `dws_module_post_monthly` 从 `dws_column_post_daily` 衍生每个月最后一个快照日的模块在线帖子存量

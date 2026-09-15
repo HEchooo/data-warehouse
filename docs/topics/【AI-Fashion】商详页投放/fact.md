@@ -64,6 +64,11 @@
 | `third_party_click_uv` | 点击跳转 UV | `c_third_party_goods` 的 `COUNT(DISTINCT prop_device_id)` |
 | `third_party_click_pv` | 点击跳转 PV | `c_third_party_goods` 的 `COUNT(DISTINCT raw_event_id)` |
 
+补充说明：
+
+- UV 以设备 `prop_device_id` 去重，PV 以原始事件 `raw_event_id` 去重；空去重键不参与统计
+- UV 不可跨天、渠道或素材直接求和；需要汇总时回到事件明细按目标范围重新去重
+
 ## 已落地字段
 
 需求字段已全部落地，无缺口。

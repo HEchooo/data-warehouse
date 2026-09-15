@@ -70,6 +70,7 @@
 - 为避免未来脏数据丢失，若后续出现 `app_name` 仍为空且 `sf` 不命中 youtube，则 DWS 先兜底记为 `unknown`
 - 视频详情页曝光 PV 与商品点击个数使用相同渠道映射：仅纳入 `args.sf` 非空串、非 `NULL` 的事件，并沿用 youtube 特判 + `app_name` 规范化值
 - 商品点击个数当前按 `COUNT(product_code)` 实现；若上游未传 `product_code`，该条点击不会进入计数
+- `overall` 与真实渠道行不可一起聚合；曝光 UV 不可跨天或跨渠道求和，PV 与商品点击个数可在不混入 `overall` 的前提下跨天求和
 - `ADS` 不直接读取 `dwd_event_log`，而是只消费设备级 `DWS`
 
 ## 依赖

@@ -85,6 +85,12 @@ Style Me 用户的次日、第 7 日、第 30 日留存率。
 | `plus_outfit_add_closet_rate` | Plus Outfit Add to Closet 率 | plus_outfit_add_closet_uv / plus_result_success_uv |
 | `plus_outfit_add_closet_calendar_rate` | Plus Outfit Add to Closet & Calendar 率 | plus_outfit_add_closet_calendar_uv / plus_result_success_uv |
 
+补充说明：
+
+- 所有 UV 均按已登录 `prop_user_id` / 服务端 `user_id` 在 `dt` 日内去重；不同场景的 UV 不可相加
+- 所有留存率、渗透率和加衣橱率在分母为 0 时返回 `NULL`；未到观察日的留存同样为 `NULL`，不表示 0 留存
+- 率值不可跨天或跨场景求和、平均；跨期必须用对应去重分子、分母重算
+
 ## 依赖
 
 ### 链路

@@ -46,6 +46,8 @@
 补充说明：
 - 事件侧 UV 统一只统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的已登录用户
 - 事件侧 UV 统一按 `COUNT(DISTINCT prop_user_id)` 统计
+- `like_rate`、`read_rate`、`follow_rate` 的分母均为 `post_exposure_uv`；分母为 0 时落 `0`
+- 率值不可跨天或跨帖子求和、平均；跨期必须分别汇总对应 UV 分子、分母后重算
 - `点赞 / 试穿` 的帖子归因通过 `dim_post` 统一映射完成
 - `关注` 的服务端事实没有帖子主键，帖子级口径仍需依赖同日详情曝光做 last-touch；该逻辑已沉到 `dws_post_interaction_daily`
 - `ads_daily_post_performance` 当前只消费 `dws_post_interaction_daily.platform = 'all'` 的总计口径，避免把跨平台 UV 直接相加
