@@ -11,10 +11,24 @@
 | 指标 | 试穿渗透率 | 试穿率 |
 | 指标 | follow_rate | 关注率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询 App 平台整体内容曝光、点击、试穿、互动和 DAU 日趋势。
+- 不适合：帖子明细应使用[内容维度日报](../内容维度日报/fact.md)；首页模块明细应使用[首页模块曝光与点击明细](../首页模块曝光与点击明细/fact.md)。
+- 需要澄清：需要确认平台、日期范围和统计主体是用户还是事件。
+
 ## 报表
 
-- 表：`ads_daily_content_performance`
+### ads_daily_content_performance
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_content_performance`
+- 状态：`active`
 - 粒度：`dt + platform`
+- 时区：`America/Toronto`
+- 数据范围：App 各平台的内容曝光、点击、试穿和互动日汇总。
+- 必要过滤：按目标 `platform` 过滤。
+- 不包含：帖子、专栏或模块明细。
 - Dashboard：[【AI-Fashion】平台整体内容表现](https://bi.alvinclub.ca/superset/dashboard/91/)（id=91）
 
 ## 字段
@@ -70,4 +84,3 @@
 - 终层脚本：`jobs/ads/ads_daily_content_performance.py`
 - DDL：`ddl/ads/ads_daily_content_performance.sql`
 - 编排：`env/etl_config.json`（`dws_platform_content_daily`、`ads_daily_content_performance`）
-- 当前状态：`Batch 4` 已将平台主题事件事实下沉到 `dws_platform_content_daily`，`ADS` 只保留终层展示指标计算

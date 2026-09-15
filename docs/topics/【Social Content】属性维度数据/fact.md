@@ -8,7 +8,24 @@
 | 指标 | 新视频 7 天平均播放数 | 新视频 7 日平均 Views、T+7 平均播放量 |
 | 维度 | 博主属性 | 账号属性 |
 
+## 适用范围
+
+- 业务线：`ECN 视频`, `TikTok 橱窗号`
+- 适合：按视频任务属性和博主属性分析社媒视频新增播放、点赞、新视频及 cohort 表现。
+- 不适合：不拆属性的渠道总览应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
+- 需要澄清：需要确认视频或博主视角、属性维度、日期范围和 cohort 周期。
+
 ## 报表
+
+### ads_daily_social_content_attribute_v2
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_content_attribute_v2`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × 视频属性组合`
+- 时区：`America/Toronto`
+- 数据范围：能映射到 `dim_video` 且包含 `video_task` 属性的视频和博主表现。
+- 必要过滤：按目标属性维度过滤。
+- 不包含：无法映射或缺少 `video_task` 属性的视频。
 
 - Dashboard：[【Social Content】属性维度数据](https://bi.alvinclub.ca/superset/dashboard/social-content-attribute-data/)（id=124）
 - Dashboard 主图表使用物理 dataset `ads_daily_social_content_attribute_v2`（id=277）；cohort 图使用只对物理 ADS 做轻量展开的 virtual dataset（id=276）

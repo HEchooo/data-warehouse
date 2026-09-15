@@ -10,7 +10,74 @@
 | 维度 | 视频代码 | 视频编码、Video Code |
 | 维度 | 红人账号 | 达人账号、KOL 账号 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club 商详页 Launch 投放`
+- 适合：按视频代码、投放平台、红人、国家、商家拆分 Launch 商详页访问，并查看日、周、月汇总。
+- 不适合：不拆维度的整体访问和外跳应使用[Launch 商详页总览](../【Launch】商详页总览/fact.md)。
+- 需要澄清：需要确认日、周或月周期，以及要拆分的来源维度。
+
 ## 报表
+
+### ads_daily_launch_product_detail_dimension
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_launch_product_detail_dimension`
+- 状态：`active`
+- 粒度：一行代表一个日周期和 5 个来源维度组合
+- 时区：`America/Toronto`
+- 数据范围：Launch 商详页按来源维度拆分的日访问。
+- 必要过滤：按目标来源维度过滤。
+- 不包含：第三方外跳。
+
+### ads_weekly_launch_product_detail_dimension
+
+- 表：`my-project-8584-jetonai.decom.ads_weekly_launch_product_detail_dimension`
+- 状态：`active`
+- 粒度：一行代表一个自然周和 5 个来源维度组合
+- 时区：`America/Toronto`
+- 数据范围：Launch 商详页按来源维度拆分的周访问。
+- 必要过滤：按目标来源维度过滤。
+- 不包含：第三方外跳。
+
+### ads_monthly_launch_product_detail_dimension
+
+- 表：`my-project-8584-jetonai.decom.ads_monthly_launch_product_detail_dimension`
+- 状态：`active`
+- 粒度：一行代表一个自然月和 5 个来源维度组合
+- 时区：`America/Toronto`
+- 数据范围：Launch 商详页按来源维度拆分的月访问。
+- 必要过滤：按目标来源维度过滤。
+- 不包含：第三方外跳。
+
+### ads_daily_launch_product_detail_video_source
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_launch_product_detail_video_source`
+- 状态：`active`
+- 粒度：一行代表一个日周期和视频来源分组
+- 时区：`America/Toronto`
+- 数据范围：Launch 商详页有、无视频来源的日概览。
+- 必要过滤：按目标来源分组过滤。
+- 不包含：5 个来源维度明细和第三方外跳。
+
+### ads_weekly_launch_product_detail_video_source
+
+- 表：`my-project-8584-jetonai.decom.ads_weekly_launch_product_detail_video_source`
+- 状态：`active`
+- 粒度：一行代表一个自然周和视频来源分组
+- 时区：`America/Toronto`
+- 数据范围：Launch 商详页有、无视频来源的周概览。
+- 必要过滤：按目标来源分组过滤。
+- 不包含：5 个来源维度明细和第三方外跳。
+
+### ads_monthly_launch_product_detail_video_source
+
+- 表：`my-project-8584-jetonai.decom.ads_monthly_launch_product_detail_video_source`
+- 状态：`active`
+- 粒度：一行代表一个自然月和视频来源分组
+- 时区：`America/Toronto`
+- 数据范围：Launch 商详页有、无视频来源的月概览。
+- 必要过滤：按目标来源分组过滤。
+- 不包含：5 个来源维度明细和第三方外跳。
 
 - 明细表：`ads_daily_launch_product_detail_dimension`（粒度 `dt`）/ `ads_weekly_launch_product_detail_dimension`（粒度 `week_start_dt`，周一至周日）/ `ads_monthly_launch_product_detail_dimension`（粒度 `month`）
 - 来源概览表：`ads_daily_launch_product_detail_video_source`（粒度 `dt`）/ `ads_weekly_launch_product_detail_video_source`（粒度 `week_start_dt`）/ `ads_monthly_launch_product_detail_video_source`（粒度 `month`）

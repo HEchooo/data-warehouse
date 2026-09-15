@@ -9,18 +9,35 @@
 | 指标 | read_post_count | 帖子阅读数 |
 | 指标 | 试穿渗透率 | 试穿率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：按专栏查看日或月曝光、阅读和试穿表现。
+- 不适合：帖子明细应使用[内容维度日报](../内容维度日报/fact.md)；模块月汇总应使用[模块追踪明细](../模块追踪明细/fact.md)。
+- 需要澄清：需要确认日报或月报、专栏、模块和日期范围。
+
 ## 报表
 
 ### 日报
 
-- 表：`ads_daily_column_performance`
+- 表：`my-project-8584-jetonai.decom.ads_daily_column_performance`
+- 状态：`active`
 - 粒度：`dt × module × column_id`
+- 时区：`America/Toronto`
+- 数据范围：专栏按日、内容模块的曝光、阅读和试穿表现。
+- 必要过滤：按目标 `column_id` 和 `module` 过滤。
+- 不包含：月汇总行。
 - Dashboard：[【AI-Fashion】专栏追踪明细（日×专栏）](https://bi.alvinclub.ca/superset/dashboard/93/)（id=93）
 
 ### 月报
 
-- 表：`ads_monthly_column_performance`
+- 表：`my-project-8584-jetonai.decom.ads_monthly_column_performance`
+- 状态：`active`
 - 粒度：`month × module × column_id`
+- 时区：`America/New_York`
+- 数据范围：专栏自然月、内容模块的曝光、阅读和试穿表现。
+- 必要过滤：按目标 `column_id` 和 `module` 过滤。
+- 不包含：日明细行。
 - Dashboard：[【AI-Fashion】专栏追踪明细（月×专栏）](https://bi.alvinclub.ca/superset/dashboard/104/)（id=104）
 - Superset：物理 dataset `ads_monthly_column_performance`（id=233），chart `专栏追踪明细（月×专栏）-明细表`（id=582）
 - 时间口径：`month` 为 `America/New_York` 自然月，每月存为当月 1 号
@@ -98,4 +115,3 @@
 - 月报脚本：`jobs/ads/ads_monthly_column_performance.py`
 - 月报 DDL：`ddl/ads/ads_monthly_column_performance.sql`
 - 编排：日报与月报链路均为独立表级任务
-- 当前状态：Batch 1 已完成实体层；Batch 3 已新增 `dws_column_interaction_daily`，并已完成全量初始化、并跑对账与正式换表；当前正式链路已切到 `dim_column + dws_column_interaction_daily + dws_column_post_daily`

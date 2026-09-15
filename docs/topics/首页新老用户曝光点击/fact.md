@@ -9,12 +9,24 @@
 | 指标 | feeds_click_uv | 首页 Feeds 点击 UV、Feeds 点击人数 |
 | 维度 | 新用户 | 首日活跃用户 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：比较首页新老用户的 DAU、Feeds 与模块曝光点击表现。
+- 不适合：不分新老用户的首页模块明细应使用[首页模块曝光与点击明细](../首页模块曝光与点击明细/fact.md)。
+- 需要澄清：需要确认新老用户组、首页区域、日期和 UV 或 PV。
+
 ## 报表
 
-### 首页新老用户曝光点击
+### ads_daily_user_home_module_performance
 
-- 表：`ads_daily_user_home_module_performance`
+- 表：`my-project-8584-jetonai.decom.ads_daily_user_home_module_performance`
+- 状态：`active`
 - 粒度：`dt + user_group`
+- 时区：`America/Toronto`
+- 数据范围：首页新老用户的 DAU、Feeds 和模块曝光点击日汇总。
+- 必要过滤：按目标 `user_group` 过滤。
+- 不包含：不区分新老用户的模块明细。
 - Dashboard：[【AI-Fashion】首页新老用户曝光点击](https://bi.alvinclub.ca/superset/dashboard/113/)（id=113）
 
 ## 字段

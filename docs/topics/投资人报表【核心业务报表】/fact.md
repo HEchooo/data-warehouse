@@ -12,29 +12,55 @@
 | 指标 | 7 日留存 | D7 留存、第 7 日留存 |
 | 指标 | 内容点击率 | 内容 CTR |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`, `ECN 视频`, `TikTok 橱窗号`
+- 适合：查询按天汇总的核心经营指标，包括视频、下载、App 活跃、内容互动、商详页和活跃注册用户留存。
+- 不适合：App 分平台日常分析应使用[全量报表](../全量报表/fact.md)或[用增报表](../用增报表/fact.md)；社媒账号、视频和属性明细应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
+- 需要澄清：问题未说明业务线、统计主体、日期范围，或“留存”指活跃用户还是新增用户 cohort 时，需要先确认。
+
 ## 报表
 
-- 表：`ads_daily_investor`
-- 粒度：`dt`
+### ads_daily_investor
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_investor`
+- 状态：`active`
+- 粒度：一行代表一个 `dt`
+- 时区：`America/Toronto`
+- 数据范围：jhonson 团队视频指标，以及 App 下载、活跃、内容互动、商详页和活跃注册用户留存的日汇总。
+- 必要过滤：无。
+- 不包含：平台、渠道、账号或单视频明细；`dim_video` 的 pre-binding 视频排除规则；新增注册用户 cohort 留存。
 - Dashboard：[投资人报表【核心业务报表】](https://bi.alvinclub.ca/superset/dashboard/101/)（id=101）
 - Lark 推送：独立脚本 `jobs/ads/ads_daily_investor_lark_push.py`，每日推送 `America/Toronto` 昨日一行明细数据；卡片附 dashboard 链接和数据口径 wiki 链接
 
-### `dws_appsflyer_download_daily`
-
-- 粒度：`dt × platform`
-- 说明：投资人报表 AppsFlyer 新增下载中间层，不是最终报表层
-
-### `dws_registered_app_device_daily`
-
-- 粒度：`dt × prop_device_id`
-- 说明：投资人报表 app 设备与已注册设备行为中间层，不是最终报表层
-
-### `dws_registered_app_user_daily`
-
-- 粒度：`dt × prop_user_id`
-- 说明：投资人报表 app 活跃注册用户、留存与商详页 PV 中间层，不是最终报表层
-
 ## 字段
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 日期 | `dt` | 自然日 | 报表日期 | 无 | 不聚合 |
+| 新增视频 | `new_video_count` | 统一视频 | 首次正播放日计新增；自动发布按跨平台 `task_id` 统一键去重，手动发布按原始视频键 | jhonson 团队 | 可跨天求和 |
+| 活跃视频数 | `active_video_count` | 统一视频 | 当天有播放增量的视频数；自动发布按跨平台 `task_id` 统一键去重 | jhonson 团队 | 不可跨天求和 |
+| 新增视频播放数 | `new_video_view_count` | 播放 | 当天全量视频播放增量之和，不限定发布时间 | jhonson 团队 | 可跨天求和；源累计值回落时可能为负 |
+| 新增视频次日平均播放数 | `new_video_next_day_avg_view_count` | 新增视频 cohort | `dt-1` 首次正播放视频在 `dt` 的累计播放总和 / cohort 视频数 | jhonson 团队 | 不可跨天求和或平均 |
+| 新增视频 7 日播放数 | `new_video_7d_avg_view_count` | 新增视频 cohort | `dt-6` 首次正播放视频在 `dt` 的累计播放总和 / cohort 视频数 | jhonson 团队 | 不可跨天求和或平均 |
+| 视频制作成本（美元） | `video_production_cost_usd` | 视频 | 新增 YouTube 视频时长秒数 × `1.05` 人民币/秒 × CNY→USD 汇率 | jhonson 团队 YouTube | 可跨天求和 |
+| 每千次播放成本（美元） | `cost_per_thousand_views_usd` | 播放 | `video_production_cost_usd / new_video_view_count × 1000` | jhonson 团队 | 不可求和或平均；跨天须用汇总分子分母重算 |
+| 新增下载 | `new_download_count` | 安装 | AppsFlyer iOS + Android 当日 `install` 总数 | 无 | 可跨天求和 |
+| 播放下载转化率 | `play_download_conversion_rate` | 安装 / 播放 | `new_download_count / new_video_view_count` | 无 | 不可求和或平均；跨天须用汇总分子分母重算 |
+| 新增设备数 | `new_device_count` | 设备 | `first_app_active_dt = dt` 的去重 App 设备数 | App | 可跨天求和 |
+| 活跃设备数 | `active_device_count` | 设备 | 当日去重 App 设备数 | App | 不可跨天求和 |
+| 活跃注册用户数 | `active_registered_user_count` | 用户 | 当日去重 App 活跃注册用户数 | App；排除被动触达事件 | 不可跨天求和 |
+| 人均停留时长 | `avg_duration_sec` | 已注册活跃设备 | 已注册设备停留时长总和 / App 已注册活跃设备数 | App | 不可跨天求和或平均 |
+| 人均内容展示量 | `avg_content_exposure_count` | 已注册活跃设备 | item 级内容展示总量 / App 已注册活跃设备数 | App | 不可跨天求和或平均 |
+| 人均内容点击量 | `avg_content_click_count` | 已注册活跃设备 | item 级内容点击总量 / App 已注册活跃设备数 | App | 不可跨天求和或平均 |
+| 内容点击率 | `content_ctr` | 已注册活跃设备 | item 级内容点击总量 / item 级内容展示总量 | App | 不可跨天求和或平均；跨天须用汇总分子分母重算 |
+| 商详页曝光 UV | `product_detail_exposure_uv` | 用户 | 商详页曝光 PV 大于 0 的去重 App 注册用户数 | App | 不可跨天求和 |
+| 商详页曝光 PV | `product_detail_exposure_pv` | 曝光事件 | App 注册用户商详页曝光次数总和 | App | 可跨天求和 |
+| 人均商详页点击量 | `avg_product_detail_exposure_count` | 用户 | `product_detail_exposure_pv / product_detail_exposure_uv` | App | 不可跨天求和或平均 |
+| 次日留存 | `next_day_retention_rate` | 活跃注册用户 cohort | `dt+1` 仍在 App 活跃的去重用户数 / 当日活跃注册用户数；未成熟返回 `NULL` | App；排除被动触达事件 | 不可跨天求和或平均 |
+| 7 日留存 | `day_7_retention_rate` | 活跃注册用户 cohort | `dt+7` 仍在 App 活跃的去重用户数 / 当日活跃注册用户数；未成熟返回 `NULL` | App；排除被动触达事件 | 不可跨天求和或平均 |
+
+## 需求字段
 
 | 需求字段 | 定义 |
 |------|------|
@@ -133,8 +159,10 @@
 - 配置：`env/lark_webhook.json`
 - 上游：`videos.yt_videos`, `videos.yt_video_stats_log`, `videos.videos`, `videos.video_stats_log`, `videos.ig_media`, `videos.ig_media_stats_log`, `decom.dwd_event_log`, `decom.ods_appsflyer_download`, `decom.currency_conversion_dict`
 - 中间表：`decom.dim_auto_publish_video_task`, `decom.dws_video_daily`, `decom.dws_appsflyer_download_daily`, `decom.dws_registered_app_device_daily`, `decom.dws_registered_app_user_daily`
+- 中间表粒度：`dws_appsflyer_download_daily` 为 `dt × platform`；`dws_registered_app_device_daily` 为 `dt × prop_device_id`；`dws_registered_app_user_daily` 为 `dt × prop_user_id`
 - 报表表：`decom.ads_daily_investor`
 - Superset：物理 dataset `ads_daily_investor`（id=228），chart `投资人报表（日表）-明细表`（id=574）
 - 脚本：`jobs/ods/ods_appsflyer_download/ods_appsflyer_download.py`, `jobs/dim/dim_auto_publish_video_task.py`, `jobs/dws/dws_video_daily.py`, `jobs/dws/dws_appsflyer_download_daily.py`, `jobs/dws/dws_registered_app_device_daily.py`, `jobs/dws/dws_registered_app_user_daily.py`, `jobs/ads/ads_daily_investor.py`, `jobs/ads/ads_daily_investor_lark_push.py`
 - DDL：`ddl/ods/ods_appsflyer_download.sql`, `ddl/dim/dim_auto_publish_video_task.sql`, `ddl/dws/dws_video_daily.sql`, `ddl/dws/dws_appsflyer_download_daily.sql`, `ddl/dws/dws_registered_app_device_daily.sql`, `ddl/dws/dws_registered_app_user_daily.sql`, `ddl/dwd/dwd_event_log.sql`, `ddl/ads/ads_daily_investor.sql`
+- 规则：`docs/rules/data.md`, `docs/rules/video-mapping.md`
 - 编排：`env/etl_config.json`, `etl_run.py`, `jobs/ads/ads_daily_investor.py`

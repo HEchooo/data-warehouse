@@ -10,10 +10,24 @@
 | 指标 | 渗透率 | 衣橱渗透率 |
 | 指标 | 总计使用用户 | 累计衣橱用户数 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询衣橱首页曝光、新增使用用户、新增单品和衣橱使用表现。
+- 不适合：普通商品商详与试穿不属于本主题；应使用对应商详或试穿 topic。
+- 需要澄清：需要确认日期范围、用户或单品统计主体，以及新增或全量口径。
+
 ## 报表
 
-- 表：`ads_daily_closet_overview`
+### ads_daily_closet_overview
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_closet_overview`
+- 状态：`active`
 - 粒度：`dt`
+- 时区：`America/Toronto`
+- 数据范围：App 衣橱首页曝光、用户使用和单品新增的日汇总。
+- 必要过滤：无。
+- 不包含：普通商品商详和非衣橱试穿。
 - Dashboard：[【AI-Fashion】衣橱概览](https://bi.alvinclub.ca/superset/dashboard/106/)（id=106）
 - Superset：物理 dataset `ads_daily_closet_overview`（id=235），chart `衣橱概览（日表）-明细表`（id=584）
 

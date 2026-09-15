@@ -8,10 +8,24 @@
 | 指标 | 搜索用户数 | 编码搜索人数 |
 | 指标 | 播放->搜索转化率 | 播放搜索转化率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`, `ECN 视频`, `TikTok 橱窗号`
+- 适合：查询视频播放到编码搜索、注册和 App 行为的转化。
+- 不适合：视频播放和点赞趋势应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
+- 需要澄清：需要确认编码任务、统计范围、日期和转化漏斗阶段。
+
 ## 报表
 
-- 表：`ads_daily_video_code_conversion`
+### ads_daily_video_code_conversion
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_video_code_conversion`
+- 状态：`active`
 - 粒度：`dt × stat_scope × task_id`
+- 时区：`America/Toronto`
+- 数据范围：视频播放、编码搜索、注册和 App 行为转化。
+- 必要过滤：整体结果使用文档定义的 `overall` 统计范围；任务分析按 `task_id` 过滤。
+- 不包含：视频自身的播放、点赞趋势分析。
 - Dashboard：[【AI-Fashion】视频编码转化看板](https://bi.alvinclub.ca/superset/dashboard/107/)（id=107）
 
 ### `dws_video_code_conversion_daily`

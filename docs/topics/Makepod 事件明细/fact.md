@@ -1,9 +1,29 @@
 # Makepod 事件明细
 
+## 检索别名
+
+| 类型 | 标准名称 | 别名 |
+|---|---|---|
+| 主题 | Makepod 事件明细 | Makepod 埋点明细 |
+
+## 适用范围
+
+- 业务线：`Makepod 独立站`
+- 适合：查询或排查 Makepod 原始埋点事件及按商品拆行后的明细字段。
+- 不适合：流量和交易汇总应使用[Makepod 独立站日报](../Makepod 独立站日报/fact.md)。
+- 需要澄清：需要确认事件名、日期范围，以及按原始事件还是拆行商品统计。
+
 ## 报表
 
-- 表：`decom.dwd_makepod_event_log`
+### dwd_makepod_event_log
+
+- 表：`my-project-8584-jetonai.decom.dwd_makepod_event_log`
+- 状态：`active`
 - 粒度：Makepod 原始事件按 `args.spu` 商品拆行后的事件商品明细
+- 时区：事件时间保留原值；业务日按 `Asia/Shanghai`
+- 数据范围：Makepod 原始埋点及其商品拆行结果。
+- 必要过滤：按目标事件名和日期范围过滤。
+- 不包含：聚合后的流量或交易指标。
 - 原始事件主键：`raw_event_id`
 
 ## 字段

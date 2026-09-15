@@ -7,7 +7,24 @@
 | 主题 | Social Content 每日排行榜 | Social Content 视频监控看板 |
 | 指标 | 增量播放量 | 新增 Views、播放增量 |
 
+## 适用范围
+
+- 业务线：`ECN 视频`, `TikTok 橱窗号`
+- 适合：查询社媒视频按日增播放等指标生成的 Top 排行榜。
+- 不适合：账号疑似限流应使用[疑似限流账号监控](../【Social Content】疑似限流账号监控/fact.md)；渠道总体趋势应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
+- 需要澄清：需要确认榜单类型、渠道、统计日和 Top 数量。
+
 ## 报表
+
+### ads_daily_social_video_monitor_rankings_v2
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_video_monitor_rankings_v2`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × ranking_type × rank_no`
+- 时区：`America/Toronto`
+- 数据范围：两类社媒视频日榜，每类固定 Top 10。
+- 必要过滤：按目标 `ranking_type` 和渠道过滤。
+- 不包含：账号限流排行和渠道总体趋势。
 
 - Dashboard：[【Social Content】每日排行榜](https://bi.alvinclub.ca/superset/dashboard/122/)（id=122）
 - 视频 Top 10 日榜表：`decom.ads_daily_social_video_monitor_rankings_v2`

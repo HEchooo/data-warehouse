@@ -9,10 +9,24 @@
 | 指标 | 试穿次数 | 试穿数 |
 | 指标 | 加购 UV | 加购人数、加入购物车用户数 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：按商品 SPU、SKU 查询商详页曝光、试穿和试穿次数。
+- 不适合：带投放参数的 H5 商详页应使用[AI-Fashion 商详页投放](../【AI-Fashion】商详页投放/fact.md)；试穿后的加购转化应使用[试穿结果转化](../试穿结果转化/fact.md)。
+- 需要澄清：需要确认 SPU 或 SKU、日期范围和曝光或试穿指标。
+
 ## 报表
 
-- 表：`ads_daily_product_tryon_performance`
+### ads_daily_product_tryon_performance
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_product_tryon_performance`
+- 状态：`active`
 - 粒度：`dt × spu × sku`
+- 时区：`America/Toronto`
+- 数据范围：App 商详页商品曝光和试穿日表现。
+- 必要过滤：按目标 SPU 或 SKU 过滤。
+- 不包含：投放 H5 流量和试穿后加购。
 - Dashboard：[【AI-Fashion】商详页试穿维度](https://bi.alvinclub.ca/superset/dashboard/98/)（id=98）
 
 ## 字段

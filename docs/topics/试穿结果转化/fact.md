@@ -8,10 +8,24 @@
 | 指标 | 加购 UV | 加购人数、加入购物车用户数 |
 | 指标 | add_cart_rate | 加购率、试穿加购转化率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询试穿用户后续加购人数和试穿加购转化率。
+- 不适合：试穿入口点击应使用[穿搭工具点击使用](../穿搭工具点击使用/fact.md)；按商品拆分试穿应使用[商详页试穿维度](../商详页试穿维度/fact.md)。
+- 需要澄清：需要确认日期范围，以及试穿 UV、加购 UV 或转化率。
+
 ## 报表
 
-- 表：`ads_daily_tryon_add_cart_conversion`
+### ads_daily_tryon_add_cart_conversion
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_tryon_add_cart_conversion`
+- 状态：`active`
 - 粒度：`dt`
+- 时区：`America/Toronto`
+- 数据范围：App 试穿用户到加购行为的日转化。
+- 必要过滤：无。
+- 不包含：试穿入口点击和商品维度拆分。
 - Dashboard：[【AI-Fashion】试穿结果转化](https://bi.alvinclub.ca/superset/dashboard/97/)（id=97）
 
 ## 字段

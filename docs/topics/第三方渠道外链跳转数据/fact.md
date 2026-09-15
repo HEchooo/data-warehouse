@@ -9,10 +9,24 @@
 | 指标 | 视频详情页曝光 PV | 视频详情页曝光次数 |
 | 指标 | 商品点击个数 | 商品点击数、外链点击量 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：按第三方渠道查询曝光 UV、视频详情曝光和商品点击。
+- 不适合：LTA 专属页面和商品转化应使用[LTA 数据看板](../LTA 数据看板/fact.md)；Launch 商详页外跳应使用[Launch 商详页总览](../【Launch】商详页总览/fact.md)。
+- 需要澄清：需要确认渠道、日期范围和曝光或点击指标。
+
 ## 报表
 
-- 表：`ads_daily_thirdapp_channel_uv`
+### ads_daily_thirdapp_channel_uv
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_thirdapp_channel_uv`
+- 状态：`active`
 - 粒度：`dt × channel`
+- 时区：`America/Toronto`
+- 数据范围：App 第三方渠道曝光、视频详情曝光和商品点击日汇总。
+- 必要过滤：全渠道去重结果使用文档定义的 `overall` 行。
+- 不包含：LTA 专属页面商品转化和 Launch 商详页外跳。
 - Dashboard：[【AI-Fashion】第三方渠道外链跳转数据](https://bi.alvinclub.ca/superset/dashboard/111/)（id=111）
 - Superset：物理 dataset `ads_daily_thirdapp_channel_uv`（id=244），chart `第三方渠道曝光 UV（日表）- 曝光 UV 趋势`（id=607）、`第三方渠道曝光 UV（日表）- 视频详情页曝光 PV 趋势`（id=677）、`第三方渠道曝光 UV（日表）- 商品点击个数趋势`（id=678）、`第三方渠道曝光 UV（日表）- 明细表`（id=608）
 
@@ -57,7 +71,6 @@
 - 视频详情页曝光 PV 与商品点击个数使用相同渠道映射：仅纳入 `args.sf` 非空串、非 `NULL` 的事件，并沿用 youtube 特判 + `app_name` 规范化值
 - 商品点击个数当前按 `COUNT(product_code)` 实现；若上游未传 `product_code`，该条点击不会进入计数
 - `ADS` 不直接读取 `dwd_event_log`，而是只消费设备级 `DWS`
-- 截至 `2026-05-18` 本次交付，已完成建表、脚本、Superset 资产、生产初始化跑数与只读口径校验；当前已初始化美东 `2026-05-12` 到 `2026-05-18` 共 7 个业务日
 
 ## 依赖
 

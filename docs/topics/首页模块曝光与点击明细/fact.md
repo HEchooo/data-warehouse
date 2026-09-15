@@ -10,10 +10,24 @@
 | 指标 | 模块点击 PV | 模块点击次数 |
 | 指标 | click_rate | 模块点击率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：按日、首页模块查询曝光 UV、点击 UV 和点击率。
+- 不适合：新老用户拆分应使用[首页新老用户曝光点击](../首页新老用户曝光点击/fact.md)；月度模块内容表现应使用[模块追踪明细](../模块追踪明细/fact.md)。
+- 需要澄清：需要确认首页模块、日期范围和曝光或点击指标。
+
 ## 报表
 
-- 表：`ads_daily_home_module_performance`
+### ads_daily_home_module_performance
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_home_module_performance`
+- 状态：`active`
 - 粒度：`dt × module`
+- 时区：`America/Toronto`
+- 数据范围：首页各模块的曝光与点击日表现。
+- 必要过滤：按目标 `module` 过滤。
+- 不包含：新老用户拆分和自然月内容模块汇总。
 - Dashboard：[【AI-Fashion】首页模块曝光/点击明细（日×模块）](https://bi.alvinclub.ca/superset/dashboard/92/)（id=92）
 
 ## 字段

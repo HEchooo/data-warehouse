@@ -9,18 +9,35 @@
 | 指标 | 试穿 UV | 试穿人数 |
 | 指标 | DAU | 日活、日活用户数 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：比较新老用户的试穿渗透率，并查看新用户按 App 版本拆分的试穿表现。
+- 不适合：试穿点击次数应使用[穿搭工具点击使用](../穿搭工具点击使用/fact.md)；试穿后加购应使用[试穿结果转化](../试穿结果转化/fact.md)。
+- 需要澄清：需要确认新老用户组、是否按 App 版本拆分和日期范围。
+
 ## 报表
 
 ### 新老用户试穿渗透率
 
-- 表：`ads_daily_user_tryon_penetration`
+- 表：`my-project-8584-jetonai.decom.ads_daily_user_tryon_penetration`
+- 状态：`active`
 - 粒度：`dt + user_group`
+- 时区：`America/Toronto`
+- 数据范围：新老用户试穿人数、DAU 和渗透率。
+- 必要过滤：按目标 `user_group` 过滤。
+- 不包含：App 版本维度。
 - Dashboard：[【AI-Fashion】新老用户试穿渗透率](https://bi.alvinclub.ca/superset/dashboard/110/)（id=110）
 
 ### 新用户分版本试穿明细
 
-- 表：`ads_daily_user_tryon_penetration_app_version`
+- 表：`my-project-8584-jetonai.decom.ads_daily_user_tryon_penetration_app_version`
+- 状态：`active`
 - 粒度：`dt + user_group + app_version`
+- 时区：`America/Toronto`
+- 数据范围：新用户按 App 版本拆分的试穿表现。
+- 必要过滤：`user_group = 'new_user'`，并按目标 `app_version` 过滤。
+- 不包含：老用户版本拆分。
 - Dashboard：[【AI-Fashion】新老用户试穿渗透率](https://bi.alvinclub.ca/superset/dashboard/110/)（id=110）
 
 ## 字段

@@ -9,7 +9,44 @@
 | 指标 | 最近 3 个发布日零播放 | 连续零播放、零播放账号 |
 | 指标 | 发布频率 | 发布日数 |
 
+## 适用范围
+
+- 业务线：`ECN 视频`, `TikTok 橱窗号`
+- 适合：查询账号 T+1 播放相对历史基准的下降、上升和连续零播放监控结果。
+- 不适合：单视频播放排行应使用[每日排行榜](../【Social Content】每日排行榜/fact.md)；渠道总体趋势应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
+- 需要澄清：需要确认下降、上升或零播放方向，渠道与统计日。
+
 ## 报表
+
+### ads_daily_social_creator_suspected_throttle_rankings
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_creator_suspected_throttle_rankings`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × channel × creator_id`
+- 时区：`America/Toronto`
+- 数据范围：相对历史基准下降的疑似限流账号日榜。
+- 必要过滤：`baseline_t1_avg_view_count > 0`。
+- 不包含：上升和连续零播放方向。
+
+### ads_daily_social_creator_view_boost_rankings
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_creator_view_boost_rankings`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × channel × creator_id`
+- 时区：`America/Toronto`
+- 数据范围：相对历史基准上升的账号日榜。
+- 必要过滤：`baseline_t1_avg_view_count > 0`。
+- 不包含：下降和连续零播放方向。
+
+### ads_daily_social_creator_zero_view_rankings
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_creator_zero_view_rankings`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × channel × creator_id`
+- 时区：`America/Toronto`
+- 数据范围：最近发布日连续零播放的账号日榜。
+- 必要过滤：使用共同准入池；允许历史基准为 0。
+- 不包含：一般播放下降或上升账号。
 
 - Dashboard：[【Social Content】疑似限流账号监控](https://bi.alvinclub.ca/superset/dashboard/social-content-suspected-throttle-monitor/)（id=123），独立看板，不接入现有每日排行榜 Dashboard
 - 账号发布日期 T+1 中间表：`decom.dws_social_creator_published_t1_daily`

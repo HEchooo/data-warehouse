@@ -10,12 +10,24 @@
 | 指标 | 当日新增发布视频数 | 新增视频数、新发布视频数 |
 | 指标 | 平均 LTV | 7 日 LTV、LTV 7 日播放量 |
 
+## 适用范围
+
+- 业务线：`ECN 视频`
+- 适合：查询正式号视频的日增播放、点赞、发布量及固定周窗口增长。
+- 不适合：全量社媒渠道表现应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)；单视频排行应使用[每日排行榜](../【Social Content】每日排行榜/fact.md)。
+- 需要澄清：需要确认日指标或周指标、日期范围及指标是增量还是累计值。
+
 ## 报表
 
 ### 最终报表：`ads_daily_formal_video_increment`
 
-- 表：`decom.ads_daily_formal_video_increment`
+- 表：`my-project-8584-jetonai.decom.ads_daily_formal_video_increment`
+- 状态：`active`
 - 粒度：`dt`
+- 时区：`America/Toronto`
+- 数据范围：正式号视频日增播放、点赞和发布指标。
+- 必要过滤：无。
+- 不包含：非正式号和视频明细行。
 - 时间范围：美东日期 `2026-03-30` 至当天
 - 作用：承接正式号视频日增量指标，服务图 1-5
 - 调度：独立表级任务 `jobs/ads/ads_daily_formal_video_increment.py`
@@ -23,8 +35,13 @@
 
 ### 最终报表：`ads_weekly_formal_video_increment_growth`
 
-- 表：`decom.ads_weekly_formal_video_increment_growth`
+- 表：`my-project-8584-jetonai.decom.ads_weekly_formal_video_increment_growth`
+- 状态：`active`
 - 粒度：`week_index`
+- 时区：`America/Toronto`
+- 数据范围：正式号视频固定 7 日窗口的周均新增播放和增长倍数。
+- 必要过滤：无。
+- 不包含：自然周之外的任意滚动窗口。
 - 周窗口：从美东日期 `2026-04-13` 起，每 7 天一个窗口
 - 作用：承接正式号视频周均新增 views 与增长倍数，服务图 6-9
 - 调度：独立表级任务 `jobs/ads/ads_weekly_formal_video_increment_growth.py`

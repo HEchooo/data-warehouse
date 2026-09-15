@@ -10,12 +10,25 @@
 | 指标 | third_party_click_uv | 第三方商品点击 UV、外链点击人数 |
 | 指标 | third_party_click_pv | 第三方商品点击 PV、外链点击次数 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询带 `ac_channel` 与 `ac_creative` 投放参数的 Alvinclub H5 商详页曝光和第三方商品跳转。
+- 不适合：普通商详页试穿应使用[商详页试穿维度](../商详页试穿维度/fact.md)；`mycch.me` 流量应使用[LTA 数据看板](../LTA 数据看板/fact.md)。
+- 需要澄清：需要确认投放素材、渠道、日期范围，以及 PV 或 UV。
+
 ## 报表
 
-### 主题总览
+### ads_daily_ai_fashion_product_detail_promotion
 
 - 主题：监控从带投放参数的落地页进入商详页的曝光效果，以及从商详页点击跳转到第三方商品的转化效果
-- 表：`ads_daily_ai_fashion_product_detail_promotion`，粒度 `dt × ac_creative`（含 `ac_creative = 'overall'` 全素材去重汇总行）
+- 表：`my-project-8584-jetonai.decom.ads_daily_ai_fashion_product_detail_promotion`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × ac_creative`，含 `ac_creative = 'overall'` 全素材去重汇总行
+- 时区：`America/Toronto`
+- 数据范围：带有效投放参数的 `https://alvinclub.com` H5 商详页曝光和外跳。
+- 必要过滤：查询全素材时使用 `ac_creative = 'overall'`。
+- 不包含：无投放参数、其他域名或 App 内商详页流量。
 - Dashboard：[129](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-detail-promotion/)
 - 与已有主题的边界：
   - 与 `商详页试穿维度`（`ads_daily_product_tryon_performance`，dashboard 98）、`decom.dws_product_detail_daily` 不是同一口径 —— 那两者的 UV 是 `COALESCE(prop_user_id, prop_device_id)`，本主题严格按 `prop_device_id` 去重，且只统计带投放参数的流量，因此独立建表，不复用
@@ -39,11 +52,6 @@
 - 前端埋点上报名为 `v_Product_Detail`
 - `decom.dwd_event_log` 落库时统一小写化（`jobs/dwd/dwd_event_log/dwd_event_log.py` 的 `row.event_name.lower()`），实际存储值只有小写 `v_product_detail`
 - 所有 SQL 必须用小写 `v_product_detail` 匹配，按抓包结果写大写会永远查不到数据
-
-### 当前数据现状
-
-- 截至 `2026-07-31`，满足上述投放流量界定的数据为 **0 条**（`ac_channel` 参数尚未上报）。本次先建管道与看板骨架，投放埋点上报后自然出数，无需额外操作
-- 放宽投放参数（只加域名过滤）的历史回归基线：`v_product_detail` 12 PV / 6 UV（2026-02-24 ~ 2026-05-29）、`c_third_party_goods` 1 PV / 1 UV（2026-05-28），可用于核对聚合逻辑本身无误
 
 ## 字段
 
@@ -100,8 +108,6 @@ decom.dwd_event_log（v_product_detail 曝光 + c_third_party_goods 点击跳转
 - 图表展示列使用中文 label（`all_columns` 用 `{expressionType: SQL, label: 中文, sqlExpression: "列名 "}` 形式，`sqlExpression` 末尾补一个空格，这是当前 Superset 实例的已知实测修正方式）
 - 已用 `chart/data` 真实查询验证：默认 filter（`ac_creative='overall'`）下两个 chart 均返回 1 行 `2026-07-31`，4 个指标全 0，与 BigQuery 源数据一致
 
-### 当前状态
+### 埋点上线核查
 
-- 截至 `2026-07-31`：两张表 DDL 已建，两个脚本已实现并通过验证（正则单元测试、放宽口径回归基线、严格口径为 0、分区裁剪扫描量守门、补零幂等性），已注册进 `env/etl_config.json` 与 `docs/rules/pipeline.md`
-- 截至 `2026-07-31`：Superset dataset / chart / dashboard / native filter 已创建并通过 `chart/data` 真实查询验证
 - 埋点上线首日必做核查：① `prop_url` 的 origin 是否真是 `https://alvinclub.com`（不是 `www.` / `.ai`）② `prop_url` 是否非空（若投放落地页走 App WebView 且 `prop_app_type` 不是 `h5`，域名过滤会全部落空）；任一不满足需回到口径讨论，不得私自放宽过滤条件

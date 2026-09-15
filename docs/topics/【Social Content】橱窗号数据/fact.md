@@ -10,7 +10,34 @@
 | 指标 | 成交商品件数 | 销量、售出件数 |
 | 指标 | 订单笔数 | 订单数、SKU 订单数 |
 
+## 适用范围
+
+- 业务线：`TikTok 橱窗号`
+- 适合：查询 TikTok 橱窗号的账号和视频日表现，以及 GMV、商品件数和订单。
+- 不适合：广告投放数据应使用[Makepod 店铺 TK 广告投放数据](../【Social Content】Makepod 店铺 TK 广告投放数据/fact.md)；跨渠道社媒总览应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
+- 需要澄清：需要确认账号或视频粒度、增量或累计指标、日期范围。
+
 ## 报表
+
+### ads_daily_social_affiliate_creator
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_affiliate_creator`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × creator_id`
+- 时区：`America/Toronto`
+- 数据范围：TikTok 橱窗号账号日表现。
+- 必要过滤：`videos.users.usage_type = 'tiktok-affiliate'`。
+- 不包含：绑定前存量视频和视频明细行。
+
+### ads_daily_social_affiliate_video
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_affiliate_video`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × video_key`
+- 时区：`America/Toronto`
+- 数据范围：TikTok 橱窗号绑定后视频的日表现。
+- 必要过滤：账号 `usage_type = 'tiktok-affiliate'`，排除 `pre_binding` 视频。
+- 不包含：账号汇总行。
 
 - Dashboard：[【Social Content】橱窗号数据（账号维度）](https://bi.alvinclub.ca/superset/dashboard/130/)（id=130）
 - Dashboard：[【Social Content】橱窗号数据（视频维度）](https://bi.alvinclub.ca/superset/dashboard/131/)（id=131）

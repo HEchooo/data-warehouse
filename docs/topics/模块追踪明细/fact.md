@@ -8,12 +8,24 @@
 | 指标 | read_post_count | 阅读帖子数 |
 | 指标 | 试穿渗透率 | 试穿率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：按内容模块查看自然月曝光、阅读与试穿表现。
+- 不适合：首页模块按日曝光点击应使用[首页模块曝光与点击明细](../首页模块曝光与点击明细/fact.md)；专栏月汇总应使用[专栏追踪明细](../专栏追踪明细/fact.md)。
+- 需要澄清：需要确认模块、月份和指标。
+
 ## 报表
 
-### 月报
+### ads_monthly_module_performance
 
-- 表：`ads_monthly_module_performance`
+- 表：`my-project-8584-jetonai.decom.ads_monthly_module_performance`
+- 状态：`active`
 - 粒度：`month × module`
+- 时区：`America/New_York`
+- 数据范围：App 内容模块的自然月表现。
+- 必要过滤：按目标 `module` 过滤。
+- 不包含：首页按日模块点击明细和专栏维度。
 - Dashboard：[【AI-Fashion】模块追踪明细（月×模块）](https://bi.alvinclub.ca/superset/dashboard/105/)（id=105）
 - Superset：物理 dataset `ads_monthly_module_performance`（id=234），chart `模块追踪明细（月×模块）-明细表`（id=583）
 - 时间口径：`month` 为 `America/New_York` 自然月，每月存为当月 1 号

@@ -8,47 +8,84 @@
 | 指标 | 次日留存用户数 | D1 留存人数 |
 | 指标 | 7 日留存用户数 | D7 留存人数 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：比较留存与非留存用户的行为均值，以及时长、关注、试穿和商详浏览分布。
+- 不适合：平台整体留存率应使用[全量报表](../全量报表/fact.md)或[用增报表](../用增报表/fact.md)。
+- 需要澄清：需要确认次日或 7 日留存、用户组、特征或分桶维度和日期。
+
 ## 报表
 
 ### 留存用户与非留存用户特征对比
 
-- 表：`ads_daily_retention_user_feature`
+- 表：`my-project-8584-jetonai.decom.ads_daily_retention_user_feature`
+- 状态：`active`
 - 粒度：`dt × user_group × feature_name`
+- 时区：`America/Toronto`
+- 数据范围：留存与非留存用户行为特征对比。
+- 必要过滤：按目标 `user_group` 和 `feature_name` 过滤。
+- 不包含：分桶分布。
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
 - Chart：`留存用户与非留存用户特征对比`（id=581）
 
 ### 留存与非留存用户时长分布
 
-- 表：`ads_daily_retention_user_duration_bucket`
+- 表：`my-project-8584-jetonai.decom.ads_daily_retention_user_duration_bucket`
+- 状态：`active`
 - 粒度：`dt × user_group × duration_bucket`
+- 时区：`America/Toronto`
+- 数据范围：留存与非留存用户使用时长分布。
+- 必要过滤：按目标 `user_group` 过滤。
+- 不包含：其他特征分桶。
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
 - 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
 
 ### 留存与非留存用户累计关注账号数分布
 
-- 表：`ads_daily_retention_user_follow_bucket`
+- 表：`my-project-8584-jetonai.decom.ads_daily_retention_user_follow_bucket`
+- 状态：`active`
 - 粒度：`dt × user_group × follow_account_bucket`
+- 时区：`America/Toronto`
+- 数据范围：留存与非留存用户累计关注账号数分布。
+- 必要过滤：按目标 `user_group` 过滤。
+- 不包含：新增关注分桶。
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
 - 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
 
 ### 留存与非留存用户新增关注账号数分布
 
-- 表：`ads_daily_retention_user_new_follow_bucket`
+- 表：`my-project-8584-jetonai.decom.ads_daily_retention_user_new_follow_bucket`
+- 状态：`active`
 - 粒度：`dt × user_group × new_follow_account_bucket`
+- 时区：`America/Toronto`
+- 数据范围：留存与非留存用户新增关注账号数分布。
+- 必要过滤：按目标 `user_group` 过滤。
+- 不包含：累计关注分桶。
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
 - 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
 
 ### 留存与非留存用户 AI 试穿次数分布
 
-- 表：`ads_daily_retention_user_tryon_bucket`
+- 表：`my-project-8584-jetonai.decom.ads_daily_retention_user_tryon_bucket`
+- 状态：`active`
 - 粒度：`dt × user_group × tryon_bucket`
+- 时区：`America/Toronto`
+- 数据范围：留存与非留存用户 AI 试穿次数分布。
+- 必要过滤：按目标 `user_group` 过滤。
+- 不包含：其他特征分桶。
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
 - 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
 
 ### 留存与非留存用户浏览商详次数分布
 
-- 表：`ads_daily_retention_user_product_detail_bucket`
+- 表：`my-project-8584-jetonai.decom.ads_daily_retention_user_product_detail_bucket`
+- 状态：`active`
 - 粒度：`dt × user_group × product_detail_bucket`
+- 时区：`America/Toronto`
+- 数据范围：留存与非留存用户商详浏览次数分布。
+- 必要过滤：按目标 `user_group` 过滤。
+- 不包含：其他特征分桶。
 - Dashboard：[【AI-Fashion】留存用户的特征数据](https://bi.alvinclub.ca/superset/dashboard/103/)（id=103）
 - 筛选器：复用 dashboard 103 现有 `日期`、`用户群` 原生 filter
 

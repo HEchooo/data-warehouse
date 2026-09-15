@@ -11,6 +11,13 @@
 | 指标 | 30 日留存率 | D30 留存率、第 30 日留存率 |
 | 指标 | AI 试穿成功率 | 试穿成功率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询产品 OKR 的试穿、商品和留存周指标或日指标。
+- 不适合：单一业务主题的明细分析应使用对应试穿、商品或留存 topic；本主题用于 OKR 汇总。
+- 需要澄清：需要确认 v1 历史周表、v2 周宽表或 v2 日表，以及指标和周期。
+
 ## 报表
 
 ### 主题总览
@@ -20,17 +27,22 @@
 - 周维度：固定按 `周一~周日` 切周
 - 周标签：`MMDD-MMDD`（例如 `0427-0503`）
 
-### 试穿OKR
+### ads_weekly_ai_fashion_tryon_okr
 
-- 表：`ads_weekly_ai_fashion_tryon_okr`
+- 表：`my-project-8584-jetonai.decom.ads_weekly_ai_fashion_tryon_okr`
+- 状态：`deprecated`
 - 粒度：`week_start_dt + metric_name + metric_bucket(可空)`
+- 时区：`America/Toronto`
+- 数据范围：试穿、商品和留存 OKR 的历史周级长表。
+- 必要过滤：按目标 `metric_name` 过滤。
+- 不包含：v2 宽表新增展示能力。
+- 替代表：`my-project-8584-jetonai.decom.ads_weekly_ai_fashion_tryon_okr_v2`
 - Dashboard：[产品 OKR 数据汇总（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
 - Chart（核心指标）：[【AI-Fashion】试穿OKR（核心指标）](https://bi.alvinclub.ca/superset/explore/?slice_id=628)（id=628）
 - Chart（分布）：[【AI-Fashion】人均每日试穿次数分布（周）](https://bi.alvinclub.ca/superset/explore/?slice_id=629)（id=629）
 
 ### 商品OKR
 
-- 表：`ads_weekly_ai_fashion_tryon_okr`
 - 粒度：`week_start_dt + metric_name + metric_bucket(可空)`
 - Dashboard：[产品 OKR 数据汇总（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
 - Chart（核心指标）：[【AI-Fashion】商品OKR（核心指标）](https://bi.alvinclub.ca/superset/explore/?slice_id=630)（id=630）
@@ -38,16 +50,18 @@
 
 ### 留存OKR
 
-- 表：`ads_weekly_ai_fashion_tryon_okr`
 - 粒度：`week_start_dt + metric_name`
 - Dashboard：[产品 OKR 数据汇总（deprecated）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary/)（id=114）
-- 当前状态：指标逻辑已写入周表，留存 OKR 图表待创建
 
-### v2 周级宽表
+### ads_weekly_ai_fashion_tryon_okr_v2
 
-- 表：`ads_weekly_ai_fashion_tryon_okr_v2`
+- 表：`my-project-8584-jetonai.decom.ads_weekly_ai_fashion_tryon_okr_v2`
+- 状态：`active`
 - 粒度：`week_start_dt`
-- 当前状态：已建表，已回刷 `0427-0503` 至 `0615-0621` 周桶，已接入 `env/etl_config.json` 调度
+- 时区：`America/Toronto`
+- 数据范围：试穿、商品和留存 OKR 的周级宽表。
+- 必要过滤：无。
+- 不包含：日级明细。
 - 设计目标：复用 v1 已验证指标逻辑，将 `metric_name / metric_value` 的 long form 转为每个指标一个字段，便于 Superset 直接可视化
 - Dashboard：[产品 OKR 数据汇总（Week）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-v2/)（id=117）
 - 物理 Dataset：`id=263`（`decom.ads_weekly_ai_fashion_tryon_okr_v2`）
@@ -58,11 +72,15 @@
 - Chart（试穿时长分布）：`id=649`
 - Chart（商品点击分布）：`id=648`
 
-### v2 日级宽表（Day）
+### ads_daily_ai_fashion_tryon_okr_v2
 
-- 表：`ads_daily_ai_fashion_tryon_okr_v2`
+- 表：`my-project-8584-jetonai.decom.ads_daily_ai_fashion_tryon_okr_v2`
+- 状态：`active`
 - 粒度：`dt`
-- 当前状态：物理表已存在；仓库脚本 / DDL / 编排已补齐；Superset 物理 Dataset、6 张图和 Day dashboard 已创建；`2026-04-27` ~ `2026-06-29` 历史已完成回刷
+- 时区：`America/Toronto`
+- 数据范围：试穿、商品和留存 OKR 的日级宽表。
+- 必要过滤：无。
+- 不包含：周级天数与周标签字段。
 - 设计目标：复用 v2 周级宽表同口径核心指标，直接输出日级字段，供 Day 看板使用
 - 口径裁剪：不输出各 `*_observed_day_count`，也不保留任何 `week_*` 维度列
 - Dashboard：[产品 OKR 数据汇总（Day）](https://bi.alvinclub.ca/superset/dashboard/ai-fashion-product-okr-summary-day/)（id=120）

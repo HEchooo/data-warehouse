@@ -12,52 +12,76 @@
 | 指标 | 支付订单数 | 付费订单数、成交订单数 |
 | 指标 | 支付 GMV | 支付金额、GMV、成交额、销售额 |
 
+## 适用范围
+
+- 业务线：`Makepod 独立站`
+- 适合：查询 Makepod 独立站按天、渠道统计的流量与交易，或按自然周、渠道、订单分组统计的支付表现。
+- 不适合：Alvin's Club App 的活跃与留存应使用[全量报表](../全量报表/fact.md)或[用增报表](../用增报表/fact.md)；Makepod 原始事件字段应使用[Makepod 事件明细](../Makepod 事件明细/fact.md)。
+- 需要澄清：问题未说明日报或周报、渠道、是否取全站 `Overall`、日期范围或订单分组时，需要先确认。
+
 ## 报表
 
-- 表：`decom.ads_daily_makepod`（日报）、`decom.ads_weekly_makepod_paid_user_order`（周报）
-- Dashboard：[【Makepod】平台看板](https://bi.alvinclub.ca/superset/dashboard/115/)（id=115）
-- 粒度：日报 `dt × channel`；周报 `week_start_dt（周一起自然周） × channel`
+### ads_daily_makepod
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_makepod`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × channel`
 - 时区：`Asia/Shanghai`
-- 主题：Makepod 独立站流量与交易日汇总 / 周维度支付用户订单分布
-- Lark 推送：独立脚本 `jobs/ads/ads_daily_makepod_lark_push.py`（每日推送上海时区昨日 `Overall` 数据）、`jobs/ads/ads_weekly_makepod_lark_push.py`（每周一推送上一个完整自然周数据）；两者均不新建表，只读上述两张 ADS 表，`remote` 模式使用 `lark_webhook.remote_makepod`
+- 数据范围：Makepod 独立站流量与交易的日报汇总。
+- 必要过滤：查询全站时使用 `channel = 'Overall'`。
+- 不包含：App 业务；周内支付用户去重和订单分组。
+- Dashboard：[【Makepod】平台看板](https://bi.alvinclub.ca/superset/dashboard/115/)（id=115）
 
-## 字段（日报）
+### ads_weekly_makepod_paid_user_order
 
-| 需求字段 | 落地字段 | 口径 |
-|---|---|---|
-| 渠道 | `channel` | 固定枚举 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic / Overall`；映射关系见 `docs/rules/makepod.md` |
-| 全量 DAU | `dau_uv_total` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站 `dt` 去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
-| 新用户 DAU | `dau_new_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重后的新设备统计；`Overall` 按全站去重新设备统计，判定条件为 `dim_makepod_device_first_visit.first_visit_date = dt` |
-| 老用户 DAU | `dau_old_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重后的老设备统计；`Overall` 按全站去重老设备统计，判定条件为 `dim_makepod_device_first_visit.first_visit_date < dt` |
-| 注册人数 | `register_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dim_makepod_user_channel.register_date × channel` 统计去重注册用户数；`Overall` 按注册日全站去重注册用户数 |
-| 商详页访问人数 | `product_detail_view_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
-| 加购人数 | `add_cart_uv` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 `prop_device_id`，跨渠道重复设备只记 1 次 |
-| 下单人数 | `order_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dt × channel` 统计去重 `user_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按下单日全站去重 `user_id` |
-| 支付人数 | `pay_user_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dt × channel` 统计去重 `user_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按支付日全站去重 `user_id` |
-| 支付订单数 | `pay_order_count` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `dt × channel` 统计去重 `order_id`，渠道来自 `dim_makepod_user_channel`；若用户未命中维表则回退 `Organic`；`Overall` 按支付日全站去重 `order_id` |
-| 支付 GMV | `pay_gmv_usd` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM((pay_amount + pay_fee) * usd_rate)`；`Overall` 按支付日全站汇总同口径 GMV；`pay_fee` 保持源表负数参与实付金额计算；汇率来自 `decom.currency_conversion_dict` |
-| 支付手续费 | `pay_fee_amount` | `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic` 按 `channel × dt` 汇总 `SUM(pay_fee * usd_rate)`；`Overall` 按支付日全站汇总同口径手续费；`currency_type = 'USD'` 时按 1 折算，其他币种使用 `decom.currency_conversion_dict` 转 USD，并保持源表负数符号 |
-| 支付 SKU 件数 | `pay_sku_quantity` | `pay_status = 4` 的支付订单，按 `user_order_item.order_id = pay_order.order_id` 汇总 `SUM(sku_quantity)` 后，再按 `dt × channel` 聚合；`Overall` 为支付日全站汇总 |
-| 采购成本 | `purchase_cost_usd` | `pay_status = 4` 的支付订单，按 `user_order_item.sku_code = sku.sku_code` 获取 `sku.purchase_price × user_order_item.sku_quantity`，再使用 `sku.purchase_cur` 对应的 `decom.currency_conversion_dict` 汇率转换为 USD；按 `dt × channel` 汇总，`Overall` 为支付日全站汇总 |
-| 物流成本 | `logistics_cost_usd` | `pay_status = 4` 的去重支付订单数 × `5 USD`；按 `dt × channel` 汇总，`Overall` 为支付日全站汇总 |
-| 毛利 | `gross_profit_usd` | `pay_gmv_usd - purchase_cost_usd - logistics_cost_usd` |
-| 毛利率 | `gross_profit_rate` | `gross_profit_usd / pay_gmv_usd`；支付 GMV 为 0 时返回 `NULL` |
+- 表：`my-project-8584-jetonai.decom.ads_weekly_makepod_paid_user_order`
+- 状态：`active`
+- 粒度：一行代表一个周一开始的自然周 `week_start_dt × channel × order_group`
+- 时区：`Asia/Shanghai`
+- 数据范围：Makepod 独立站周维度支付用户、订单与 GMV 分布。
+- 必要过滤：查询全站总计时使用 `channel = 'Overall' AND order_group = '全部分组'`。
+- 不包含：流量指标；当前进行中自然周不保证周期完整。
+- Dashboard：[【Makepod】平台看板](https://bi.alvinclub.ca/superset/dashboard/115/)（id=115）
 
-## 字段（周报，`ads_weekly_makepod_paid_user_order`）
+## 字段
 
-| 需求字段 | 落地字段 | 口径 |
-|---|---|---|
-| week_range | `week_range` | 按自然周分组，周一 ~ 周日，展示为 `2026-07-13 ~ 2026-07-19` |
-| 渠道 | `channel` | 与日报一致的固定枚举，含 `Overall`（全站去重汇总，不是各渠道相加） |
-| 订单分组 | `order_group` | 按用户在同一周内的支付成功订单数分桶：`1单` / `2单` / `3单及以上`；另有 `全部分组`（不分桶的原有汇总，兼容既有展示）。渠道对用户是固定属性，按 `user_id` 计数不会因渠道拆分重复放大 |
-| 支付用户数 | `pay_user_count` | 周内按 `user_id` 去重的支付成功（`pay_status = 4`）用户数；不能由日报 `pay_user_count` 按 7 天相加得出（跨天多次支付会被重复计数），需回 `v3_decom.pay_order` 明细在周窗口内整体去重 |
-| 支付用户数周环比 | `pay_user_count_wow` | `(本周 - 上周) / 上周`，`SAFE_DIVIDE` 实现，按 `channel + order_group` 分区取相邻上一周；首周或上周为 0 时为 `NULL` |
-| 支付订单数 | `pay_order_count` | 周内按 `order_id` 去重的支付成功订单数 |
-| 支付订单数周环比 | `pay_order_count_wow` | 同上 |
-| 支付GMV（USD） | `pay_gmv_usd` | 周内 `SUM((pay_amount + pay_fee) * usd_rate)`，与日报 `pay_gmv_usd` 同口径；Superset chart 中展示为 `支付GMV（USD）`，数值格式 `$,.2f` |
-| 支付GMV周环比 | `pay_gmv_usd_wow` | 同上 |
-| 用户数占比 | `pay_user_count_share` | `该行 pay_user_count / 当周 channel='Overall' 且 order_group='全部分组' 行的 pay_user_count`（当周全站总支付用户数，不随渠道或订单分组变化） |
-| GMV占比 | `pay_gmv_share` | `该行 pay_gmv_usd / 当周 channel='Overall' 且 order_group='全部分组' 行的 pay_gmv_usd` |
+### ads_daily_makepod
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 渠道 | `channel` | 设备 / 用户 | 固定枚举 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic / Overall`；映射见 `docs/rules/makepod.md` | 无 | `Overall` 与渠道明细不可一起聚合 |
+| 全量 DAU | `dau_uv_total` | 设备 | 渠道行按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 | 全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 新用户 DAU | `dau_new_uv` | 设备 | `first_visit_date = dt` 的去重设备；`Overall` 按全站去重 | 全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 老用户 DAU | `dau_old_uv` | 设备 | `first_visit_date < dt` 的去重设备；`Overall` 按全站去重 | 全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 注册人数 | `register_user_count` | 用户 | 按 `register_date × channel` 去重注册用户；`Overall` 按注册日全站去重 | 全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 商详页访问人数 | `product_detail_view_uv` | 设备 | 渠道行按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 | 全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 加购人数 | `add_cart_uv` | 设备 | 渠道行按 `channel × dt` 去重 `prop_device_id`；`Overall` 按全站去重 | 全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 下单人数 | `order_user_count` | 用户 | 按 `dt × channel` 去重 `user_id`；未命中渠道维表回退 `Organic`；`Overall` 按全站去重 | 全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 支付人数 | `pay_user_count` | 用户 | 按 `dt × channel` 去重 `user_id`；未命中渠道维表回退 `Organic`；`Overall` 按全站去重 | `pay_status = 4`；全站取 `Overall` | 不可跨天或跨渠道直接求和 |
+| 支付订单数 | `pay_order_count` | 订单 | 按 `dt × channel` 去重 `order_id`；未命中渠道维表回退 `Organic`；`Overall` 按全站去重 | `pay_status = 4`；全站取 `Overall` | 可跨天求和；不可混合 `Overall` 与渠道明细 |
+| 支付 GMV | `pay_gmv_usd` | 订单 | `SUM((pay_amount + pay_fee) * usd_rate)`；`pay_fee` 保留负数，汇率来自 `currency_conversion_dict` | `pay_status = 4`；全站取 `Overall` | 可跨天求和；不可混合 `Overall` 与渠道明细 |
+| 支付手续费 | `pay_fee_amount` | 订单 | `SUM(pay_fee * usd_rate)`；USD 汇率为 1，其他币种按汇率表折算并保留负号 | `pay_status = 4`；全站取 `Overall` | 可跨天求和；不可混合 `Overall` 与渠道明细 |
+| 支付 SKU 件数 | `pay_sku_quantity` | SKU | 支付订单关联订单明细后 `SUM(sku_quantity)` | `pay_status = 4`；全站取 `Overall` | 可跨天求和；不可混合 `Overall` 与渠道明细 |
+| 采购成本 | `purchase_cost_usd` | SKU | `purchase_price × sku_quantity`，按采购币种汇率转换为 USD | `pay_status = 4`；全站取 `Overall` | 可跨天求和；不可混合 `Overall` 与渠道明细 |
+| 物流成本 | `logistics_cost_usd` | 订单 | 去重支付订单数 × `5 USD` | `pay_status = 4`；全站取 `Overall` | 可跨天求和；不可混合 `Overall` 与渠道明细 |
+| 毛利 | `gross_profit_usd` | 订单 | `pay_gmv_usd - purchase_cost_usd - logistics_cost_usd` | 全站取 `Overall` | 可跨天求和；不可混合 `Overall` 与渠道明细 |
+| 毛利率 | `gross_profit_rate` | 订单 | `gross_profit_usd / pay_gmv_usd`；支付 GMV 为 0 时返回 `NULL` | 全站取 `Overall` | 不可求和或平均；跨日须用汇总后的毛利和 GMV 重算 |
+
+### ads_weekly_makepod_paid_user_order
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 周范围 | `week_range` | 自然周 | 周一至周日，展示为 `YYYY-MM-DD ~ YYYY-MM-DD` | 无 | 不聚合 |
+| 渠道 | `channel` | 用户 | 与日报相同，含全站去重的 `Overall` | 全站取 `Overall` | `Overall` 与渠道明细不可一起聚合 |
+| 订单分组 | `order_group` | 用户 | 按用户周内支付成功订单数分为 `1单 / 2单 / 3单及以上`，另有 `全部分组` | 总计取 `全部分组` | `全部分组` 与分桶明细不可一起聚合 |
+| 支付用户数 | `pay_user_count` | 用户 | 周窗口内去重 `user_id` | `pay_status = 4` | 不可由日报相加，也不可跨周直接求和 |
+| 支付用户数周环比 | `pay_user_count_wow` | 用户 | `(本周 - 上周) / 上周`；首周或上周为 0 时为 `NULL` | 同一 `channel + order_group` | 不可求和或平均 |
+| 支付订单数 | `pay_order_count` | 订单 | 周内去重 `order_id` | `pay_status = 4` | 可跨周求和；不可混合总计与明细 |
+| 支付订单数周环比 | `pay_order_count_wow` | 订单 | `(本周 - 上周) / 上周`；首周或上周为 0 时为 `NULL` | 同一 `channel + order_group` | 不可求和或平均 |
+| 支付 GMV（USD） | `pay_gmv_usd` | 订单 | 周内 `SUM((pay_amount + pay_fee) * usd_rate)`，与日报同口径 | `pay_status = 4` | 可跨周求和；不可混合总计与明细 |
+| 支付 GMV 周环比 | `pay_gmv_usd_wow` | 订单 | `(本周 - 上周) / 上周`；首周或上周为 0 时为 `NULL` | 同一 `channel + order_group` | 不可求和或平均 |
+| 用户数占比 | `pay_user_count_share` | 用户 | 该行支付用户数 / 当周全站全部分组支付用户数 | 无 | 不可求和或平均 |
+| GMV 占比 | `pay_gmv_share` | 订单 | 该行 GMV / 当周全站全部分组 GMV | 无 | 不可求和或平均 |
 
 补充说明：
 
@@ -99,16 +123,3 @@
 - Lark webhook：`env/lark_webhook.json` 的 `remote_makepod`（正式群）、`local`（测试群）
 - Superset：物理 dataset `ads_daily_makepod`（id=261），chart `Makepod 独立站日报（日表）- 流量趋势`（id=633）、`Makepod 独立站日报（日表）- 交易人数趋势`（id=634）、`Makepod 独立站日报（日表）- 交易金额趋势`（id=635）、`Makepod 独立站日报（日表）- 明细表`（id=636），dashboard `【Makepod】平台看板`（id=115，默认日期 filter=`Last month`）
 - 周报 Superset 资产：物理 dataset `ads_weekly_makepod_paid_user_order`（id=293，`main_dttm_col=week_start_dt`），chart `Makepod 独立站周报（周表）- 支付用户订单分布`（id=719），同挂 dashboard `【Makepod】平台看板`（id=115）；`日期` 时间 filter 已排除该 chart，`渠道` filter 已新增指向 dataset 293 的 target 同时生效，新增 `周范围（周报）` 取值型 filter（仅作用于该 chart，指向 dataset 293 的 `week_range` 列）
-
-## 当前状态
-
-- 截至 `2026-06-10`，已完成建表、4 张 ETL 脚本生产全量初始化、手续费 USD 口径更新与 Superset 看板创建；当时已初始化 `2026-05-27` 到 `2026-06-10` 的日报分区，订单主题已初始化 `2026-05-29` 到 `2026-06-10`
-- 截至 `2026-06-26`，已完成分渠道代码与 DDL 上线，并对 `decom.dws_makepod_traffic_daily`、`decom.dws_makepod_order_daily`、`decom.ads_daily_makepod` 做历史全量回刷；订单与 ADS 的金额类历史值按当前 `decom.currency_conversion_dict` 重新换算
-- 截至 `2026-06-26`，仓库代码口径已调整为 `TikTok / Google / Facebook / TK-ELSA-AI / YOUTUBE-ELSA-AI / Reddit / Other Channel / Organic / Overall`；其中 `Other Channel` 表示存在 `share_code` 或 `invite_user_id` 但未命中指定映射，`Organic` 表示两者都缺失，`Overall` 为全站去重汇总
-- 截至 `2026-06-26`，Superset 物理 dataset `ads_daily_makepod`（id=261）已 refresh，dashboard `【Makepod】平台看板`（id=115）已新增 `channel` native filter
-- 截至 `2026-07-17`，已完成采购成本、物流成本、毛利、毛利率的 DWS/ADS 历史全量回填；`dws_makepod_order_daily` 共 50 个日期、400 行，`ads_daily_makepod` 共 52 个日期、416 行，每日期均补齐 8 个渠道
-- 截至 `2026-07-17`，Superset 物理 dataset `ads_daily_makepod`（id=261）已 refresh，明细图表（id=636）已新增 `采购成本（USD）/物流成本（USD）/毛利（USD）/毛利率` 四列
-- 截至 `2026-07-31`，周报 `dws_makepod_order_weekly` / `ads_weekly_makepod_paid_user_order` 已完成建表、ETL 脚本与编排上线；用户确认后已完成生产历史全量初始化（`dws_makepod_order_weekly` 9 个周 × 9 渠道，`ads_weekly_makepod_paid_user_order` 出口过滤后 22 行）与 Superset dataset（id=293）/chart（id=719）创建、dashboard 115 挂载与三个 filter 的 scope 调整；抽查历史周的支付用户数/订单数与【Makepod】高价值用户监控主题的一次性取数（2026-07-27 取数结果，该主题文档已于 2026-07-31 归档删除）逐格一致（GMV 因汇率字典更新有合理小幅漂移）
-- 截至 `2026-07-31`（同日追加），根据用户反馈完成两处调整：① Superset chart 的三个周环比列改用内置 `success`/`error` 预设配色（`#ACE1C4` / `#EFA1AA`），比初版自定义深色更柔和；② 新增 `order_group`（订单分组）维度，粒度扩展为 `周 × 渠道 × 订单分组`，`dws_makepod_order_weekly` / `ads_weekly_makepod_paid_user_order` 均已 `ALTER TABLE ADD COLUMN order_group STRING` 并完成生产历史全量重建（`dws_makepod_order_weekly` 现为 9 周 × 9 渠道 × 4 订单分组 = 324 行，`ads_weekly_makepod_paid_user_order` 出口过滤后 65 行）；chart 719 新增「订单分组」展示列并调整排序；已校验同渠道下 3 个分桶行之和等于 `全部分组` 行，`Overall` 渠道同理成立
-- 截至 `2026-07-31`（同日再追加），根据用户反馈订正周口径：`dws_makepod_order_weekly` 原先误用 `WEEK(SUNDAY)`（周日起），与看板标注的 `Asia/Shanghai` 时区自然周不符，已改为 `WEEK(MONDAY)`（周一起），与仓库其他周表口径一致；`week_start_dt` 整体位移，已清空 `dws_makepod_order_weekly` 生产表并全量重跑（仍为 9 周 × 9 渠道 × 4 订单分组 = 324 行），`ads_weekly_makepod_paid_user_order` 走 staging+swap 全量重建（出口过滤后 67 行，因周边界位移与数据分布变化，行数较订正前的 65 行略有出入，属正常现象）；详见 `patterns.md`
-- 截至 `2026-07-31`（同日再追加），新增 Lark 日报与周报推送脚本 `jobs/ads/ads_daily_makepod_lark_push.py`、`jobs/ads/ads_weekly_makepod_lark_push.py`，均不新建表、不改 ETL，只读现成两张 ADS 表；已用 `lark_webhook.local` 测试群完成样式验证（日报 `2026-07-30`、周报 `2026-07-20 ~ 2026-07-26`），并按用户反馈完成三轮微调：三列全部居中、第二列表头由日期改为固定文案「当日」、周报删除「环比口径」说明行改为「更新时间」（取日报表与周表两者较晚的 `update_time`）、顶部说明行标签统一为 4 字且去掉反引号代码块；`env/cron.txt` 已加入两条独立 cron（`0 2 * * *` 与 `30 2 * * 1`，UTC），正式群 webhook `remote_makepod` 已配置但尚未实际推送过

@@ -10,13 +10,25 @@
 | 指标 | 7 日留存率 | D7 留存率、第 7 日留存率 |
 | 指标 | 30 日留存率 | D30 留存率、第 30 日留存率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询 Style Me 用户、使用场景及次日、7 日、30 日留存。
+- 不适合：通用试穿点击与转化应使用[穿搭工具点击使用](../穿搭工具点击使用/fact.md)或[试穿结果转化](../试穿结果转化/fact.md)。
+- 需要澄清：需要确认留存周期、Style Me 场景和日期范围。
+
 ## 报表
 
-### 主题总览
+### ads_daily_ai_fashion_styleme
 
 - 主题：Style Me 日报
-- 粒度：日（`dt`）
-- 表：`ads_daily_ai_fashion_styleme`
+- 表：`my-project-8584-jetonai.decom.ads_daily_ai_fashion_styleme`
+- 状态：`active`
+- 粒度：一行代表一个 `dt`
+- 时区：`America/Toronto`
+- 数据范围：Style Me 用户、三种使用场景和平台回访留存。
+- 必要过滤：无。
+- 不包含：非 Style Me 的通用试穿行为。
 - 明细展示：Chart 2 通过 Superset 虚拟 dataset `ads_daily_ai_fashion_styleme_scenario_detail` 将宽表转为长表
 - Dashboard：[121](https://bi.alvinclub.ca/superset/dashboard/121/)
 
@@ -106,8 +118,3 @@ dwd_event_log + v3_decom.common_ext_ai_task + dws_user_daily
 ## 已落地字段
 
 全部字段均已落地。
-
-## 当前状态
-
-- 截至 `2026-06-30`，已完成 `decom.dws_ai_fashion_styleme_daily`、`decom.ads_daily_ai_fashion_styleme` 建表
-- 截至 `2026-06-30`，已完成 `2026-06-01` 至 `2026-06-30` 的 DWS / ADS 历史回刷

@@ -7,7 +7,44 @@
 | 主题 | AI-Fashion 素材内容数据 | 素材内容数据看板 |
 | 指标 | 负反馈率 | 负向反馈率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询素材周度上线表现、日榜单和素材明细中的曝光、试穿、商品点击及负反馈。
+- 不适合：帖子维度表现应使用[内容维度日报](../内容维度日报/fact.md)；平台整体内容趋势应使用[平台整体内容表现](../平台整体内容表现/fact.md)。
+- 需要澄清：需要确认周总览、日榜或素材明细，素材模块、排名类型和日期范围。
+
 ## 报表
+
+### ads_weekly_ai_fashion_asset_overview
+
+- 表：`my-project-8584-jetonai.decom.ads_weekly_ai_fashion_asset_overview`
+- 状态：`active`
+- 粒度：一行代表一个 `week_start_dt × module`
+- 时区：`America/Toronto`
+- 数据范围：本周新上线素材按内容模块的周表现。
+- 必要过滤：模块仅 `brand / magazine / star`。
+- 不包含：非本周上线素材和日榜单。
+
+### ads_daily_ai_fashion_asset_rankings
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_ai_fashion_asset_rankings`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × ranking_type × rank_no`
+- 时区：`America/Toronto`
+- 数据范围：素材试穿、商品点击和负反馈的日榜单。
+- 必要过滤：按目标 `ranking_type` 过滤。
+- 不包含：榜单候选外素材和周总览。
+
+### ads_daily_ai_fashion_asset_detail
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_ai_fashion_asset_detail`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × asset_code`
+- 时区：`America/Toronto`
+- 数据范围：当日存在曝光、试穿或负反馈行为的素材明细。
+- 必要过滤：按目标 `asset_code` 过滤。
+- 不包含：当日所有行为均为 0 的素材。
 
 ### 主题总览
 
@@ -160,9 +197,3 @@ dim_asset + dws_asset_user_daily
   1. `周范围（周总览）`：`filter_select`，作用于 `week_range` 取值（数据集 289），不设默认值，仅作用于 chart 711
   2. `日报日期（榜单+明细）`：`filter_time`，默认「美东昨日」（`DATEADD(DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day), -1, day) : DATETRUNC(DATEADD(DATETIME("now"), -5, hour), day)`，与 dashboard 122《每日排行榜》一致的既有写法），作用于 chart 712/716/713/714/715
   3. `内容模块（全部图表）`：`filter_select`，多选，不设默认值，作用于全部 6 个 chart
-
-### 当前状态
-
-- 截至 `2026-07-27`，已完成 `dim_asset`（91,898 素材）、`dws_asset_user_daily`（`2026-02-09` 起）历史全量初始化
-- 截至 `2026-07-28`，新增「素材下方商品点击 UV」（`c_product.args.asset_code`，2026-07-25 起上报）：`dws_asset_user_daily` 加列 `product_click_pv`，三张 ADS 表加列 `product_click_uv`，全量回刷；新增榜单 `product_click_uv_top5`；Superset 新增 chart 716 并接入 dashboard 128，chart 711/715 插入新展示列，三个 native filter 作用范围同步更新
-- 截至 `2026-07-28`，Superset dataset / chart / dashboard / native filter 已创建并通过 `chart/data` 真实查询验证

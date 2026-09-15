@@ -10,10 +10,24 @@
 | 指标 | 第三方外跳 PV | 外链点击次数、跳转次数 |
 | 指标 | 外跳率 | 跳转率、外链点击率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club 商详页 Launch 投放`
+- 适合：查询 Launch 商详页整体 PV、UV、第三方外跳和外跳率。
+- 不适合：按视频、平台、红人、国家或商家拆分应使用[Launch 商详页多维度](../【Launch】商详页多维度/fact.md)。
+- 需要澄清：需要确认日期范围，以及商详访问或第三方外跳指标。
+
 ## 报表
 
-- 表：`ads_daily_launch_product_detail`
+### ads_daily_launch_product_detail
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_launch_product_detail`
+- 状态：`active`
 - 粒度：`dt`（每个业务日一行）
+- 时区：`America/Toronto`
+- 数据范围：Launch 商详页访问和第三方外跳的全量日汇总。
+- 必要过滤：无。
+- 不包含：视频、平台、红人、国家和商家维度拆分。
 - 埋点：`event_name IN ('v_launch_product_detail', 'c_launch_product_detail_shopnow')`
 - Dashboard：[【Launch】商详页总览](https://bi.alvinclub.ca/superset/dashboard/launch-product-detail-overview/)（id=126）
 - Superset：物理 dataset `ads_daily_launch_product_detail`（id=282），chart `【Launch】商详页总览 - 商品页 PV / UV 趋势`（id=701）、`【Launch】商详页总览 - 第三方外跳 PV / UV 趋势`（id=702）、`【Launch】商详页总览 - 外跳率趋势`（id=703）、`【Launch】商详页总览 - 明细表`（id=704）；native filter `日期范围`（filter_time）

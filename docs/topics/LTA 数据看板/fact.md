@@ -10,7 +10,44 @@
 | 指标 | 商品点击 UV | 商品点击人数 |
 | 指标 | 商品点击转化率 | 商品点击率 |
 
+## 适用范围
+
+- 业务线：`MyCCH`
+- 适合：查询 `mycch.me` 页面、红人和商品维度的曝光、点击与转化。
+- 不适合：Alvin's Club 商详页投放应使用[AI-Fashion 商详页投放](../【AI-Fashion】商详页投放/fact.md)；其他第三方渠道跳转应使用[第三方渠道外链跳转数据](../第三方渠道外链跳转数据/fact.md)。
+- 需要澄清：需要确认页面、红人或商品粒度，以及 PV 或 UV 统计主体。
+
 ## 报表
+
+### ads_daily_lta_overview
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_lta_overview`
+- 状态：`active`
+- 粒度：一行代表一个 `dt`
+- 时区：`America/New_York`
+- 数据范围：`mycch.me` 页面与商品曝光点击的日总览。
+- 必要过滤：`args.current_url` 域名为 `mycch.me`。
+- 不包含：红人和商品明细。
+
+### ads_daily_lta_kol
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_lta_kol`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × 红人`
+- 时区：`America/New_York`
+- 数据范围：`mycch.me` 按红人拆分的曝光点击。
+- 必要过滤：`args.current_url` 域名为 `mycch.me`。
+- 不包含：商品明细。
+
+### ads_daily_lta_spu
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_lta_spu`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × 商品`
+- 时区：`America/New_York`
+- 数据范围：`mycch.me` 按商品拆分的曝光点击。
+- 必要过滤：`args.current_url` 域名为 `mycch.me`。
+- 不包含：红人明细。
 
 只看 `args.current_url` 域名为 `mycch.me` 的三个第三方事件：`v_third_party_page`（页面曝光）、`v_third_party_goods`（商品曝光）、`c_third_party_goods`（商品点击）。日期按 `prop_timezone` 解释后转 `America/New_York` 切美东业务日。
 

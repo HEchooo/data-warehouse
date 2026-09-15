@@ -9,39 +9,58 @@
 | 指标 | 每日新增 likes | 每日新增点赞数、点赞增量 |
 | 指标 | 日末累计 views | 日末累计播放量 |
 
+## 适用范围
+
+- 业务线：`ECN 视频`, `TikTok 橱窗号`
+- 适合：查询社媒各渠道的视频发布、播放、点赞、关注与新视频 cohort 日趋势。
+- 不适合：属性拆分应使用[属性维度数据](../【Social Content】属性维度数据/fact.md)；单视频排行应使用[每日排行榜](../【Social Content】每日排行榜/fact.md)。
+- 需要澄清：需要确认渠道、日期范围，以及增量、累计或 cohort 指标。
+
 ## 报表
 
 ### 已废弃的旧口径
 
-- 旧表：`decom.ads_daily_social_content`
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_content`
+- 状态：`deprecated`
+- 粒度：历史社媒日汇总
+- 时区：`America/Toronto`
+- 数据范围：仅供历史旧口径参考。
+- 必要过滤：不得用于新查询。
+- 不包含：v2 当前口径。
+- 替代表：`my-project-8584-jetonai.decom.ads_daily_social_content_v2`
 - 旧 Dashboard：[【Social Content】社媒表现数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content/)（已归档为 Draft）
 - 该表仅保留作历史旧口径参考；新取数、报表及趋势分析一律使用 `decom.ads_daily_social_content_v2`，不得将两表数据直接拼接或比较。
 
 ### 中间表：`dws_social_video_snapshot_daily_v2`
 
-- 表：`decom.dws_social_video_snapshot_daily_v2`
+- 中间表：`decom.dws_social_video_snapshot_daily_v2`
 - 粒度：`dt + channel + creator_id + video_key`（仅真实采集日有记录）
 - 作用：消费 `decom.dim_video` 与三端原始快照日志，按 `dt+video_key` 取每天最后一次采集的累计 `views/likes`，作为社媒视频口径的唯一快照源
 - 调度：独立表级任务 `jobs/dws/dws_social_video_snapshot_daily_v2.py`
 
 ### 中间表：`dws_social_video_state_daily_v2`
 
-- 表：`decom.dws_social_video_state_daily_v2`
+- 中间表：`decom.dws_social_video_state_daily_v2`
 - 粒度：`dt + channel + creator_id + video_key`
 - 作用：只消费 `dws_social_video_snapshot_daily_v2`，承接社媒视频从发布时间起的逐日累计状态，主口径只保留 `day_end_views / day_end_likes`
 - 调度：独立表级任务 `jobs/dws/dws_social_video_state_daily_v2.py`
 
 ### 中间表：`dws_social_channel_daily_v2`
 
-- 表：`decom.dws_social_channel_daily_v2`
+- 中间表：`decom.dws_social_channel_daily_v2`
 - 粒度：`dt + channel`
 - 作用：直接消费 `dws_social_video_state_daily_v2`，承接社媒渠道级指标聚合与“全部渠道”统一视频去重，供 `ads_daily_social_content_v2` 只做展示层派生
 - 调度：独立表级任务 `jobs/dws/dws_social_channel_daily_v2.py`
 
 ### 最终报表：`ads_daily_social_content_v2`
 
-- 表：`decom.ads_daily_social_content_v2`
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_content_v2`
+- 状态：`active`
 - 粒度：`dt + channel`
+- 时区：`America/Toronto`
+- 数据范围：社媒渠道视频发布、播放、点赞、关注和 cohort 日汇总。
+- 必要过滤：全渠道结果使用文档定义的全部渠道行。
+- 不包含：属性、单视频排行和账号限流明细。
 - Dashboard：[【Social Content】社媒表现数据看板v2](https://bi.alvinclub.ca/superset/dashboard/social-content-v2/)（id=116）
 - 分布表：`decom.ads_daily_social_content_published_day3_view_bucket_v2`
 - 分布表粒度：`dt + channel + published_day3_view_bucket`
@@ -52,6 +71,16 @@
 - 内部历史从 `2026-03-13` 开始构建，以支持 `2026-05-01` 起的日增量、最新3条和7天 cohort 计算
 - 首次生产回填范围：`2026-03-13 ~ 2026-06-12`
 - 首次回填完成后，独立编排任务已启用
+
+### ads_daily_social_content_published_day3_view_bucket_v2
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_content_published_day3_view_bucket_v2`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × channel × published_day3_view_bucket`
+- 时区：`America/Toronto`
+- 数据范围：社媒视频发布后第 3 日播放量分布。
+- 必要过滤：按目标 `channel` 和播放分桶过滤。
+- 不包含：渠道总体指标和其他 cohort 周期。
 
 ### Lark ECN 数据发布推送
 

@@ -13,10 +13,24 @@
 | 指标 | day_7_retention_rate | 7 日留存率、D7 留存率 |
 | 指标 | day_30_retention_rate | 30 日留存率、D30 留存率 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询用户分群的 DAU、MAU、访问频次、使用时长和粘性。
+- 不适合：不分用户段的全量日活和人均时长应使用[全量报表](../全量报表/fact.md)。
+- 需要澄清：需要确认用户分群、日期范围，以及 DAU、MAU、频次或时长指标。
+
 ## 报表
 
-- 表：`ads_daily_user_duration_frequency`
+### ads_daily_user_duration_frequency
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_user_duration_frequency`
+- 状态：`active`
 - 粒度：需求粒度为 `dt × user_segment`
+- 时区：`America/Toronto`
+- 数据范围：App 用户分群的活跃、时长和访问频次。
+- 必要过滤：按目标 `user_segment` 过滤。
+- 不包含：未分群的业务明细。
 - Dashboard：[【AI-Fashion】用户时长与访问频次](https://bi.alvinclub.ca/superset/dashboard/95/)（id=95）
 
 ## 字段

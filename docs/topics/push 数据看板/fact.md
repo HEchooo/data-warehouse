@@ -10,12 +10,24 @@
 | 指标 | 已读率 | push 已读率、推送已读率 |
 | 指标 | 点击率 | push 点击率、push CTR |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：查询 push 的发送、已读，以及按召回策略统计的发送与点击效果。
+- 不适合：App 全量活跃应使用[全量报表](../全量报表/fact.md)；非 push 的社区互动不属于本主题。
+- 需要澄清：需要确认普通 push 或召回 push、日期范围和召回策略。
+
 ## 报表
 
 ### `ads_daily_push`
 
-- 表：`ads_daily_push`
+- 表：`my-project-8584-jetonai.decom.ads_daily_push`
+- 状态：`active`
 - 粒度：`dt`
+- 时区：`America/Toronto`
+- 数据范围：push 日发送、已读与已读率。
+- 必要过滤：无。
+- 不包含：召回策略维度。
 - Dashboard：[【AI-Fashion】push 数据看板](https://bi.alvinclub.ca/superset/dashboard/108/)（id=108）
 - Superset：物理 dataset `ads_daily_push`（id=238），chart `push 数据（日表）-明细表`（id=590）、`push 数据（日表）-已读率趋势`（id=591）
 
@@ -26,8 +38,13 @@
 
 ### `ads_daily_push_recall`
 
-- 表：`ads_daily_push_recall`
+- 表：`my-project-8584-jetonai.decom.ads_daily_push_recall`
+- 状态：`active`
 - 粒度：`dt × recall_strategy`
+- 时区：`America/Toronto`
+- 数据范围：push 召回按策略的发送与点击表现。
+- 必要过滤：按目标 `recall_strategy` 过滤。
+- 不包含：普通 push 已读口径。
 - Dashboard：[【AI-Fashion】push 消息召回看板](https://bi.alvinclub.ca/superset/dashboard/112/)（id=112）
 - Superset：物理 dataset `ads_daily_push_recall`（id=245），chart `push 消息（日表）- 发送点击趋势`（id=609）、`push 消息（日表）- 明细表`（id=610）
 

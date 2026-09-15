@@ -9,61 +9,59 @@
 | 指标 | 点击使用用户数 | 试穿点击 UV、Try On 点击人数 |
 | 指标 | avg_click_use_count_per_user | 人均点击使用次数、人均试穿点击数 |
 
-## ads_daily_tryon_confirm
+## 适用范围
 
-### 报表
+- 业务线：`Alvin's Club App`
+- 适合：查询试穿确认点击的全量日趋势，或按帖子查看已登录用户的点击使用表现。
+- 不适合：试穿后加购应使用[试穿结果转化](../试穿结果转化/fact.md)；按商品查看商详试穿应使用[商详页试穿维度](../商详页试穿维度/fact.md)。
+- 需要澄清：需要确认全量或帖子粒度、日期范围，以及访客或已登录用户主体。
 
-- 表：`ads_daily_tryon_confirm`
-- 粒度：`dt`
-- 事件：`c_tryon_confirm`
+## 报表
 
-### 字段
+### ads_daily_tryon_confirm
 
-| 字段 | 口径 |
-|------|------|
-| click_use_pv | 点击使用次数；按 `raw_event_id` 去重；仅统计 `post_code` 非空的事件 |
-| click_use_uv | 点击使用用户数；`COUNT(DISTINCT visitor_id)` |
-| avg_click_use_count_per_user | `click_use_pv / click_use_uv` |
+- 表：`my-project-8584-jetonai.decom.ads_daily_tryon_confirm`
+- 状态：`active`
+- 粒度：一行代表一个 `dt`
+- 时区：`America/Toronto`
+- 数据范围：带 `post_code` 的 `c_tryon_confirm` 事件，访客按用户 ID、设备 ID 依次回退去重。
+- 必要过滤：无。
+- 不包含：帖子维度和未确认的试穿事件。
 
-### 依赖
+### ads_daily_post_tryon_confirm
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_post_tryon_confirm`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × post_id`
+- 时区：`America/Toronto`
+- 数据范围：已登录用户产生且能映射到帖子的 `c_tryon_confirm` 事件。
+- 必要过滤：按目标 `post_id` 过滤。
+- 不包含：匿名设备事件。
+- Dashboard：[【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）](https://bi.alvinclub.ca/superset/dashboard/96/)（id=96）
+
+## 字段
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 点击使用次数 | `click_use_pv` | 事件 | 全量表按 `raw_event_id` 去重且要求 `post_code` 非空；帖子表按 `dt × post_code × raw_event_id` 去重 | 事件名为 `c_tryon_confirm` | 可跨天求和 |
+| 点击使用用户数 | `click_use_uv` | 访客 / 用户 | 全量表去重 `COALESCE(prop_user_id, prop_device_id)`；帖子表只去重非空 `prop_user_id` | 帖子表仅已登录用户 | 不可跨天或跨帖子直接求和 |
+| 人均点击使用次数 | `avg_click_use_count_per_user` | 访客 / 用户 | `click_use_pv / click_use_uv` | 与对应表主体一致 | 不可求和或平均；跨天须用汇总分子分母重算 |
+
+## 依赖
+
+### ads_daily_tryon_confirm
 
 - 上游：`dwd_event_log`
 - 中间表：`dws_tryon_confirm_daily`
 - 脚本：`jobs/ads/ads_daily_tryon_confirm.py`
 - DDL：`ddl/ads/ads_daily_tryon_confirm.sql`
 
-## ads_daily_post_tryon_confirm
-
-### 报表
-
-- 表：`ads_daily_post_tryon_confirm`
-- 粒度：`dt × post_id`
-- 事件：`c_tryon_confirm`
-- Dashboard：[【AI-Fashion】穿搭工具点击使用日汇总（日×帖子）](https://bi.alvinclub.ca/superset/dashboard/96/)（id=96）
-
-### 字段
-
-| 字段 | 口径 |
-|------|------|
-| click_use_pv | 点击使用次数；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按 `dt × post_code × raw_event_id` 去重 |
-| click_use_uv | 点击使用用户数；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，并按 `COUNT(DISTINCT prop_user_id)` |
-| avg_click_use_count_per_user | `click_use_pv / click_use_uv` |
-
-### 依赖
+### ads_daily_post_tryon_confirm
 
 - 上游：`dwd_event_log`
 - 中间表：`dws_tryon_confirm_post_daily`
-- 已落地实体层：`dim_post`
-- 实体脚本：`jobs/dim/dim_post.py`
-- 实体 DDL：`ddl/dim/dim_post.sql`
+- 实体层：`dim_post`
 - 脚本：`jobs/ads/ads_daily_post_tryon_confirm.py`
 - DDL：`ddl/ads/ads_daily_post_tryon_confirm.sql`
-- 当前状态：Batch 5 已切到 `dws_tryon_confirm_post_daily + dim_post`
-
-## 补充说明
-
-- 访客去重：`visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))`
-- `ads_daily_post_tryon_confirm` 和 dashboard 96 当前改为已登录用户口径：事件侧仅保留 `prop_user_id IS NOT NULL AND prop_user_id != ''`
-- 维度映射：`post_code → post_id/post_name/creator` 用 `dim_post`
-- 按帖子分析用帖子明细表；全量日趋势用汇总表
-- 编排：独立任务 `jobs/ads/ads_daily_tryon_confirm.py` / `jobs/ads/ads_daily_post_tryon_confirm.py`
+- 实体脚本：`jobs/dim/dim_post.py`
+- 实体 DDL：`ddl/dim/dim_post.sql`

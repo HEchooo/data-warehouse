@@ -11,10 +11,24 @@
 | 指标 | follow_rate | 关注率 |
 | 指标 | tryon_total_count | 帖子试穿次数 |
 
+## 适用范围
+
+- 业务线：`Alvin's Club App`
+- 适合：按帖子、内容模块和专栏查询每日曝光、阅读、试穿与互动表现。
+- 不适合：平台整体内容趋势应使用[平台整体内容表现](../平台整体内容表现/fact.md)；专栏汇总应使用[专栏追踪明细](../专栏追踪明细/fact.md)。
+- 需要澄清：需要确认帖子、模块或专栏范围，以及日期和指标。
+
 ## 报表
 
-- 表：`ads_daily_post_performance`
+### ads_daily_post_performance
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_post_performance`
+- 状态：`active`
 - 粒度：`dt × post_id × module × column_id`
+- 时区：`America/Toronto`
+- 数据范围：App 帖子在模块和专栏中的日表现。
+- 必要过滤：按目标帖子、模块或专栏过滤。
+- 不包含：平台级汇总和非帖子内容。
 - Dashboard：[【AI-Fashion】内容维度日报（日×帖子）](https://bi.alvinclub.ca/superset/dashboard/94/)（id=94）
 
 ## 字段
@@ -48,4 +62,3 @@
 - 脚本：`jobs/ads/ads_daily_post_performance.py`
 - DDL：`ddl/ads/ads_daily_post_performance.sql`
 - 编排：`env/etl_config.json` 已注册独立 `ADS` 任务 `ads_daily_post_performance`；不再继续挂共享 `ADS` 旧入口
-- 当前状态：Batch 1 已落地统一帖子 / 专栏实体层；Batch 2 已新增 `dws_post_interaction_daily` 承接帖子主题核心事实，并已将 `ads_daily_post_performance` 切换为 `dim_post / dim_column + dws_post_interaction_daily`
