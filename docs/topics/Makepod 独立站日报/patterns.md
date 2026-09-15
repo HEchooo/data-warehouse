@@ -8,10 +8,12 @@
 
 ## 周报周口径曾误用 WEEK(SUNDAY)，已订正为 WEEK(MONDAY)
 
-- 背景：`dws_makepod_order_weekly` 最初的 `WEEK_START_EXPR` 沿用了【Makepod】高价值用户监控那次临时取数里业务方给的周日~周六范围，但看板本身标注「本看板时区为 Asia/Shanghai」，上海时区语境下自然周应为周一~周日；仓库其他周表（`ads_weekly_ai_fashion_*` 等）也均为 `WEEK(MONDAY)`
-- 2026-07-31 订正为 `WEEK(MONDAY)`，涉及 `jobs/dws/dws_makepod_order_weekly.py`、`jobs/ads/ads_weekly_makepod_paid_user_order.py`
-- 订正后 `week_start_dt` 整体位移一天，DELETE+INSERT 增量逻辑无法覆盖旧的周日分区值，必须先清空 `decom.dws_makepod_order_weekly` 全表触发全量重跑，`ads_weekly_makepod_paid_user_order` 走 staging+swap 全量重建即可自动对齐
-- 排查线索：看板明确写了时区，但某个 chart 的周范围起止日和其余同看板 chart 对不上，优先检查该 chart 对应的 `WEEK_START_EXPR` 是不是抄了别的临时口径
+- 症状：周报范围是周日到周六，与同看板其他自然周图表错开一天。
+- 根因：`dws_makepod_order_weekly` 最初复用了临时取数的 `WEEK(SUNDAY)`，与看板的 `Asia/Shanghai` 自然周口径不一致。
+- 正确规则：周报统一使用 `WEEK(MONDAY)`；周支付用户数直接查询周表，不能把日报支付用户数相加。
+- 影响范围：`dws_makepod_order_weekly`、`ads_weekly_makepod_paid_user_order`；2026-07-31 订正时需清理旧周日分区后全量重跑。
+- 证据：`docs/topics/Makepod 独立站日报/fact.md`、`jobs/dws/dws_makepod_order_weekly.py`、`jobs/ads/ads_weekly_makepod_paid_user_order.py`。
+- 回归案例：`analytics-makepod-weekly-paying-users`、`analytics-makepod-daily-sum`。
 
 ## Lark 卡片 `chart` 组件可用，且不占 table 的 5 个配额
 
