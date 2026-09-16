@@ -47,30 +47,26 @@
 | 所有社媒账号播放数增量 Top 10（过去 1 周） | 账号按 `channel + creator_id` 区分；汇总账号下截至 `D-1` 已发布的所有历史视频，以单视频 `D-1 day_end_views - D-7 day_end_views` 计算过去一周增量，累计播放量取 D-1 日末值，再按账号增量降序取前 10 |
 | 所有社媒账号播放数增量 Bottom 10（过去 1 周） | 与上一条使用同一个全部历史视频样本和周区间增量口径，排除增量播放量为 `0` 的账号后按增量升序取前 10；负增量不额外排除 |
 
-### 视频 Top 10 日榜字段
+### ads_daily_social_video_monitor_rankings_v2（视频日榜）
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| `dt` | `dt` | 已完整结束的美东自然日 `D`；Superset 日期筛选字段，默认使用 Advanced Time Range 将实例 `now` 向后平移 5 小时后截日，严格筛选一个完整美东日 |
-| 对比基准日期 | `target_dt` | `D-1`；用于计算 D 当日增量，也是 T-1 发布视频池的发布日期 |
-| 榜单类型 | `ranking_type` | `t1_published_video_top` / `historical_video_top` |
-| 排名 | `rank_no` | 每个 `dt + ranking_type` 按增量降序生成 `1-10` |
-| 渠道 | `channel` | 固定枚举 `youtube / tiktok / ins`；账号按 `channel + creator_id` 区分，不做跨平台合并 |
-| 视频 ID | `video_id` / `video_key` | `video_key = channel + ':' + video_id` |
-| 视频标题 | `video_title` | YouTube / TikTok 取 `title`，Instagram 取 `caption`；三端映射统一引用 `docs/rules/video-mapping.md` |
-| 视频链接 | `video_link` | 三端映射统一引用 `docs/rules/video-mapping.md` 的“视频与账号展示字段” |
-| 账号名称 | `account_name` | 三端映射统一引用 `docs/rules/video-mapping.md` 的“视频与账号展示字段” |
-| 账号用户名 / Handle | `account_handle` | 三端映射统一引用 `docs/rules/video-mapping.md` 的“视频与账号展示字段” |
-| 账号 URL | `account_url` | 三端映射统一引用 `docs/rules/video-mapping.md` 的“视频与账号展示字段” |
-| 增量播放量 | `view_increment` | D 日末累计播放量减 D-1 日末累计播放量 |
-| 累计播放量 | `total_view_count` | D 日末累计播放量 |
-| 发布时间 | `published_ts_utc` / `published_dt` | UTC 时间戳及按 `America/Toronto` 转换的自然日 |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 榜单日期 | `dt` | 自然日 | 已完整结束的美东自然日 `D`；Superset 日期筛选字段，默认用 Advanced Time Range 把实例 `now` 后移 5 小时再截日，严格筛一个完整美东日 | 单日筛选 | 不聚合 |
+| 对比基准日期 | `target_dt` | 自然日 | `D-1`；既是增量对比基准，也是 T-1 发布视频池的发布日期 | 无 | 不聚合 |
+| 榜单类型 | `ranking_type` | 榜单 | `t1_published_video_top`（`published_dt = D-1`）/ `historical_video_top`（`published_dt < D-1`） | 按目标榜单过滤 | 两类榜单不可一起聚合 |
+| 排名 | `rank_no` | 视频 | 每个 `dt + ranking_type` 按增量降序生成 `1-10` | 无 | 不聚合 |
+| 渠道 | `channel` | 账号 | 固定枚举 `youtube / tiktok / ins`；账号按 `channel + creator_id` 区分，不做跨平台合并 | 无 | 不聚合 |
+| 视频 | `video_id` / `video_key` / `video_title` / `video_link` | 视频 | `video_key = channel + ':' + video_id`；标题 YouTube / TikTok 取 `title`，Instagram 取 `caption`；三端映射见 `docs/rules/video-mapping.md` | 无 | 不聚合 |
+| 账号 | `account_name` / `account_handle` / `account_url` | 账号 | 三端映射见 `docs/rules/video-mapping.md` 的「视频与账号展示字段」 | 无 | 不聚合 |
+| 增量播放量 | `view_increment` | 视频 | D 日末累计播放量减 D-1 日末累计播放量 | 无 | 只是当日 Top 10 的截断样本，不能当全量增量跨天求和 |
+| 累计播放量 | `total_view_count` | 视频 | D 日末累计播放量 | 无 | 日末累计值，不可跨天求和 |
+| 发布时间 | `published_ts_utc` / `published_dt` | 视频 | UTC 时间戳，及按 `America/Toronto` 转换的自然日 | 无 | 不聚合 |
 
 补充说明：
 
-- 周榜的增量范围为 `D-7 ~ D-1`，视频样本为截至 `D-1` 已发布的所有历史视频；增量取区间结束日 D-1 日末累计减区间开始日 D-7 日末累计
+- 物理日榜只覆盖两类视频增量 Top 10（每天最多 20 行）；Bottom 10 与两张账号周榜仍由 Superset 虚拟 dataset 271 动态计算，不落库
+- 周榜增量范围为 `D-7 ~ D-1`，样本为截至 `D-1` 已发布的所有历史视频；账号增量为 `SUM(单视频 D-1 日末累计 - 单视频 D-7 日末累计)`，累计播放量为 `SUM(单视频 D-1 日末累计)`，按 `channel + creator_id` 分组
 - YouTube 范围沿用 Social Content v2 的 10 个测试 / 内部频道排除规则
-- 其余 3 类榜单仍由 Superset 虚拟 dataset 271 动态计算；本轮历史化只覆盖两类视频增量 Views Top 10
 
 ### Superset 展示字段
 
@@ -85,7 +81,6 @@
 - `target_dt=D-1` 保留为物理日榜的计算字段，但不在 Chart 中展示
 - Chart 中的 `dt` 统一按 `YYYY-MM-DD` 展示，不显示时分秒
 - 视频链接与账号 URL 均展示为可点击且在新窗口打开的超链接
-- 周榜账号增量播放量为 `SUM(单视频 D-1 日末累计播放量 - 单视频 D-7 日末累计播放量)`，累计播放量为 `SUM(单视频 D-1 日末累计播放量)`；汇总 `published_dt <= D-1` 的所有历史视频，并按 `channel + creator_id` 分组
 
 ### Lark 推送字段
 

@@ -53,48 +53,54 @@
 
 ## 字段
 
-### 账号维度需求字段
+### ads_daily_social_affiliate_creator（账号维度）
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| 统计日 | `dt` | 美东自然日 |
-| 渠道 | `channel` | 固定 `tiktok` |
-| 账号 | `creator_id` / `account_name` / `account_handle` / `account_url` | `creator_id = videos.users.id`；展示字段取账号日快照，`account_handle = users.username` |
-| 发布的视频数 | `new_video_count` / `total_video_count` | 当日新发布（`dim_video.published_dt = dt`）与截至当日累计已发布（`published_dt <= dt`） |
-| 播放量 | `view_increment` / `total_view_count` | 账号下全部历史视频的当日增量之和、日末累计之和 |
-| 点赞数 | `like_increment` / `total_like_count` | 同上 |
-| 评论数 | `comment_increment` / `total_comment_count` | 同上 |
-| 分享数 | `share_increment` / `total_share_count` | 同上 |
-| 新增粉丝数 | `follower_increment` / `total_follower_count` | 账号日快照 `day_end_follower_count` 相减；前一日无快照时为空值，不按 0 起算 |
-| GMV | `gmv` / `currency` / `gmv_usd` | TikTok Shop 后台归因 GMV（`attr_gmv`），按 `dt × account_handle` 关联；`gmv` 为后台原币金额，`gmv_usd` 用 `decom.currency_conversion_dict` 转美元，跨账号聚合金额只能用 `gmv_usd` |
-| 成交商品件数 | `items_sold` | 后台 `attr_items_sold` |
-| 订单笔数 | `sku_order_count` | 后台 `sku_orders_count` |
+粒度 `dt × 橱窗号`；按名单补齐骨架，账号当日没有任何视频也出零值行，粉丝字段保持空值语义、不补 0。
 
-### 视频维度需求字段
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 渠道 | `channel` | 账号 | 固定 `tiktok` | 无 | 不聚合 |
+| 账号 | `creator_id` / `account_name` / `account_handle` / `account_url` | 账号 | `creator_id = videos.users.id`，展示字段取账号日快照，`account_handle = users.username` | 按目标账号过滤 | 不聚合 |
+| 新发布视频数 | `new_video_count` | 视频 | `dim_video.published_dt = dt` 的视频数 | 无 | 可跨天求和（同一粒度内） |
+| 累计已发布视频数 | `total_video_count` | 视频 | `published_dt <= dt` 的视频数 | 无 | 累计值，不可跨天求和 |
+| 播放量增量 | `view_increment` | 视频 | 账号下全部历史视频当日增量之和 | 无 | 可跨天求和（同一粒度内） |
+| 累计播放量 | `total_view_count` | 视频 | 账号下全部历史视频日末累计之和 | 无 | 日末累计值，取目标日当天一行，不可跨天求和 |
+| 点赞数增量 | `like_increment` | 视频 | 账号下全部历史视频当日增量之和 | 无 | 可跨天求和（同一粒度内） |
+| 累计点赞数 | `total_like_count` | 视频 | 账号下全部历史视频日末累计之和 | 无 | 日末累计值，取目标日当天一行，不可跨天求和 |
+| 评论数增量 | `comment_increment` | 视频 | 账号下全部历史视频当日增量之和 | 无 | 可跨天求和（同一粒度内） |
+| 累计评论数 | `total_comment_count` | 视频 | 账号下全部历史视频日末累计之和 | 无 | 日末累计值，取目标日当天一行，不可跨天求和 |
+| 分享数增量 | `share_increment` | 视频 | 账号下全部历史视频当日增量之和 | 无 | 可跨天求和（同一粒度内） |
+| 累计分享数 | `total_share_count` | 视频 | 账号下全部历史视频日末累计之和 | 无 | 日末累计值，取目标日当天一行，不可跨天求和 |
+| 新增粉丝数 | `follower_increment` | 账号 | 账号日快照 `day_end_follower_count` 相减；前一日无快照时为空值，不按 0 起算 | 无 | 可跨天求和；空值不可当 0 |
+| 累计粉丝数 | `total_follower_count` | 账号 | 账号日快照的日末粉丝数 | 无 | 日末累计值，取目标日当天一行，不可跨天求和 |
+| GMV | `gmv` / `currency` / `gmv_usd` | 订单归因 | TikTok Shop 后台归因 GMV（`attr_gmv`），按 `dt × account_handle` 关联；`gmv` 为原币金额，`gmv_usd` 用 `decom.currency_conversion_dict` 换算 | 跨账号聚合金额只能用 `gmv_usd` | `gmv_usd` 可跨天求和；原币 `gmv` 不可跨币种相加 |
+| 成交商品件数 | `items_sold` | 商品件 | 后台 `attr_items_sold` | 无 | 可跨天求和（同一粒度内） |
+| 订单笔数 | `sku_order_count` | 订单 | 后台 `sku_orders_count` | 无 | 可跨天求和（同一粒度内） |
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| 统计日 | `dt` | 美东自然日 |
-| 视频 | `video_id` / `video_key` / `video_link` / `published_ts_utc` / `published_dt` | `video_key = 'tiktok:' + video_id`；链接与发布时间取 `dim_video` |
-| 视频标题 | `video_title` | `dim_video.video_title`，TikTok 取 `videos.videos.title`；映射统一引用 `docs/rules/video-mapping.md` |
-| 播放量 | `view_increment` / `total_view_count` | 单视频当日增量与日末累计 |
-| 点赞数 | `like_increment` / `total_like_count` | 同上 |
-| 评论数 | `comment_increment` / `total_comment_count` | 同上 |
-| 分享数 | `share_increment` / `total_share_count` | 同上 |
-| 账号 | `creator_id` / `account_name` / `account_handle` / `account_url` | 与账号维度同源 |
-| 产品名称 | `product_title` / `product_url` | TikTok Shop 后台该视频当日挂的商品，按 `dt × video_id` 关联；一个视频当日挂多个商品就出多行，互动指标在这几行里重复出现 |
-| GMV | `gmv` / `currency` / `gmv_usd` | 商品级 GMV，口径与账号维度一致，`gmv_usd` 由汇率字典换算 |
-| 成交商品件数 | `items_sold` | 后台 `items_sold` |
+账号维度的成交口径来自 TikTok Shop 后台自己的归因结果，**不是**视频商品 GMV 的求和，两者不能互相验算。
 
-补充说明：
+### ads_daily_social_affiliate_video（视频维度）
 
-- 视频当天首发时前一日没有日末状态，当日增量等于日末累计值
-- 账号维度按 `dt × 橱窗号` 补齐骨架，账号当日没有任何视频也出零值行；粉丝字段保持空值语义，不补 0
-- 橱窗号名单取账号日快照的最新分区；名单变化会同步影响历史分区的账号集合
-- 视频维度主键是 `dt × video_key × product_title`；视频当日没有匹配到商品时 `product_title` 为空，仍保留该视频行，互动指标照常产出
-- 账号维度成交口径来自 TikTok Shop 后台自己的归因结果，**不是**视频商品 GMV 的求和，两者不能互相验算
-- 日增量、订单、件数和 `gmv_usd` 可在相同粒度内跨日求和；日末累计值、账号数和视频数不可跨日求和
-- 视频维度互动指标会在多个商品行重复，聚合互动指标前必须先按 `dt × video_key` 收敛，不能直接对商品行求和
+主键 `dt × video_key × product_title`；视频当日没有匹配到商品时 `product_title` 为空，仍保留该视频行，互动指标照常产出。
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 视频 | `video_id` / `video_key` / `video_link` / `published_ts_utc` / `published_dt` | 视频 | `video_key = 'tiktok:' + video_id`；链接与发布时间取 `dim_video` | 按目标视频过滤 | 不聚合 |
+| 视频标题 | `video_title` | 视频 | `dim_video.video_title`，TikTok 取 `videos.videos.title`；映射见 `docs/rules/video-mapping.md` | 无 | 不聚合 |
+| 账号 | `creator_id` / `account_name` / `account_handle` / `account_url` | 账号 | 与账号维度同源 | 按目标账号过滤 | 不聚合 |
+| 播放量增量 | `view_increment` | 视频 | 单视频当日增量；视频当天首发时前一日无日末状态，增量等于日末累计值 | 无 | 可跨天求和（同一粒度内）；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 累计播放量 | `total_view_count` | 视频 | 单视频日末累计 | 无 | 日末累计值，取目标日当天一行，不可跨天求和；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 点赞数增量 | `like_increment` | 视频 | 单视频当日增量；视频当天首发时前一日无日末状态，增量等于日末累计值 | 无 | 可跨天求和（同一粒度内）；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 累计点赞数 | `total_like_count` | 视频 | 单视频日末累计 | 无 | 日末累计值，取目标日当天一行，不可跨天求和；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 评论数增量 | `comment_increment` | 视频 | 单视频当日增量；视频当天首发时前一日无日末状态，增量等于日末累计值 | 无 | 可跨天求和（同一粒度内）；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 累计评论数 | `total_comment_count` | 视频 | 单视频日末累计 | 无 | 日末累计值，取目标日当天一行，不可跨天求和；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 分享数增量 | `share_increment` | 视频 | 单视频当日增量；视频当天首发时前一日无日末状态，增量等于日末累计值 | 无 | 可跨天求和（同一粒度内）；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 累计分享数 | `total_share_count` | 视频 | 单视频日末累计 | 无 | 日末累计值，取目标日当天一行，不可跨天求和；视频维度按商品出多行，聚合前必须先按 `dt × video_key` 收敛，不能直接对商品行求和 |
+| 产品 | `product_title` / `product_url` | 商品 | TikTok Shop 后台该视频当日挂的商品，按 `dt × video_id` 关联；一个视频当日挂多个商品就出多行，为空表示后台没匹配到商品 | 无 | 不聚合 |
+| GMV | `gmv` / `currency` / `gmv_usd` | 订单归因 | 商品级 GMV，口径与账号维度一致，`gmv_usd` 由汇率字典换算 | 跨账号聚合金额只能用 `gmv_usd` | `gmv_usd` 可跨天求和；原币 `gmv` 不可跨币种相加 |
+| 成交商品件数 | `items_sold` | 商品件 | 后台 `items_sold` | 无 | 可跨天求和（同一粒度内） |
+
+橱窗号名单取账号日快照的最新分区；名单变化会同步影响历史分区的账号集合。
 
 ### 数据边界
 
