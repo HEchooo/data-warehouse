@@ -76,45 +76,32 @@
 
 ### ads_daily_tiktok_ad
 
-#### 需求字段
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 统计日 | `dt` | 自然日 | API `stat_time_day`，按广告主时区切日 | 无 | 不聚合 |
+| 广告主 | `advertiser_id` | 广告主 | 广告主 ID | 无 | 不聚合 |
+| 广告计划 | `campaign_id` / `campaign_name` | 广告计划 | 计划层级标识 | 按目标计划过滤 | 不聚合 |
+| 广告组 | `adgroup_id` / `adgroup_name` | 广告组 | 组层级标识 | 按目标组过滤 | 不聚合 |
+| 广告 | `ad_id` / `ad_name` | 广告 | 广告层级标识 | 按目标广告过滤 | 不聚合 |
+| 投放店铺 | `store_id` | 店铺 | 取 `/ad/get/` 的 `showcase_products[].store_id`；报表接口不返回该字段。单条广告理论上可横跨多店铺，真出现时 ODS 取字典序最小的 `store_id` 并打 warning | 按目标店铺过滤 | 不聚合 |
+| 货币 | `currency` | 广告主 | 取 `/advertiser/info/` 的 `currency`，报表接口不返回；当前恒为 `USD`。入库但不上看板，既不作展示列也不作分组维度 | 无 | 不聚合 |
+| 消耗 | `spend` | 广告 | API `spend` 直接取，以广告主账户货币计价 | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| 展示量 | `impressions` | 广告 | API `impressions` 直接取 | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| 点击量（目标页面） | `clicks` | 广告 | API `clicks` 直接取 | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| 转化量 | `conversion` | 广告 | API `conversion` 直接取 | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| 成效数 | `result` | 广告 | API `result` 直接取 | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| 合格转化 | `secondary_goal_result` | 广告 | 深度转化目标；广告组未配置时为空值 | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| 平均点击成本 | `cpc` | 广告 | `spend / clicks` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 千次展示成本 | `cpm` | 广告 | `spend / impressions × 1000` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 点击率（目标页面） | `ctr` | 广告 | `clicks / impressions`，单位 % | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 平均转化成本 | `cost_per_conversion` | 广告 | `spend / conversion` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 转化率（CVR） | `conversion_rate` | 广告 | `conversion / clicks`，单位 % | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 平均成效成本 | `cost_per_result` | 广告 | `spend / result` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 成效率 | `result_rate` | 广告 | `result / impressions`，单位 % | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 合格转化平均成本 | `cost_per_secondary_goal_result` | 广告 | `spend / secondary_goal_result` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| 合格转化率 | `secondary_goal_result_rate` | 广告 | `secondary_goal_result / clicks`，单位 % | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
 
-| 需求字段 | 落地字段 | API metric | 口径 |
-|------|------|------|------|
-| 消耗 | `spend` | `spend` | 直接取 |
-| 平均点击成本（目标页面） | `cpc` | `cpc` | `消耗 / 点击量` |
-| 千次展示成本（CPM） | `cpm` | `cpm` | `消耗 / 展示量 × 1000` |
-| 展示量 | `impressions` | `impressions` | 直接取 |
-| 点击量（目标页面） | `clicks` | `clicks` | 直接取 |
-| 点击率（目标页面） | `ctr` | `ctr` | `点击量 / 展示量`，单位 % |
-| 转化量 | `conversion` | `conversion` | 直接取 |
-| 平均转化成本 | `cost_per_conversion` | `cost_per_conversion` | `消耗 / 转化量` |
-| 转化率（CVR） | `conversion_rate` | `conversion_rate` | `转化量 / 点击量`，单位 % |
-| 成效数 | `result` | `result` | 直接取 |
-| 平均成效成本 | `cost_per_result` | `cost_per_result` | `消耗 / 成效数` |
-| 成效率 | `result_rate` | `result_rate` | `成效数 / 展示量`，单位 % |
-| 合格转化 | `secondary_goal_result` | `secondary_goal_result` | 深度转化目标；广告组未配置时为空值 |
-| 合格转化平均成本 | `cost_per_secondary_goal_result` | `cost_per_secondary_goal_result` | `消耗 / 合格转化` |
-| 合格转化率 | `secondary_goal_result_rate` | `secondary_goal_result_rate` | `合格转化 / 点击量`，单位 % |
-
-#### 维度字段
-
-| 字段 | 口径 |
-|------|------|
-| `dt` | 统计日，取 API `stat_time_day`，按广告主时区切日 |
-| `advertiser_id` | 广告主 ID |
-| `campaign_id` / `campaign_name` | 广告计划 |
-| `adgroup_id` / `adgroup_name` | 广告组 |
-| `ad_id` / `ad_name` | 广告 |
-| `store_id` | 投放店铺，取 `/ad/get/` 的 `showcase_products[].store_id`；报表接口不返回这个字段 |
-| `currency` | 货币单位，取 `/advertiser/info/` 的 `currency`；报表接口同样不返回。当前恒为 `USD` |
-
-#### 可加与不可加
-
-`ADS` 表同时落可加的分子分母（`spend` / `impressions` / `clicks` / `conversion` / `result` / `secondary_goal_result`）与单行派生率值。
-
-- 明细 chart（724）直接展示派生列，只用于逐行看单个广告
-- 汇总 chart（723）的所有率值都是 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算
-- **新增任何汇总 chart 时不得对派生列求和或求平均**，否则 CPC / CTR / CVR 等会算错
+`ADS` 表同时落可加的分子分母（`spend` / `impressions` / `clicks` / `conversion` / `result` / `secondary_goal_result`）与单行派生率值：明细 chart（724）直接展示派生列，只用于逐行看单个广告；汇总 chart（723）的所有率值都是 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算。**新增任何汇总 chart 时不得对派生列求和或求平均**，否则 CPC / CTR / CVR 等会算错。
 
 #### 货币
 
@@ -150,18 +137,17 @@
 TikTok GMV Max（后台叫「智能高效计划」，页面 `ads.tiktok.com/i18n/gmv-max/dashboard`）是自动化带货投放：
 平台自己选素材、自己创建和暂停底层广告，所以对外没有广告组 / 广告层级。
 
-#### 落地字段
-
-| 后台列名 | 落地字段 | API metric | 口径 |
-|------|------|------|------|
-| 成本 | `cost` | `cost` | 直接取。注意不叫 `spend` |
-| SKU 订单数 | `orders` | `orders` | 直接取 |
-| 平均下单成本 | `cost_per_order` | `cost_per_order` | `成本 / SKU 订单数` |
-| 总收入 | `gross_revenue` | `gross_revenue` | 商品全渠道归因收入，见下方数据边界 |
-| ROI | `roi` | `roi` | `总收入 / 成本`，**是倍数不是百分比** |
-| — | `currency` | `currency` | GMV Max 报表接口直接返回，不需要再查 `/advertiser/info/` |
-
-维度字段：`dt`（取 `stat_time_day`，广告主时区自然日）、`advertiser_id`、`store_id`、`campaign_id`、`campaign_name`。
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 统计日 | `dt` | 自然日 | API `stat_time_day`，按广告主时区切日 | 无 | 不聚合 |
+| 广告主与店铺 | `advertiser_id` / `store_id` | 广告主 / 店铺 | 与普通投放同源 | 按目标店铺过滤 | 不聚合 |
+| 广告计划 | `campaign_id` / `campaign_name` | 广告计划 | GMV Max 由平台自动创建和暂停底层广告，对外没有广告组 / 广告层级 | 按目标计划过滤 | 不聚合 |
+| 货币 | `currency` | 广告主 | GMV Max 报表接口直接返回，不需要另查 `/advertiser/info/`；入库但不上看板 | 无 | 不聚合 |
+| 成本 | `cost` | 广告计划 | API `cost` 直接取（注意不叫 `spend`） | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| SKU 订单数 | `orders` | 订单 | API `orders` 直接取 | 无 | 可加；跨天或跨维度求和前先按目标范围过滤 |
+| 总收入 | `gross_revenue` | 订单 | **商品全渠道归因**：只要商品在 GMV Max 计划里，来自该商品的订单都会计入，含付费广告、自然流量与达人订单，用户完全没看过广告也可能被算进来；等于客户支付 − 销售税 + 平台折扣，**不扣退款** | 无 | 可加；跨天或跨维度求和前先按目标范围过滤；与普通投放的 ROAS 不是同一指标，两者收入不可相加 |
+| 平均下单成本 | `cost_per_order` | 订单 | `cost / orders` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
+| ROI | `roi` | 广告计划 | `gross_revenue / cost`，**是倍数不是百分比** | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算 |
 
 #### 接口支持但故意不落库的字段
 
@@ -185,13 +171,7 @@ TikTok GMV Max（后台叫「智能高效计划」，页面 `ads.tiktok.com/i18n
 可用但当前无值、故意不落库的：`bid_type`（恒为 `CUSTOM`）、`max_delivery_budget`（恒为 0）、
 `schedule_type` / `schedule_start_time` / `schedule_end_time` / `tt_account_name`（返回空串或 `0`）、`live_views`（无直播计划）。
 
-#### 可加与不可加
-
-`ADS` 表同时落可加的分子分母（`cost` / `orders` / `gross_revenue`）与单行派生值（`cost_per_order` / `roi`）。
-
-- 明细 chart（726）直接展示派生列，只用于逐行看单个计划
-- 汇总 chart（725）的 `平均下单成本` 与 `ROI` 都是 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算
-- **新增任何汇总 chart 时不得对 `cost_per_order` / `roi` 求和或求平均**
+`ADS` 表同时落可加的分子分母（`cost` / `orders` / `gross_revenue`）与单行派生值：明细 chart（726）直接展示派生列；汇总 chart（725）的 `平均下单成本` 与 `ROI` 都是 `SAFE_DIVIDE(SUM(分子), SUM(分母))` 现算。**新增任何汇总 chart 时不得对 `cost_per_order` / `roi` 求和或求平均**。
 
 #### 货币
 
