@@ -83,77 +83,53 @@
 
 ## 字段
 
-### 每周新上线素材数据总览
+### ads_weekly_ai_fashion_asset_overview（每周新上线素材总览）
 
-| ADS 字段 | 含义 | 计算 |
-|---|---|---|
-| `week_start_dt` | 自然周周一（内部字段，用于分区与周报日期筛选，不在 Superset 展示） | `DATE_TRUNC(dt, WEEK(MONDAY))` |
-| `week_range` | 自然周起止展示字段，格式 `YYYY-MM-DD ~ YYYY-MM-DD` | `week_start_dt ~ week_start_dt+6天` |
-| `module` | 内容模块 | `brand` / `magazine` / `star` |
-| `new_asset_count` | 本周新上线素材总数 | `dim_asset.publish_dt` 落在本周的素材数 |
-| `exposed_asset_count` | 获得曝光素材数 | 新上线素材中，本周曝光 PV > 0 的素材数 |
-| `valid_exposure_asset_count` | 有效曝光素材数 | 获得曝光素材中，周曝光 UV > 500 |
-| `insufficient_sample_asset_count` | 样本不足素材数 | 获得曝光素材中，`0 < 周曝光 UV <= 500` |
-| `zero_exposure_asset_count` | 0 曝光素材数 | `new_asset_count - exposed_asset_count`（服务端有、日志无曝光） |
-| `exposure_uv` | 曝光 UV | 获得曝光素材中，`prop_user_id` 按周去重 |
-| `product_click_uv` | 素材下方商品点击 UV | 获得曝光素材范围内，商品点击次数 > 0 的用户按周去重（`c_product.args.asset_code`，2026-07-25 起上报） |
-| `tryon_uv` | 试穿 UV | 获得曝光素材范围内，试穿次数 > 0 的用户按周去重 |
-| `negative_feedback_uv` | 负反馈 UV | 获得曝光素材范围内，负反馈 PV > 0 的用户按周去重 |
-| `negative_feedback_rate` | 负反馈率 | `negative_feedback_uv / exposure_uv` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 自然周 | `week_start_dt` / `week_range` | 自然周 | `week_start_dt = DATE_TRUNC(dt, WEEK(MONDAY))`（内部分区与筛选字段，不在 Superset 展示）；`week_range` 展示为 `YYYY-MM-DD ~ YYYY-MM-DD` | 无 | 不聚合 |
+| 内容模块 | `module` | 内容模块 | `brand` / `magazine` / `star` | 按目标模块过滤 | 不聚合 |
+| 本周新上线素材总数 | `new_asset_count` | 素材 | `dim_asset.publish_dt` 落在本周的素材数 | 无 | 可跨周、跨模块求和 |
+| 获得曝光素材数 | `exposed_asset_count` | 素材 | 新上线素材中本周曝光 PV > 0 的素材数 | 无 | 可跨周、跨模块求和 |
+| 有效曝光素材数 | `valid_exposure_asset_count` | 素材 | 获得曝光素材中周曝光 UV > 500 的素材数 | 无 | 可跨周、跨模块求和 |
+| 样本不足素材数 | `insufficient_sample_asset_count` | 素材 | 获得曝光素材中 `0 < 周曝光 UV <= 500` 的素材数 | 无 | 可跨周、跨模块求和 |
+| 0 曝光素材数 | `zero_exposure_asset_count` | 素材 | `new_asset_count - exposed_asset_count`，即服务端有、日志无曝光的素材 | 无 | 可跨周、跨模块求和 |
+| 曝光 UV | `exposure_uv` | 已登录用户 | 获得曝光素材范围内 `prop_user_id` 按自然周去重 | 无 | 不可跨周或跨模块求和；须回 `dws_asset_user_daily` 重新去重 |
+| 素材下方商品点击 UV | `product_click_uv` | 已登录用户 | 获得曝光素材范围内商品点击次数 > 0 的用户按周去重（`c_product.args.asset_code`） | `args.asset_code` 自 2026-07-25 起才上报 | 不可跨周或跨模块求和；须回 `dws_asset_user_daily` 重新去重 |
+| 试穿 UV | `tryon_uv` | 已登录用户 | 获得曝光素材范围内试穿次数 > 0 的用户按周去重 | 无 | 不可跨周或跨模块求和；须回 `dws_asset_user_daily` 重新去重 |
+| 负反馈 UV | `negative_feedback_uv` | 已登录用户 | 获得曝光素材范围内负反馈 PV > 0 的用户按周去重 | 无 | 不可跨周或跨模块求和；须回 `dws_asset_user_daily` 重新去重 |
+| 负反馈率 | `negative_feedback_rate` | 已登录用户 | `negative_feedback_uv / exposure_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨周或跨模块须分别汇总负反馈 UV 与曝光 UV 后重算 |
 
-### Top / Bottom 榜单
+### ads_daily_ai_fashion_asset_detail（素材明细）
 
-`ads_daily_ai_fashion_asset_rankings` 物理表保留完整宽表字段（与素材明细同源同口径，便于核对），供三个榜单 chart 共用；Superset chart 只展示与该榜单直接相关的精简字段，不逐一铺开全部宽表列：
+粒度 `dt × asset_code`，日期按美东时区切天。
 
-| ADS 字段 | 含义 |
-|---|---|
-| `dt` | 日报日期 |
-| `ranking_type` | `tryon_uv_top5` / `tryon_uv_bottom50` / `negative_feedback_rate_top50` |
-| `rank_no` | 榜单排名（每个 `dt × ranking_type` 内连续不重复） |
-| `asset_code` / `asset_name` | 素材 ID / 名称 |
-| `module` / `column_id` / `column_name` | 内容模块 / 专栏 ID / 专栏名称 |
-| `creator` | 运营人员 |
-| `publish_time` / `online_days` | 素材上线时间 / 上线天数（`dt - publish_dt`） |
-| `exposure_pv` / `exposure_uv` | 当日曝光 PV / UV |
-| `product_click_uv` | 当日素材下方商品点击 UV（只落 UV，不落 PV） |
-| `tryon_count` / `tryon_uv` | 当日试穿次数 / UV |
-| `negative_feedback_pv` / `negative_feedback_uv` | 当日负反馈 PV / UV |
-| `negative_feedback_rate` | 负反馈率 |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 内容模块 | `module` | 内容模块 | 素材首发帖 `post_type` 派生：`brand` / `magazine` / `star` | 按目标模块过滤 | 不聚合 |
+| 专栏 | `column_id` / `column_name` | 专栏 | `column_id` 取素材首发帖 `poster_user_id`（等于曝光事件的 `args.brand/magazine/star`），名称取 `v3_decom.kol_rel.nickname` | 按目标专栏过滤 | 不聚合 |
+| 素材 | `asset_code` / `asset_name` | 素材 | 素材 ID 与名称，来自 `dim_asset` | 按目标素材过滤 | 不聚合 |
+| 运营人员 | `creator` | 素材 | `community_fashion_asset.creator` | 无 | 不聚合 |
+| 素材上线时间与天数 | `publish_time` / `online_days` | 素材 | `publish_time` 取首发帖 `community_post.publish_time`；`online_days = DATE_DIFF(dt, publish_dt, DAY)` | 无 | 不聚合 |
+| 曝光 PV | `exposure_pv` | 事件 | `COUNT(DISTINCT raw_event_id)` | 无 | 可跨天、跨素材求和 |
+| 曝光 UV | `exposure_uv` | 已登录用户 | `COUNT(DISTINCT prop_user_id)` | 无 | 不可跨天、跨素材或跨专栏求和；日 UV 相加不等于周 UV，须回 `dws_asset_user_daily` 重新去重 |
+| 素材下方商品点击 UV | `product_click_uv` | 已登录用户 | `c_product` 的 `COUNT(DISTINCT prop_user_id)`，按 `args.asset_code` 归因；只落 UV 不落 PV | `args.asset_code` 自 2026-07-25 起才上报，更早日期恒为 0 | 不可跨天、跨素材或跨专栏求和；日 UV 相加不等于周 UV，须回 `dws_asset_user_daily` 重新去重 |
+| 试穿次数 | `tryon_count` | 试穿任务 | `COUNT(DISTINCT task_id)` | `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` | 可跨天、跨素材求和 |
+| 试穿 UV | `tryon_uv` | 已登录用户 | `COUNT(DISTINCT user_id)`，同上任务条件 | 同上 | 不可跨天、跨素材或跨专栏求和；日 UV 相加不等于周 UV，须回 `dws_asset_user_daily` 重新去重 |
+| 负反馈 PV | `negative_feedback_pv` | 事件 | `c_feedback_entry` 的 `COUNT(DISTINCT raw_event_id)` | 无 | 可跨天、跨素材求和 |
+| 负反馈 UV | `negative_feedback_uv` | 已登录用户 | `c_feedback_entry` 的 `COUNT(DISTINCT prop_user_id)` | 无 | 不可跨天、跨素材或跨专栏求和；日 UV 相加不等于周 UV，须回 `dws_asset_user_daily` 重新去重 |
+| 负反馈率 | `negative_feedback_rate` | 已登录用户 | `negative_feedback_uv / exposure_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨素材或跨周期须分别汇总负反馈 UV 与曝光 UV 后重算 |
 
-Chart 实际展示列（精简版，见下方 Superset 小节）：
-- `每日试穿UV Top5` / `每日试穿UV Bottom50`：日报日期、排名、素材ID、素材名称、内容模块、专栏名称、曝光UV、试穿UV
-- `每日素材下方商品点击UV Top5`：日报日期、排名、素材ID、素材名称、内容模块、专栏名称、曝光UV、素材下方商品点击UV
-- `每日负反馈率Top50`：日报日期、排名、素材ID、素材名称、内容模块、专栏名称、曝光UV、负反馈UV、负反馈率
+### ads_daily_ai_fashion_asset_rankings（Top / Bottom 榜单）
 
-### 素材明细
+物理表保留与素材明细同源同口径的完整宽表字段（便于核对），供三个榜单 chart 共用；Superset chart 只展示与该榜单直接相关的精简列。除下面两个榜单专有字段外，其余字段口径与素材明细完全一致。
 
-| 需求字段 | ADS 字段 | 口径 |
-|---|---|---|
-| 日报日期 | `dt` | 美东时区切天 |
-| 内容模块 | `module` | 素材首发帖 `post_type` 派生 |
-| 专栏 ID | `column_id` | 素材首发帖 `poster_user_id`（= 曝光事件 `args.brand/magazine/star`） |
-| 专栏名称 | `column_name` | `v3_decom.kol_rel.nickname` |
-| 素材 ID | `asset_code` | - |
-| 运营人员 | `creator` | `community_fashion_asset.creator` |
-| 素材上线时间 | `publish_time` | `community_post.publish_time`（首发帖） |
-| 素材上线天数 | `online_days` | `DATE_DIFF(dt, publish_dt, DAY)` |
-| 曝光 PV | `exposure_pv` | `COUNT(DISTINCT raw_event_id)` |
-| 曝光 UV | `exposure_uv` | `COUNT(DISTINCT prop_user_id)` |
-| 素材下方商品点击 UV | `product_click_uv` | `c_product` 的 `COUNT(DISTINCT prop_user_id)`（`args.asset_code`，2026-07-25 起上报；只落 UV，不落 PV） |
-| 试穿次数 | `tryon_count` | `COUNT(DISTINCT task_id)`，`task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` |
-| 试穿 UV | `tryon_uv` | `COUNT(DISTINCT user_id)`，同上条件 |
-| 负反馈 PV | `negative_feedback_pv` | `c_feedback_entry` 的 `COUNT(DISTINCT raw_event_id)` |
-| 负反馈 UV | `negative_feedback_uv` | `c_feedback_entry` 的 `COUNT(DISTINCT prop_user_id)` |
-| 负反馈率 | `negative_feedback_rate` | `negative_feedback_uv / exposure_uv` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 榜单类型 | `ranking_type` | 榜单 | `tryon_uv_top5` / `product_click_uv_top5` / `tryon_uv_bottom50` / `negative_feedback_rate_top50` | 按目标榜单过滤 | 不同榜单不可一起聚合 |
+| 排名 | `rank_no` | 素材 | 每个 `dt × ranking_type` 内连续不重复 | 无 | 不聚合 |
 
-补充说明：
-
-- 周总览 UV 按 `prop_user_id` 在自然周内去重；日榜与明细 UV 按业务日、素材去重，不能由日 UV 相加得到周 UV
-- `negative_feedback_rate` 的分母为 0 时返回 `NULL`；跨素材或跨周期必须分别汇总负反馈 UV 与曝光 UV 后重算
-
-## 已落地字段
-
-需求字段已全部落地，无缺口。
+榜单是当日的截断样本，任何指标都不能当作全量跨天汇总。
 
 ## 依赖
 
