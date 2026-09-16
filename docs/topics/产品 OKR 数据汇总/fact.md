@@ -94,127 +94,101 @@
 
 ## 字段
 
-### 需求字段（完整清单）
+周桶从 `2026-04-27` 开始，固定每 7 天（周一至周日）。周级数值统一遵循「先按天计算，再在周内按规则聚合」：率指标一律「周内分子求和 / 周内分母求和」，不直接 `AVG(每日率)`；日均 UV 为「周内各日 UV 之和 / 周内天数」。留存口径统一使用 `prop_user_id`。
 
-#### 试穿OKR
+整体试穿用户、整体试穿次数、帖子试穿和「使用 AI 试穿」留存统一使用服务端 `common_ext_ai_task` 的三种试穿任务；首页和商详试穿因依赖页面来源，继续使用前端 `c_tryon`。
 
-| 指标 | 口径 |
-|---|---|
-| 新用户试穿率 | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内 `dau_new_uv` 之和；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
-| 新用户试穿UV | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内天数 |
-| 老用户试穿率 | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内 `dau_old_uv` 之和；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
-| 老用户试穿UV | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内天数 |
-| 首页信息流试穿 UV | 周内 `home_tryon_uv` 之和 / 周内天数；保留前端 `c_tryon AND args_page_key = 'home_feeds'` |
-| 首页试穿渗透率 | 周内 `home_tryon_uv` 之和 / 周内 `home_feeds_uv` 之和 |
-| 帖子试穿UV | 周内服务端带 `request_param.postId` 且可映射 `dim_post` 的试穿用户 `post_tryon_uv` 之和 / 周内天数；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` |
-| 帖子试穿渗透率 | 周内服务端帖子试穿 `post_tryon_uv` 之和 / 周内前端帖子场景曝光 `post_scene_exposure_uv` 之和 |
-| 商品详情页试穿 UV | 周内 `product_detail_tryon_uv` 之和 / 周内天数；保留前端 `c_tryon AND args_page_key = 'product_detail'` |
-| 商品详情页试穿渗透率 | 周内 `product_detail_tryon_uv` 之和 / 周内 `product_detail_uv` 之和 |
-| styleme 试穿 UV | 周内 `styleme_uv` 之和 / 周内天数 |
-| 平台试穿率 | 周内服务端试穿 `tryon_uv_total` 之和 / 周内平台 DAU 之和；平台 DAU 口径与留存 OKR 的 `platform_dau` 一致 |
-| 人均试穿次数 | 周内服务端试穿次数 `tryon_pv` 之和 / 周内服务端试穿用户 `tryon_uv_total` 之和 |
-| 日均试穿UV | 周内服务端试穿用户 `tryon_uv_total` 之和 / 周内天数 |
-| 前端tryon点击UV | 周内前端 `event_name = 'c_tryon'` 的 `prop_user_id` UV 之和 / 周内天数 |
-| 商城信息流试穿渗透率 | 周内 `c_tryon AND args_page_key = 'shop_feeds'` 的 UV 之和 / 周内 `v_shop_feeds` UV 之和 |
-| 商城信息流试穿UV | 周内 `c_tryon AND args_page_key = 'shop_feeds'` 的 UV 之和 / 周内天数 |
-| 衣橱试穿渗透率 | 周内 `c_tryon AND args_page_key = 'closet_feeds'` 的 UV 之和 / 周内 `v_closet_feeds` UV 之和 |
-| 衣橱试穿UV | 周内 `c_tryon AND args_page_key = 'closet_feeds'` 的 UV 之和 / 周内天数 |
-| styleme试穿渗透率 | 周内服务端 `styleme_uv` 之和 / 周内前端 `v_styleme_popup` 或 `v_styleme_page` UV 之和 |
-| AI试穿成功率（quick） | 周内服务端 `task_type = 'QUICK_TRY_ON'` 且 `status = 'SUCCESS'` 的任务数 / 周内服务端 `task_type = 'QUICK_TRY_ON'` 的任务数；按 `task_id` 去重 |
-| AI试穿成功率（plus） | 周内服务端 `task_type = 'TRY_ON'` 且 `status = 'SUCCESS'` 的任务数 / 周内服务端 `task_type = 'TRY_ON'` 的任务数；按 `task_id` 去重 |
-| AI试穿任务平均完成时长（quick） | 周内服务端 `task_type = 'QUICK_TRY_ON'` 且 `status = 'SUCCESS'` 的成功任务 `json_value(output, '$.totalDuration')` 总和 / 有效成功任务数；`totalDuration` 单位毫秒，展示转分钟 |
-| AI试穿任务平均完成时长（plus） | 周内服务端 `task_type = 'TRY_ON'` 且 `status = 'SUCCESS'` 的成功任务 `json_value(output, '$.totalDuration')` 总和 / 有效成功任务数；`totalDuration` 单位毫秒，展示转分钟 |
-| AI试穿时长分布 | 按用户周内人均任务完成时长分桶：每用户的全试穿成功任务总时长 / 成功任务数，分母为周内去重 DAU；`totalDuration` 单位毫秒；分桶：`（0s,30s]`、`（30s,60s]`、`（60s,120s]`、`（120s,300s]`、`（300s,+∞)`、`无有效时长`；数据来源 `dws_ai_fashion_tryon_okr_user_daily` |
-| 人均每日试穿次数分布 | 按用户周内日均试穿次数分桶：每用户的周内服务端试穿任务总数 / 周天数，分母为周内去重 DAU；试穿为 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`；分桶：`(0~3]`、`(3~6]`、`(6~10]`、`(10~15]`、`15次以上`、`0`；`0` = DAU − 有试穿行为用户数；数据来源 `dws_ai_fashion_tryon_okr_user_daily` |
+下表字段为 v2 宽表 `decom.ads_weekly_ai_fashion_tryon_okr_v2` 的列名。
 
-#### 商品OKR
+### 试穿 OKR
 
-| 指标 | 口径 |
-|---|---|
-| 商品点击 UV | 周内 `product_click_uv` 之和 / 周内天数 |
-| 商品曝光 UV | 周内 `product_exposure_uv` 之和 / 周内天数 |
-| 平台商品UV点击率 | 周内 `product_click_uv` 之和 / 周内 `product_exposure_uv` 之和 |
-| 人均点击次数 | 周内 `product_click_pv_raw` 之和 / 周内 `product_click_uv` 之和 |
-| 首页商品点击 UV | 周内 `home_product_click_uv` 之和 / 周内天数 |
-| 首页商品曝光点击率 | 周内 `home_product_click_uv` 之和 / 周内 `home_product_exposure_uv` 之和 |
-| 试穿结果页点击 UV | 周内 `tryon_result_click_uv` 之和 / 周内天数 |
-| 试穿结果页曝光点击率 | 周内 `tryon_result_click_uv` 之和 / 周内 `tryon_result_exposure_uv` 之和 |
-| 商城商品点击 UV | 周内 `shop_click_uv` 之和 / 周内天数 |
-| 商城商品曝光点击率 | 周内 `shop_click_uv` 之和 / 周内 `shop_exposure_uv` 之和 |
-| 人均商品点击次数分布 | 按用户周内日均商品点击次数分桶：每用户的周内商品点击 PV(raw_event_id 去重) / 周天数，分母为周内去重 DAU；分桶：`(0~3]`、`(3~5]`、`(5~10]`、`(10~15]`、`15次以上`、`0`；`0` = DAU − 有点击行为用户数；数据来源 `dws_ai_fashion_tryon_okr_user_daily` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 新用户试穿率 | `new_user_tryon_rate` | 已登录用户 | 周内服务端试穿新用户 `tryon_new_uv` 之和 / 周内 `dau_new_uv` 之和 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 新用户试穿 UV | `new_user_tryon_uv` | 已登录用户 | 周内 `tryon_new_uv` 之和 / 周内天数 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 老用户试穿率 | `old_user_tryon_rate` | 已登录用户 | 周内服务端试穿老用户 `tryon_old_uv` 之和 / 周内 `dau_old_uv` 之和 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 老用户试穿 UV | `old_user_tryon_uv` | 已登录用户 | 周内 `tryon_old_uv` 之和 / 周内天数 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 首页信息流试穿 UV | `home_tryon_uv` | 已登录用户 | 周内 `home_tryon_uv` 之和 / 周内天数 | 前端 `c_tryon AND args_page_key = 'home_feeds'` | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 首页试穿渗透率 | `home_tryon_penetration_rate` | 已登录用户 | 周内 `home_tryon_uv` 之和 / 周内 `home_feeds_uv` 之和 | 同上 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 帖子试穿 UV | `post_tryon_uv` | 已登录用户 | 周内服务端带 `request_param.postId` 且可映射 `dim_post` 的试穿用户之和 / 周内天数 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 帖子试穿渗透率 | `post_tryon_penetration_rate` | 已登录用户 | 周内服务端帖子试穿 `post_tryon_uv` 之和 / 周内前端帖子场景曝光 `post_scene_exposure_uv` 之和；这是跨源转化口径，分子服务端、分母前端 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 商品详情页试穿 UV | `product_detail_tryon_uv` | 已登录用户 | 周内 `product_detail_tryon_uv` 之和 / 周内天数 | 前端 `c_tryon AND args_page_key = 'product_detail'` | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 商品详情页试穿渗透率 | `product_detail_tryon_penetration_rate` | 已登录用户 | 周内 `product_detail_tryon_uv` 之和 / 周内 `product_detail_uv` 之和 | 同上 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| styleme 试穿 UV | `styleme_tryon_uv` | 已登录用户 | 周内 `styleme_uv` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| styleme 试穿渗透率 | `styleme_tryon_penetration_rate` | 已登录用户 | 周内服务端 `styleme_uv` 之和 / 周内前端 `v_styleme_popup` 或 `v_styleme_page` UV 之和 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 平台试穿率 | `platform_tryon_rate` | 已登录用户 | 周内服务端试穿 `tryon_uv_total` 之和 / 周内平台 DAU 之和；平台 DAU 与留存 OKR 的 `platform_dau` 同口径 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 人均试穿次数 | `tryon_avg_count_per_tryon_user` | 已登录用户 | 周内服务端试穿次数 `tryon_pv` 之和 / 周内服务端试穿用户 `tryon_uv_total` 之和 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
+| 日均试穿 UV | `avg_daily_tryon_uv` | 已登录用户 | 周内服务端试穿用户 `tryon_uv_total` 之和 / 周内天数 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 前端 tryon 点击 UV | `front_tryon_click_uv` | 已登录用户 | 周内 `event_name = 'c_tryon'` 的 `prop_user_id` UV 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 商城信息流试穿 UV | `shop_feeds_tryon_uv` | 已登录用户 | 周内 `c_tryon AND args_page_key = 'shop_feeds'` 的 UV 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 商城信息流试穿渗透率 | `shop_feeds_tryon_penetration_rate` | 已登录用户 | 周内 `c_tryon AND args_page_key = 'shop_feeds'` 的 UV 之和 / 周内 `v_shop_feeds` UV 之和 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 衣橱试穿 UV | `closet_feeds_tryon_uv` | 已登录用户 | 周内 `c_tryon AND args_page_key = 'closet_feeds'` 的 UV 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 衣橱试穿渗透率 | `closet_feeds_tryon_penetration_rate` | 已登录用户 | 周内 `c_tryon AND args_page_key = 'closet_feeds'` 的 UV 之和 / 周内 `v_closet_feeds` UV 之和 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| AI 试穿成功率（quick） | `quick_tryon_success_rate` | 试穿任务 | 周内 `task_type = 'QUICK_TRY_ON'` 且 `status = 'SUCCESS'` 的任务数 / 同 `task_type` 全部任务数，按 `task_id` 去重 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| AI 试穿成功率（plus） | `plus_tryon_success_rate` | 试穿任务 | 周内 `task_type = 'TRY_ON'` 且 `status = 'SUCCESS'` 的任务数 / 同 `task_type` 全部任务数，按 `task_id` 去重 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| AI 试穿任务平均完成时长（quick） | `quick_tryon_avg_duration_min` | 试穿任务 | 周内 `QUICK_TRY_ON` 成功任务的 `json_value(output, '$.totalDuration')` 总和 / 有效成功任务数；源单位毫秒，展示转分钟 | `status = 'SUCCESS'` | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
+| AI 试穿任务平均完成时长（plus） | `plus_tryon_avg_duration_min` | 试穿任务 | 周内 `TRY_ON` 成功任务的 `totalDuration` 总和 / 有效成功任务数；源单位毫秒，展示转分钟 | `status = 'SUCCESS'` | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
 
-#### 留存OKR
+### 商品 OKR
 
-| 指标 | 口径 |
-|---|---|
-| 平台整体DAU | 已登录活跃用户；周内 `all_user_dau` 之和 / 周内天数 |
-| 次日留存率 | 以 `prop_user_id` 为 cohort 主体；周内 `次日留存用户数` 求和 / 周内 `(次日留存用户数 + 次日非留存用户数)` 求和 |
-| 次日留存用户数 | 基于上式分子，按周内“观察日已开始”的天做日均 |
-| 7日留存率 | 以 `prop_user_id` 为 cohort 主体；周内 `7日留存用户数` 求和 / 周内 `(7日留存用户数 + 7日非留存用户数)` 求和 |
-| 7日留存用户数 | 基于上式分子，按周内“观察日已开始”的天做日均 |
-| 30日留存率 | 以 `prop_user_id` 为 cohort 主体；周内 `30日留存用户数` 求和 / 周内 `(30日留存用户数 + 30日非留存用户数)` 求和 |
-| 30日留存用户数 | 基于上式分子，按周内“观察日已开始”的天做日均 |
-| 平台人均停留时长（min） | 周内 `SUM(duration_sec)` / 周内 `SUM(登录用户数)` / `60` |
-| 平台人均内容消费 | 周内 `SUM(content_consume_count)` / 周内 `SUM(登录用户数)` |
-| 平台首页曝光点击率 | 周内首页信息流点击登录用户数之和 / 周内首页信息流曝光登录用户数之和；日层为 `c_home_feeds count(distinct prop_user_id)` / `v_home_feeds count(distinct prop_user_id)` |
-| 新用户 DAU | 新用户定义为“首日访问的已登录用户”；周内 `new_user_dau` 之和 / 周内天数 |
-| 新用户次日留存率 | 新用户 cohort 的周内 `次日留存用户数` 求和 / 周内 `(次日留存用户数 + 次日非留存用户数)` 求和 |
-| 新用户次日留存用户数 | 新用户 cohort 的周内 `次日留存用户数` 求和 / 周内“观察日已开始”的天数 |
-| 新用户人均停留时长（min） | 周内新用户 `SUM(duration_sec)` / 周内新用户 `SUM(dau)` / `60` |
-| 新用户人均消费内容 | 周内新用户 `SUM(content_consume_count)` / 周内新用户 `SUM(dau)` |
-| 使用衣橱用户次日留存率 | `user_group='全量登录用户'` 且 `feature_name='衣橱渗透'`；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
-| 使用衣橱用户次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
-| 浏览商详次日留存率 | `user_group='全量登录用户'` 且 `feature_name='浏览商详'`；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
-| 浏览商详次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
-| 使用AI试穿次日留存率 | `user_group='全量登录用户'` 且 `feature_name='AI试穿'`；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
-| 使用AI试穿次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
-| 关注账号次日留存率 | `user_group='全量登录用户'` 且 `feature_name='关注账号'`；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
-| 关注账号次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
-| 创建模特次日留存率 | `user_group='全量登录用户'` 且 `feature_name='创建模特'`；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
-| 创建模特次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
-| 使用style me用户次日留存率 | 当日服务端 `v3_decom.common_ext_ai_task.task_scene = 'STYLE_ME'` 用户；周内 `次日留存用户` 求和 / 周内 `(次日留存用户 + 次日非留存用户)` 求和 |
-| 使用style me用户次日留存用户数 | 上一指标分子，按周内“观察日已开始”的天做日均 |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 商品点击 UV | `product_click_uv` | 已登录用户 | 周内 `product_click_uv` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 商品曝光 UV | `product_exposure_uv` | 已登录用户 | 周内 `product_exposure_uv` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 平台商品 UV 点击率 | `product_exposure_click_rate` | 已登录用户 | 周内 `SUM(product_click_uv) / SUM(product_exposure_uv)` | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 人均点击次数 | `product_click_avg_count_per_click_user` | 已登录用户 | 周内 `SUM(product_click_pv_raw) / SUM(product_click_uv)` | 无 | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
+| 首页商品点击 UV | `home_product_click_uv` | 已登录用户 | 周内 `home_product_click_uv` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 首页商品曝光点击率 | `home_product_exposure_click_rate` | 已登录用户 | 周内 `home_product_click_uv` 之和 / 周内 `home_product_exposure_uv` 之和 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 试穿结果页点击 UV | `tryon_result_click_uv` | 已登录用户 | 周内 `tryon_result_click_uv` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 试穿结果页曝光点击率 | `tryon_result_exposure_click_rate` | 已登录用户 | 周内 `tryon_result_click_uv` 之和 / 周内 `tryon_result_exposure_uv` 之和 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 商城商品点击 UV | `shop_click_uv` | 已登录用户 | 周内 `shop_click_uv` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 商城商品曝光点击率 | `shop_exposure_click_rate` | 已登录用户 | 周内 `shop_click_uv` 之和 / 周内 `shop_exposure_uv` 之和 | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
 
-### 已落地字段
+### 留存 OKR
 
-#### v1 指标长表
+留存类指标另有 `*_observed_day_count` 系列字段（`all_` / `new_` / `closet_` / `product_detail_` / `ai_tryon_` / `follow_` / `model_` 前缀），表示该指标周内「观察日已开始」的天数，是日均人数的分母。
 
-| 需求字段 | 落地表 | 落地字段 | 口径 |
-|---|---|---|---|
-| 周开始日期 | `decom.ads_weekly_ai_fashion_tryon_okr` | `week_start_dt` | 周一日期 |
-| 周结束日期 | `decom.ads_weekly_ai_fashion_tryon_okr` | `week_end_dt` | 周日日期 |
-| 周标签 | `decom.ads_weekly_ai_fashion_tryon_okr` | `week_label` | `MMDD-MMDD` |
-| 指标分类 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_type` | `试穿OKR核心指标` / `商品OKR核心指标` / `留存OKR核心指标` / `人均每日试穿次数分布` / `人均商品点击次数分布` |
-| 指标名称 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_name` | 与需求字段同名（不带编号） |
-| 分桶序号 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_bucket_order` | 仅分布指标有值 |
-| 分桶名称 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_bucket` | 仅分布指标有值 |
-| 周内天数 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_day_count` | 核心指标默认为周天数；次留相关人数/比率类使用“观察日已开始”的天数；分布指标为对应桶天数 |
-| 指标值 | `decom.ads_weekly_ai_fashion_tryon_okr` | `metric_value` | 对应指标数值（率 / 日均 UV / 日均人数 / 人均值 / 分桶值）；试穿分布为 `day_ratio`，点击分布为 `day_count` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 平台整体 DAU | `platform_dau` | 已登录用户 | 已登录活跃用户；周内 `all_user_dau` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 次日留存率 | `next_day_retention_rate` | 已登录用户 cohort | 周内次日留存用户数求和 / 周内（次日留存 + 次日非留存）求和；cohort 主体为 `prop_user_id` | 观察日已开始的天 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 次日留存用户数 | `next_day_retained_user_count` | 已登录用户 cohort | 上式分子 / `all_next_day_observed_day_count` | 观察日已开始的天 | 周内日均人数，不可跨周求和 |
+| 7 日留存率 | `day_7_retention_rate` | 已登录用户 cohort | 周内 7 日留存用户数求和 / 周内（7 日留存 + 7 日非留存）求和 | 观察日已开始的天 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 7 日留存用户数 | `day_7_retained_user_count` | 已登录用户 cohort | 上式分子按观察日已开始的天做日均 | 观察日已开始的天 | 周内日均人数，不可跨周求和 |
+| 30 日留存率 | `day_30_retention_rate` | 已登录用户 cohort | 周内 30 日留存用户数求和 / 周内（30 日留存 + 30 日非留存）求和 | 观察日已开始的天 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 30 日留存用户数 | `day_30_retained_user_count` | 已登录用户 cohort | 上式分子按观察日已开始的天做日均 | 观察日已开始的天 | 周内日均人数，不可跨周求和 |
+| 平台人均停留时长（分钟） | `platform_avg_duration_min` | 已登录用户 | 周内 `SUM(duration_sec) / SUM(登录用户数) / 60` | 无 | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
+| 平台人均内容消费 | `platform_avg_content_consume` | 已登录用户 | 周内 `SUM(content_consume_count) / SUM(登录用户数)` | 无 | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
+| 平台首页曝光点击率 | `home_feeds_exposure_click_rate` | 已登录用户 | 周内首页信息流点击登录用户数之和 / 曝光登录用户数之和；日层为 `c_home_feeds` 与 `v_home_feeds` 的 `COUNT(DISTINCT prop_user_id)` | 无 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 新用户 DAU | `new_user_dau` | 已登录用户 | 新用户为首日访问的已登录用户；周内 `new_user_dau` 之和 / 周内天数 | 无 | 周内日均值，不可跨周求和或平均；跨周须回 DWS 按目标周期重算 |
+| 新用户次日留存率 | `new_user_next_day_retention_rate` | 新用户 cohort | 新用户 cohort 的周内次日留存用户数求和 / 周内（次日留存 + 次日非留存）求和 | 观察日已开始的天 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 新用户次日留存用户数 | `new_user_next_day_retained_user_count` | 新用户 cohort | 上式分子 / `new_next_day_observed_day_count` | 观察日已开始的天 | 周内日均人数，不可跨周求和 |
+| 新用户人均停留时长（分钟） | `new_user_avg_duration_min` | 已登录用户 | 周内新用户 `SUM(duration_sec) / SUM(dau) / 60` | 无 | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
+| 新用户人均内容消费 | `new_user_avg_content_consume` | 已登录用户 | 周内新用户 `SUM(content_consume_count) / SUM(dau)` | 无 | 人均值，不可跨周求和或平均；跨周须用汇总分子分母重算 |
+| 使用衣橱用户次日留存率 | `closet_user_next_day_retention_rate` | 行为 cohort | 周内次日留存用户求和 / 周内（次日留存 + 次日非留存）求和 | `user_group='全量登录用户'` 且 `feature_name='衣橱渗透'` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 使用衣橱用户次日留存用户数 | `closet_user_next_day_retained_user_count` | 行为 cohort | 上式分子按观察日已开始的天做日均 | `user_group='全量登录用户'` 且 `feature_name='衣橱渗透'` | 周内日均人数，不可跨周求和 |
+| 浏览商详用户次日留存率 | `product_detail_user_next_day_retention_rate` | 行为 cohort | 周内次日留存用户求和 / 周内（次日留存 + 次日非留存）求和 | `user_group='全量登录用户'` 且 `feature_name='浏览商详'` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 浏览商详用户次日留存用户数 | `product_detail_user_next_day_retained_user_count` | 行为 cohort | 上式分子按观察日已开始的天做日均 | `user_group='全量登录用户'` 且 `feature_name='浏览商详'` | 周内日均人数，不可跨周求和 |
+| 使用 AI 试穿用户次日留存率 | `ai_tryon_user_next_day_retention_rate` | 行为 cohort | 周内次日留存用户求和 / 周内（次日留存 + 次日非留存）求和 | `user_group='全量登录用户'` 且 `feature_name='AI试穿'` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 使用 AI 试穿用户次日留存用户数 | `ai_tryon_user_next_day_retained_user_count` | 行为 cohort | 上式分子按观察日已开始的天做日均 | `user_group='全量登录用户'` 且 `feature_name='AI试穿'` | 周内日均人数，不可跨周求和 |
+| 关注账号用户次日留存率 | `follow_user_next_day_retention_rate` | 行为 cohort | 周内次日留存用户求和 / 周内（次日留存 + 次日非留存）求和 | `user_group='全量登录用户'` 且 `feature_name='关注账号'` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 关注账号用户次日留存用户数 | `follow_user_next_day_retained_user_count` | 行为 cohort | 上式分子按观察日已开始的天做日均 | `user_group='全量登录用户'` 且 `feature_name='关注账号'` | 周内日均人数，不可跨周求和 |
+| 创建模特用户次日留存率 | `model_user_next_day_retention_rate` | 行为 cohort | 周内次日留存用户求和 / 周内（次日留存 + 次日非留存）求和 | `user_group='全量登录用户'` 且 `feature_name='创建模特'` | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 创建模特用户次日留存用户数 | `model_user_next_day_retained_user_count` | 行为 cohort | 上式分子按观察日已开始的天做日均 | `user_group='全量登录用户'` 且 `feature_name='创建模特'` | 周内日均人数，不可跨周求和 |
+| 使用 style me 用户次日留存率 | `styleme_user_next_day_retention_rate` | 行为 cohort | 周内次日留存用户求和 / 周内（次日留存 + 次日非留存）求和 | 当日服务端 `v3_decom.common_ext_ai_task.task_scene = 'STYLE_ME'` 的用户 | 率值，不可跨周 `AVG`；跨周须回 DWS 汇总分子分母后重算 |
+| 使用 style me 用户次日留存用户数 | `styleme_user_next_day_retained_user_count` | 行为 cohort | 上式分子按观察日已开始的天做日均 | 当日服务端 `v3_decom.common_ext_ai_task.task_scene = 'STYLE_ME'` 的用户 | 周内日均人数，不可跨周求和 |
 
-#### v2 指标宽表
+### 分布指标
 
-| 字段类型 | 落地表 | 落地字段 | 口径 |
-|---|---|---|---|
-| 周开始日期 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_start_dt` | 周一日期 |
-| 周结束日期 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_end_dt` | 周日日期 |
-| 周标签 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_label` | `MMDD-MMDD` |
-| 周内天数 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `week_day_count` | 周日历天数，默认 7 |
-| 次留观察天数 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `all_next_day_observed_day_count` / `new_next_day_observed_day_count` / `closet_next_day_observed_day_count` / `product_detail_next_day_observed_day_count` / `ai_tryon_next_day_observed_day_count` / `follow_next_day_observed_day_count` / `model_next_day_observed_day_count` | 对应留存指标周内“观察日已开始”的天数 |
-| 试穿 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `new_user_tryon_rate` / `new_user_tryon_uv` / `old_user_tryon_rate` / `old_user_tryon_uv` / `home_tryon_uv` / `home_tryon_penetration_rate` / `post_tryon_uv` / `post_tryon_penetration_rate` / `product_detail_tryon_uv` / `product_detail_tryon_penetration_rate` / `styleme_tryon_uv` / `platform_tryon_rate` / `tryon_avg_count_per_tryon_user` / `avg_daily_tryon_uv` / `front_tryon_click_uv` / `shop_feeds_tryon_penetration_rate` / `shop_feeds_tryon_uv` / `closet_feeds_tryon_penetration_rate` / `closet_feeds_tryon_uv` / `styleme_tryon_penetration_rate` / `quick_tryon_success_rate` / `plus_tryon_success_rate` / `quick_tryon_avg_duration_min` / `plus_tryon_avg_duration_min` | v1 已有指标对齐同名 `metric_name` 的 `metric_value`；v2 新增指标直接从 DWS 分子分母周聚合 |
-| 商品 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `product_click_uv` / `product_exposure_uv` / `product_exposure_click_rate` / `product_click_avg_count_per_click_user` / `home_product_click_uv` / `home_product_exposure_click_rate` / `tryon_result_click_uv` / `tryon_result_exposure_click_rate` / `shop_click_uv` / `shop_exposure_click_rate` | `product_click_uv` 等 v1 已有指标对齐同名 `metric_name` 的 `metric_value`；`product_exposure_click_rate` 按周 `SUM(product_click_uv) / SUM(product_exposure_uv)`；`product_click_avg_count_per_click_user` 按周 `SUM(product_click_pv_raw) / SUM(product_click_uv)` |
-| 留存 OKR 核心指标 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `platform_dau` / `next_day_retention_rate` / `next_day_retained_user_count` / `day_7_retention_rate` / `day_7_retained_user_count` / `day_30_retention_rate` / `day_30_retained_user_count` / `home_feeds_exposure_click_rate` / `platform_avg_duration_min` / `platform_avg_content_consume` / `new_user_dau` / `new_user_next_day_retention_rate` / `new_user_next_day_retained_user_count` / `new_user_avg_duration_min` / `new_user_avg_content_consume` / `closet_user_next_day_retention_rate` / `closet_user_next_day_retained_user_count` / `product_detail_user_next_day_retention_rate` / `product_detail_user_next_day_retained_user_count` / `ai_tryon_user_next_day_retention_rate` / `ai_tryon_user_next_day_retained_user_count` / `follow_user_next_day_retention_rate` / `follow_user_next_day_retained_user_count` / `model_user_next_day_retention_rate` / `model_user_next_day_retained_user_count` / `styleme_user_next_day_retention_rate` / `styleme_user_next_day_retained_user_count` | v1 已有指标对齐同名 `metric_name`；v2 新增指标直接从 DWS 分子分母周聚合 |
-| AI试穿时长分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `tryon_avg_duration_bucket_*_day_count` / `tryon_avg_duration_bucket_*_day_ratio` | 按用户周内人均任务完成时长分桶；`*_day_count` 实际存储桶内用户数，`*_day_ratio` 存储用户占比（分母为周内去重 DAU）；数据来源 `dws_ai_fashion_tryon_okr_user_daily` |
-| 人均每日试穿次数分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `tryon_avg_daily_count_bucket_*_day_count` / `tryon_avg_daily_count_bucket_*_day_ratio` | 按用户周内日均试穿次数分桶；`*_day_count` 实际存储桶内用户数，`*_day_ratio` 存储用户占比（分母为周内去重 DAU）；数据来源 `dws_ai_fashion_tryon_okr_user_daily` |
-| 人均商品点击次数分布 | `decom.ads_weekly_ai_fashion_tryon_okr_v2` | `product_click_avg_daily_count_bucket_*_day_count` / `product_click_avg_daily_count_bucket_*_day_ratio` | 按用户周内日均商品点击次数分桶；`*_day_count` 实际存储桶内用户数，`*_day_ratio` 存储用户占比（分母为周内去重 DAU）；新增 `*_day_ratio` 列；数据来源 `dws_ai_fashion_tryon_okr_user_daily` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| AI 试穿时长分布 | `tryon_avg_duration_bucket_*_day_count / tryon_avg_duration_bucket_*_day_ratio` | 已登录用户 | 每用户周内全试穿成功任务总时长 / 成功任务数后分桶：`（0s,30s]`、`（30s,60s]`、`（60s,120s]`、`（120s,300s]`、`（300s,+∞)`、`无有效时长`；`*_day_count` 存桶内用户数，`*_day_ratio` 存用户占比，分母为周内去重 DAU | 数据来源 `dws_ai_fashion_tryon_okr_user_daily` | 占比不可跨周 `AVG`；用户数不可跨周求和，同一用户跨周会重复 |
+| 人均每日试穿次数分布 | `tryon_avg_daily_count_bucket_*_day_count / tryon_avg_daily_count_bucket_*_day_ratio` | 已登录用户 | 每用户周内服务端试穿任务总数 / 周天数后分桶：`(0~3]`、`(3~6]`、`(6~10]`、`(10~15]`、`15次以上`、`0`；`0` 桶 = DAU − 有试穿行为用户数 | `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`；数据来源 `dws_ai_fashion_tryon_okr_user_daily` | 同上 |
+| 人均商品点击次数分布 | `product_click_avg_daily_count_bucket_*_day_count / product_click_avg_daily_count_bucket_*_day_ratio` | 已登录用户 | 每用户周内商品点击 PV（`raw_event_id` 去重）/ 周天数后分桶：`(0~3]`、`(3~5]`、`(5~10]`、`(10~15]`、`15次以上`、`0`；`0` 桶 = DAU − 有点击行为用户数 | 数据来源 `dws_ai_fashion_tryon_okr_user_daily` | 同上 |
 
-补充说明：
+### v1 指标长表
 
-- 周级数值统一遵循“先按天计算，再在周内按规则聚合”
-- 率指标统一按“周内分子求和 / 周内分母求和”，不直接 `AVG(每日率)`
-- 方案 B 后，整体试穿用户、整体试穿次数、帖子试穿和使用 AI 试穿留存统一使用服务端 `common_ext_ai_task` 三种试穿任务；首页和商详试穿因依赖页面来源，继续使用前端 `c_tryon`
-- 帖子试穿渗透率是跨源转化口径：分子为服务端 `postId` 归因后的帖子试穿 UV，分母为前端帖子场景曝光 UV
-- 留存口径统一使用 `prop_user_id`
-- 周桶从 `2026-04-27` 开始，固定每 7 天（周一~周日）
+`decom.ads_weekly_ai_fashion_tryon_okr` 是同一批指标的长表形态，粒度 `week_start_dt × metric_type × metric_name × metric_bucket`：`metric_type` 取 `试穿OKR核心指标` / `商品OKR核心指标` / `留存OKR核心指标` / `人均每日试穿次数分布` / `人均商品点击次数分布`，`metric_name` 与上面各表的指标名同名，`metric_value` 为对应数值，`metric_day_count` 为该指标的周内天数（核心指标默认周天数，次留相关用观察日已开始的天数，分布指标为对应桶天数），`metric_bucket` / `metric_bucket_order` 仅分布指标有值。口径与 v2 宽表一致，取数时二选一，不要把两张表的同名指标相加。
 
 ## 依赖
 
