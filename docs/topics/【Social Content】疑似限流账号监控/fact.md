@@ -64,81 +64,79 @@
 
 ## 字段
 
-### 榜单口径
+### 三张榜共用的准入口径
 
-| 需求字段 | 定义 |
-|------|------|
-| 疑似限流账号 Ranking | `dt=D`；账号按 `channel + creator_id` 区分，样本视频首先必须在 T+1 当天存在真实播放快照，再仅保留当前启用账号：YouTube `videos.yt_channels.is_active = 1`、TikTok `videos.users.is_active = 1`、Instagram `videos.ig_channels.is_active = 1`。不使用 `dim_video.is_formal_video` 作为准入或排除条件。**判定以「发布日」为粒度**：过去 28 天有效样本视频数除以 4 得到周均发布量，只有周均发布量大于 3 的账号进入监控池。取账号在监控池内按发布日期倒序的最近 8 个发布日，最近 1 个发布日为观察对象、此前 7 个发布日为历史基准。历史基准 = 此前 7 个发布日**各自的当日 T+1 日均播放，再对 7 天求平均（各天等权，与当天视频条数无关）**；观察对象 = 最近发布日的当日 T+1 日均播放（同日多条取当日均值）。观察对象的发布日期必须恰好是 `D-1`——即**只在账号发布视频的次日榜单上评估一次，不发视频当天不进榜**；若观察对象当日日均低于历史基准的 30%，则进入疑似限流榜。全量历史分区已按该发布日粒度口径回刷 |
-| 播放量波动增加账号 Ranking | 准入口径与疑似限流榜完全一致（同池、同观察对象 `D-1`、同历史基准）；方向相反：观察对象当日 T+1 日均**高于**历史基准（任意上升，`recent > baseline`）即进入上升榜。上升比例 `boost_ratio = 近期日均 / 基准 - 1`，按其降序排名。注意「任意上升」口径较宽，且基准接近 0 的小号会产生极大的上升比例，榜首以此类账号为主 |
-| 连续零播放账号明细 | 准入口径与前两榜完全一致（同池、同观察对象 `D-1`）；命中条件是**最近 3 个发布日的 T+1 播放全为 0**，即 `recent_3day_zero_day_count = 3`。窗口按**发布日**计数（一天多条视频先聚成当天均值，算 1 个发布日），允许中间断更，不要求连续自然日。因观察对象恒为 `D-1`，账号只在发视频的次日被评估一次，不发视频当天不进榜——所以同一个持续零播放账号在榜上是断续出现的。该榜只做「满足 / 不满足」的布尔判定，**不统计零播放已持续多久**：连续段长度受最近 8 个发布日的窗口上限截断，报出来会让人低估账号已死时长，因此不落库。该榜不设 `baseline_t1_avg_view_count > 0` 护栏，长期零播放账号（基准也为 0）正是本榜目标对象 |
+账号按 `channel + creator_id` 区分。样本视频必须在 T+1 当天存在真实播放快照，且账号当前启用：YouTube `videos.yt_channels.is_active = 1`、TikTok `videos.users.is_active = 1`、Instagram `videos.ig_channels.is_active = 1`。不使用 `dim_video.is_formal_video` 作为准入或排除条件。
 
-### 疑似限流账号日榜字段
+判定以**发布日**为粒度：过去 28 天有效样本视频数除以 4 得到周均发布量，周均大于 3 的账号进入监控池；取账号在池内按发布日期倒序的最近 8 个发布日，最近 1 个为观察对象、此前 7 个为历史基准。观察对象的发布日期必须恰好是 `D-1`——**只在账号发视频的次日评估一次，不发视频当天不进榜**，所以同一账号在榜上是断续出现的。
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| 榜单日期 | `dt` | 已完整结束的美东自然日 `D`；观察对象为发布日期恰好等于 `D-1` 且已完成 T+1 观测的发布日 |
-| 监控池日期 | `pool_window_start_dt` / `pool_window_end_dt` | `D-28 ~ D-1`，共 28 个完整自然日 |
-| 监控池发布频率 | `pool_published_video_count` / `weekly_avg_published_video_count` | 过去 28 天具有真实 T+1 快照的有效样本视频数，及其除以 4 后的周均发布量；周均严格大于 3，即 28 天至少 13 个有效样本 |
-| 历史基准日期 | `baseline_start_dt` / `baseline_end_dt` | 此前 7 个基准发布日中最早和最晚的发布日期，不表示固定自然日窗口 |
-| 近期观察日期 | `recent_start_dt` / `recent_end_dt` | 观察发布日的发布日期，恒等于 `D-1`，两个字段取值相同 |
-| 排名 | — | 不落库排名字段；排序由展示层（chart）按对应指标（下降比例 / 下降绝对值 / 上升比例）降序完成 |
-| 账号 | `channel + creator_id` | 不做跨平台账号合并；展示名称、Handle 和 URL 取观察发布日（`D-1`）对应账号属性 |
-| 历史活跃发布日数 | `baseline_active_day_count` | 用作基准的发布日个数，取账号最近实际发过视频的 7 个发布日（可在日历上分散、非连续，允许中间断更）；是准入条件——监控池 28 天内不足 7 个发布日的账号不进榜，进榜账号该值恒为 7 |
-| 历史样本 | `baseline_video_count` / `baseline_t1_view_count` | 此前 7 个基准发布日的视频总条数（可大于 7）及这些视频在 T+1 日末的累计播放总和 |
-| 历史 T+1 篇均播放 | `baseline_t1_avg_view_count` | 此前 7 个发布日各自的当日 T+1 日均，再对 7 天求平均；各天等权，非 `baseline_t1_view_count / baseline_video_count` |
-| 近期样本 | `recent_video_count` / `recent_t1_view_count` | 观察发布日（`D-1`）当天的视频条数及这些视频在 T+1 日末的累计播放总和 |
-| 近期 T+1 篇均播放 | `recent_t1_avg_view_count` | 观察发布日（`D-1`）的当日 T+1 日均播放，即 `recent_t1_view_count / recent_video_count`；同日多条取均值 |
-| 近期 T+1 播放明细 | `recent_video_1_t1_view_count` / `recent_video_2_t1_view_count` / `recent_video_3_t1_view_count` | 兼容旧口径历史分区保留的逐条视频字段，新口径按发布日聚合，三者固定为 NULL |
-| 限流指数 | `throttle_ratio` | `recent_t1_avg_view_count / baseline_t1_avg_view_count`；按升序排名 |
-| 下降比例 | `decline_rate` | `1 - throttle_ratio`；chart 686 的排序维度 |
-| 下降绝对值 | `decline_abs` | `baseline_t1_avg_view_count - recent_t1_avg_view_count`，历史基准与近期日均的绝对差；chart 696 的排序维度，偏向基准播放高的大号 |
+三张榜的共用字段（口径完全一致，各榜只按方向过滤）：
 
-### 播放量波动增加账号日榜字段（上升方向）
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 榜单日期 | `dt` | 自然日 | 已完整结束的美东自然日 `D`；观察对象是发布日期恰好等于 `D-1` 且已完成 T+1 观测的发布日 | 单日筛选 | 不聚合 |
+| 监控池窗口 | `pool_window_start_dt` / `pool_window_end_dt` | 自然日 | `D-28 ~ D-1`，共 28 个完整自然日 | 无 | 不聚合 |
+| 账号 | `channel` / `creator_id` / `account_name` / `account_handle` / `account_url` | 账号 | 账号按 `channel + creator_id` 区分，不做跨平台合并；展示属性取观察发布日（`D-1`）的账号属性 | 按目标账号过滤 | 不聚合 |
+| 监控池发布频率 | `pool_published_video_count` / `weekly_avg_published_video_count` | 视频 | 过去 28 天具有真实 T+1 快照的有效样本视频数，及其除以 4 的周均发布量 | 准入要求周均严格大于 3，即 28 天至少 13 个有效样本 | 账号级快照指标，不可跨天或跨账号求和；跨期须回中间表按目标窗口重算 |
+| 历史基准窗口 | `baseline_start_dt` / `baseline_end_dt` / `baseline_active_day_count` | 发布日 | 此前 7 个基准发布日中最早与最晚的发布日期，不是固定自然日窗口；发布日可在日历上分散，允许中间断更 | 准入要求凑满 7 个发布日，进榜账号 `baseline_active_day_count` 恒为 7 | 账号级快照指标，不可跨天或跨账号求和；跨期须回中间表按目标窗口重算 |
+| 历史基准样本 | `baseline_video_count` / `baseline_t1_view_count` | 视频 | 此前 7 个基准发布日的视频总条数（可大于 7），及这些视频在 T+1 日末的累计播放总和 | 无 | 账号级快照指标，不可跨天或跨账号求和；跨期须回中间表按目标窗口重算 |
+| 历史 T+1 篇均播放 | `baseline_t1_avg_view_count` | 视频 | 此前 7 个发布日**各自的当日 T+1 日均，再对 7 天求平均**（各天等权）；不等于 `baseline_t1_view_count / baseline_video_count` | 无 | 账号级快照指标，不可跨天或跨账号求和；跨期须回中间表按目标窗口重算 |
+| 近期观察窗口 | `recent_start_dt` / `recent_end_dt` | 发布日 | 观察发布日的发布日期，恒等于 `D-1`，两个字段取值相同 | 无 | 账号级快照指标，不可跨天或跨账号求和；跨期须回中间表按目标窗口重算 |
+| 近期样本 | `recent_video_count` / `recent_t1_view_count` | 视频 | 观察发布日当天的视频条数，及这些视频在 T+1 日末的累计播放总和 | 无 | 账号级快照指标，不可跨天或跨账号求和；跨期须回中间表按目标窗口重算 |
+| 近期 T+1 篇均播放 | `recent_t1_avg_view_count` | 视频 | `recent_t1_view_count / recent_video_count`，同日多条取均值 | 无 | 账号级快照指标，不可跨天或跨账号求和；跨期须回中间表按目标窗口重算 |
 
-粒度、准入、监控池、历史基准、观察对象等口径与疑似限流榜完全一致（同源 DWS 波动准入中间表 `dws_social_creator_view_fluctuation_daily`），下表只列方向差异字段，其余同名字段口径相同。
+三张榜都不落库排名字段，排序由展示层 chart 按对应指标降序完成。
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| 上升比例 | `boost_ratio` | `recent_t1_avg_view_count / baseline_t1_avg_view_count - 1`，观察发布日日均相对历史基准的上升幅度；按降序排名 |
-| 命中条件 | — | `recent_t1_avg_view_count > baseline_t1_avg_view_count`（任意上升）；不含 `throttle_ratio` / `decline_rate` / `decline_abs` / 逐条视频字段 |
+### ads_daily_social_creator_suspected_throttle_rankings（疑似限流，下降方向）
 
-### 连续零播放账号日榜字段（零播放方向）
+命中条件：观察对象当日 T+1 日均低于历史基准的 30%。全量历史分区已按该发布日粒度口径回刷。
 
-粒度、准入、监控池、观察对象等口径与前两榜一致（同源 DWS 波动准入中间表），下表只列本榜特有字段，其余同名字段（`dt` / `channel` / `creator_id` / `account_*` / `pool_*` / `baseline_*` / `recent_*`）口径相同。
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 限流指数 | `throttle_ratio` | 视频 | `recent_t1_avg_view_count / baseline_t1_avg_view_count`；按升序排名 | `baseline_t1_avg_view_count > 0` | 不可求和或平均；跨期须用目标窗口的日均重算 |
+| 下降比例 | `decline_rate` | 视频 | `1 - throttle_ratio`；chart 686 的排序维度 | 同上 | 不可求和或平均 |
+| 下降绝对值 | `decline_abs` | 视频 | `baseline_t1_avg_view_count - recent_t1_avg_view_count`；chart 696 的排序维度，偏向基准播放高的大号 | 同上 | 不可求和或平均 |
+| 近期 T+1 播放明细 | `recent_video_1_t1_view_count` / `recent_video_2_t1_view_count` / `recent_video_3_t1_view_count` | 视频 | 兼容旧口径历史分区保留的逐条视频字段；新口径按发布日聚合，三者固定为 `NULL` | 无 | 不使用 |
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| 零播放窗口日期 | `zero_window_start_dt` / `zero_window_end_dt` | 最近 3 个发布日中最早和最晚的发布日期；`zero_window_end_dt` 恒等于观察发布日 `D-1`（也等于 `recent_end_dt`）。两个日期之间的自然日跨度不固定，取决于账号发布节奏 |
-| 零播放窗口发布日数 | `zero_window_day_count` | 固定为 3，随脚本常量 `ZERO_WINDOW_DAY_COUNT` 落库，便于口径变更后区分历史分区 |
-| 观察发布日播放 | `recent_t1_view_count` / `recent_t1_avg_view_count` | 进榜账号恒为 0，可用作校验；另外两个发布日是否为 0 靠 ADS 与中间表的键集交叉核对保证 |
-| 历史基准日均 | `baseline_t1_avg_view_count` | 说明账号「本来能跑到多少」，是本榜最有信息量的排序维度（chart 720 按其降序）。注意 7 个基准发布日中已有 2 个落在零播放窗口内，会把基准拉低；账号长期零播放时基准为 0 |
-| 零播放已持续多久 | — | **不落库**。连续段长度受最近 8 个发布日的窗口上限截断，撞到上限后无法区分「刚好 8 个」和「远超 8 个」，报出来会低估账号已死时长；需求只要「最近 3 个发布日全 0」的布尔判定，因此不提供该派生值 |
+### ads_daily_social_creator_view_boost_rankings（播放量波动增加，上升方向）
 
-### 账号播放波动准入中间表字段
+命中条件：`recent_t1_avg_view_count > baseline_t1_avg_view_count`（任意上升）。该口径较宽，且基准接近 0 的小号会产生极大的上升比例，榜首以此类账号为主。
 
-`dws_social_creator_view_fluctuation_daily`：`dt + channel + creator_id` 粒度，收录某统计日通过监控池准入的**全部**账号（下降/持平/上升/零播放都在内），供三张 ADS 榜按方向过滤。不含方向判定字段（`throttle_ratio` / `boost_ratio` 等由各 ADS 自行派生）。
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 上升比例 | `boost_ratio` | 视频 | `recent_t1_avg_view_count / baseline_t1_avg_view_count - 1`；按降序排名 | `baseline_t1_avg_view_count > 0` | 不可求和或平均 |
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| 统计日 / 监控池日期 | `dt` / `pool_window_start_dt` / `pool_window_end_dt` | `dt` 为已完整结束的美东自然日；监控池为 `D-28 ~ D-1` |
-| 账号 | `channel` / `creator_id` / `account_name` / `account_handle` / `account_url` | 展示属性取观察发布日（`D-1`）对应账号属性 |
-| 历史基准 | `baseline_start_dt` / `baseline_end_dt` / `baseline_active_day_count` / `baseline_video_count` / `baseline_t1_view_count` / `baseline_t1_avg_view_count` | 最近 7 个发布日；`baseline_t1_avg_view_count` = 各发布日日均再对 7 天求平均 |
-| 近期观察 | `recent_start_dt` / `recent_end_dt` / `recent_video_count` / `recent_t1_view_count` / `recent_t1_avg_view_count` | 观察发布日恒为 `D-1`；`recent_t1_avg_view_count` 为当日 T+1 日均 |
-| 发布频率 | `pool_published_video_count` / `weekly_avg_published_video_count` | 过去 28 天有效样本视频数及其周均；准入要求周均 > 3 |
-| 最近 3 个发布日零播放 | `recent_3day_zero_day_count` / `recent_3day_start_dt` | 最近 3 个发布日中 T+1 播放为 0 的发布日数（取值 `0 ~ 3`）及这 3 个发布日中最早的发布日期。`= 3` 即零播放榜的命中条件，是该榜的唯一判定依据；窗口固定 3 个发布日，不做连续段长度统计 |
-| 准入范围 | — | 仅保留 `周均 > 3` 且 `凑满 7 个基准发布日` 且 `观察对象 = D-1` 的账号。**不含** `baseline_t1_avg_view_count > 0`——该护栏已下移到下降榜和上升榜的 ADS 侧，以便长期零播放账号（基准为 0）能保留在中间表内供零播放榜使用 |
+本榜不含 `throttle_ratio` / `decline_rate` / `decline_abs` / 逐条视频字段。
 
-### 账号发布日期 T+1 中间表字段
+### ads_daily_social_creator_zero_view_rankings（连续零播放）
 
-| 需求字段 | 落地字段 | 口径 |
-|------|------|------|
-| 发布日期 / T+1 日期 | `published_dt` / `t1_dt` | 按 `America/Toronto` 切日，且 `t1_dt = published_dt + 1` |
-| 发布视频数 | `published_video_count` | 账号在该发布日期且 T+1 当天存在真实快照的有效样本视频数 |
-| T+1 真实观测视频数 | `observed_t1_video_count` | 与 `published_video_count` 一致；中间表由真实快照直接驱动，不使用 dense state 的沿用值代替 |
-| T+1 真实观测播放总和 | `observed_t1_view_count` | 仅汇总存在 T+1 真实快照的视频日末累计播放 |
-| T+1 篇均播放 | `t1_avg_view_count` | 有效样本的 T+1 真实观测播放总和 / 有效样本数 |
-| T+1 快照完整 | `is_t1_snapshot_complete` | 兼容字段；因中间表只保留真实 T+1 快照样本，固定为 `TRUE` |
-| 视频 T+1 明细 | `video_samples` | 保存账号当日各视频的 `video_key`、发布时间、T+1 播放量和真实快照标记；不改变中间表粒度。日粒度榜单新口径已不再消费该数组，ADS 直接使用发布日级 `published_video_count` / `observed_t1_view_count` / `t1_avg_view_count` |
+命中条件：最近 3 个发布日的 T+1 播放全为 0（`recent_3day_zero_day_count = 3`）。窗口按**发布日**计数，允许中间断更，不要求连续自然日。本榜不设 `baseline_t1_avg_view_count > 0` 护栏——长期零播放账号（基准也为 0）正是目标对象。
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 零播放窗口 | `zero_window_start_dt` / `zero_window_end_dt` | 发布日 | 最近 3 个发布日中最早与最晚的发布日期；`zero_window_end_dt` 恒等于观察发布日 `D-1`。两日期之间的自然日跨度不固定，取决于账号发布节奏 | 无 | 不聚合 |
+| 零播放窗口发布日数 | `zero_window_day_count` | 发布日 | 固定为 3，随脚本常量 `ZERO_WINDOW_DAY_COUNT` 落库，便于口径变更后区分历史分区 | 无 | 不聚合 |
+| 观察发布日播放 | `recent_t1_view_count` / `recent_t1_avg_view_count` | 视频 | 进榜账号恒为 0，可用作校验；另外两个发布日是否为 0 由 ADS 与中间表的键集交叉核对保证 | 无 | 不聚合 |
+| 历史基准日均 | `baseline_t1_avg_view_count` | 视频 | 说明账号「本来能跑到多少」，是本榜最有信息量的排序维度（chart 720 按其降序）；7 个基准发布日中已有 2 个落在零播放窗口内会把基准拉低，账号长期零播放时基准为 0 | 无 | 不可求和或平均 |
+
+「零播放已持续多久」**不落库**：连续段长度受最近 8 个发布日的窗口上限截断，撞到上限后无法区分「刚好 8 个」和「远超 8 个」，报出来会低估账号已死时长；需求只要「最近 3 个发布日全 0」的布尔判定。
+
+### 中间层 dws_social_creator_view_fluctuation_daily
+
+`dws_social_creator_view_fluctuation_daily`（`dt + channel + creator_id`）收录某统计日通过监控池准入的**全部**账号（下降 / 持平 / 上升 / 零播放都在内），供三张 ADS 榜按方向过滤；不含方向判定字段，`throttle_ratio` / `boost_ratio` 由各 ADS 自行派生。其准入范围**不含** `baseline_t1_avg_view_count > 0`——该护栏下移到下降榜和上升榜的 ADS 侧，以便长期零播放账号保留在中间表内供零播放榜使用。除上表共用字段外，另有 `recent_3day_zero_day_count` / `recent_3day_start_dt`：最近 3 个发布日中 T+1 播放为 0 的发布日数（取值 `0 ~ 3`）及这 3 个发布日中最早的发布日期。
+
+#### 中间层 dws_social_creator_published_t1_daily
+
+粒度 `published_dt + channel + creator_id`，`t1_dt = published_dt + 1`，按 `America/Toronto` 切日。
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 发布视频数 | `published_video_count` | 视频 | 账号在该发布日期且 T+1 当天存在真实快照的有效样本视频数 | 无 | 可跨发布日求和 |
+| T+1 真实观测视频数 | `observed_t1_video_count` | 视频 | 与 `published_video_count` 一致；中间表由真实快照直接驱动，不用 dense state 的沿用值代替 | 无 | 可跨发布日求和 |
+| T+1 真实观测播放总和 | `observed_t1_view_count` | 视频 | 只汇总存在 T+1 真实快照的视频日末累计播放 | 无 | 可跨发布日求和 |
+| T+1 篇均播放 | `t1_avg_view_count` | 视频 | `observed_t1_view_count / observed_t1_video_count` | 无 | 不可求和或平均；跨发布日须先汇总分子分母 |
+| T+1 快照完整 | `is_t1_snapshot_complete` | 视频 | 兼容字段；中间表只保留真实 T+1 快照样本，固定为 `TRUE` | 无 | 不聚合 |
+| 视频 T+1 明细 | `video_samples` | 视频 | 账号当日各视频的 `video_key`、发布时间、T+1 播放量和真实快照标记；不改变中间表粒度。日榜新口径已不再消费该数组 | 无 | 不聚合 |
 
 ## 依赖
 
