@@ -169,6 +169,19 @@ def check_fields(
             index += 1
 
 
+def check_metric_columns(
+    content: str, fact: str, blocks: list[dict[str, object]], errors: list[str]
+) -> None:
+    """拥有 active ADS 表的 topic，字段表必须声明统计主体和聚合限制。"""
+    if not any(
+        str(block["table"]).startswith("ads_") and block["status"] != "deprecated" for block in blocks
+    ):
+        return
+    for column in ("统计主体", "聚合限制"):
+        if not re.search(rf"^\|[^\n]*\|\s*{column}\s*\|", content, re.M):
+            errors.append(f"{fact}: 字段表缺少「{column}」列")
+
+
 def check(root: Path = ROOT) -> list[str]:
     root = root.resolve()
     topics = root / "docs/topics"
@@ -208,6 +221,7 @@ def check(root: Path = ROOT) -> list[str]:
 
         declared = {str(block["table"]) for block in blocks if str(block["table"]) in ddl_paths}
         check_fields(lines, fact, declared, schemas, errors)
+        check_metric_columns(content, fact, blocks, errors)
 
     for table in sorted(ddl_paths):
         owners = declarations.get(table, [])
