@@ -53,68 +53,41 @@
 
 ## 字段
 
-| 需求字段 | 定义 |
-|---|---|
-| 日期 | 报表日期，按 `America/New_York` 展示；底层社媒状态表与 `America/Toronto` 同属美东日期边界 |
-| 正式号视频 | `videos.platform_video_tags.tag_type = 'env' AND videos.platform_video_tags.tag_value = 'prod'`；平台字段为 `platform`，视频字段为 `platform_video_id` |
-| 全部已发布视频新增总播放量 | 当天统计截至当日已经发布过的全部正式号视频，当日 `day_end_views - 前一日 day_end_views` 的总和 |
-| 当日新增发布视频数 | 首次采集到 `views > 0` 的日期落在当天的正式号视频数 |
-| 平均 LTV | 首次采集正播放日期为 `dt-6` 的正式号视频，在 `dt` 当天的累计 `views` 均值 |
-| 内容账号总数 | 截至当天，账号下至少有一个正式号视频首次采集到 `views > 0` 的去重内容账号数；账号键为 `channel + creator_id` |
-| 全部已发布视频新增总点赞数 | 当天统计截至当日已经发布过的全部正式号视频，当日 `day_end_likes - 前一日 day_end_likes` 的总和 |
-| 每日新增总 views 的周均值 | 从 `2026-04-13` 起每 7 天聚合，仅统计完整 7 天窗口内 `daily_view_increment` 的算术平均值 |
-| 周增长倍数 | 当前 7 天窗口的每日新增 views 周均值 / 上一个 7 天窗口的每日新增 views 周均值；首周展示为 `1` |
-| 周增长倍数卡片 | 排除首周基准后，对周增长倍数取算术平均值 |
-| 月度增长倍数 | `周增长倍数卡片 ^ (30.5 / 7)` |
-| 季度增长倍数 | `周增长倍数卡片 ^ (91.5 / 7)` |
+统计对象统一为正式号视频：`videos.platform_video_tags.tag_type = 'env' AND tag_value = 'prod'`，视频键为 `platform + platform_video_id`；`decom.dim_video.is_formal_video` 承接该标记，`formal_tag_created_ts_utc` 为同一 `video_key` 的最早正式号 tag 创建时间。日期按 `America/New_York` 展示，与 `America/Toronto` 同属美东日期边界。
 
-## 已落地字段
+### ads_daily_formal_video_increment
 
-### `decom.dim_video`
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 新增总播放量 | `daily_view_increment` | 视频 | 截至当日已发布的全部正式号视频，当日 `day_end_views` 与前一日的差分汇总 | 仅正式号视频 | 可跨天求和 |
+| 新增总点赞数 | `daily_like_increment` | 视频 | 同上，基于 `day_end_likes` 差分 | 仅正式号视频 | 可跨天求和 |
+| 当日新增发布视频数 | `new_video_count` | 视频 | 首次采集到 `day_end_views > 0` 的日期落在当天的正式号视频数 | 仅正式号视频 | 可跨天求和 |
+| 平均 LTV | `avg_ltv_7d_views` | 视频 | `ltv_7d_view_count / ltv_7d_video_count`；样本为首次采集正播放日期为 `dt-6` 的正式号视频，取其在 `dt` 当天的累计 views 均值；无样本时返回 `0` | 仅正式号视频 | 不可求和或平均；跨天须用 `SUM(ltv_7d_view_count) / SUM(ltv_7d_video_count)` 重算 |
+| LTV 样本视频数 | `ltv_7d_video_count` | 视频 | 首次采集正播放日期为 `dt-6` 的正式号视频数 | 仅正式号视频 | 可跨天求和（作为分母） |
+| LTV 样本累计 views | `ltv_7d_view_count` | 视频 | LTV 样本视频在 `dt` 当天的累计 views 总和 | 仅正式号视频 | 可跨天求和（作为分子） |
+| 内容账号总数 | `creator_count` | 内容账号（`channel + creator_id`） | 按账号下第一个正式号视频首次采集到 `views > 0` 的日期起每日累计去重；不按视频发布时间或 tag 创建时间累计 | 仅正式号视频 | 累计值，取目标日当天一行，不可跨天求和 |
+| 正式号视频累计数 | `formal_video_count_to_date` | 视频 | 按视频 `first_positive_view_dt` 起每日累计去重视频数 | 仅正式号视频 | 累计值，取目标日当天一行，不可跨天求和 |
 
-| 需求字段 | 落地表 | 落地字段 | 口径 |
-|---|---|---|---|
-| 正式号视频 | `decom.dim_video` | `is_formal_video` | 来自 `videos.platform_video_tags` 的 `env=prod` 标记 |
-| 正式号 tag 创建时间 | `decom.dim_video` | `formal_tag_created_ts_utc` | 同一 `video_key` 的最早正式号 tag 创建时间 |
+### ads_weekly_formal_video_increment_growth
 
-### `decom.ads_daily_formal_video_increment`
-
-| 需求字段 | 落地表 | 落地字段 | 口径 |
-|---|---|---|---|
-| 日期 | `decom.ads_daily_formal_video_increment` | `dt` | 从 `2026-03-30` 到美东当天逐日补齐 |
-| 全部已发布视频新增总播放量 | `decom.ads_daily_formal_video_increment` | `daily_view_increment` | 正式号视频当日累计 views 与前一日累计 views 的差分汇总 |
-| 全部已发布视频新增总点赞数 | `decom.ads_daily_formal_video_increment` | `daily_like_increment` | 正式号视频当日累计 likes 与前一日累计 likes 的差分汇总 |
-| 当日新增发布视频数 | `decom.ads_daily_formal_video_increment` | `new_video_count` | 首次采集到 `day_end_views > 0` 的正式号视频数 |
-| 平均 LTV | `decom.ads_daily_formal_video_increment` | `avg_ltv_7d_views` | `ltv_7d_view_count / ltv_7d_video_count` |
-| LTV 样本视频数 | `decom.ads_daily_formal_video_increment` | `ltv_7d_video_count` | 首次采集正播放日期为 `dt-6` 的正式号视频数 |
-| LTV 样本累计 views | `decom.ads_daily_formal_video_increment` | `ltv_7d_view_count` | LTV 样本视频在 `dt` 当天的累计 views 总和 |
-| 内容账号总数 | `decom.ads_daily_formal_video_increment` | `creator_count` | 先取账号下正式号视频最早 `first_positive_view_dt`，从该日期起每日累计去重 `channel + creator_id` |
-| 正式号视频累计数 | `decom.ads_daily_formal_video_increment` | `formal_video_count_to_date` | 按视频 `first_positive_view_dt` 从该日期起每日累计去重视频数 |
-
-### `decom.ads_weekly_formal_video_increment_growth`
-
-| 需求字段 | 落地表 | 落地字段 | 口径 |
-|---|---|---|---|
-| 周序号 | `decom.ads_weekly_formal_video_increment_growth` | `week_index` | `DIV(DATE_DIFF(dt, DATE '2026-04-13', DAY), 7)` |
-| 周窗口 | `decom.ads_weekly_formal_video_increment_growth` | `week_start_dt` / `week_end_dt` / `week_label` | 从 `2026-04-13` 起每 7 天一个完整窗口，仅保留满 7 天的周 |
-| 每日新增总 views 的周均值 | `decom.ads_weekly_formal_video_increment_growth` | `weekly_avg_daily_view_increment` | 完整 7 天窗口内 `daily_view_increment` 的算术平均值 |
-| 周增长倍数 | `decom.ads_weekly_formal_video_increment_growth` | `week_growth_multiple` | 当前周均值 / 前一周均值；首周为 `1` |
-| 周增长倍数卡片 | `decom.ads_weekly_formal_video_increment_growth` | `avg_week_growth_multiple` | 排除首周后的 `week_growth_multiple` 平均值 |
-| 月度增长倍数 | `decom.ads_weekly_formal_video_increment_growth` | `monthly_growth_multiple` | `avg_week_growth_multiple ^ (30.5 / 7)` |
-| 季度增长倍数 | `decom.ads_weekly_formal_video_increment_growth` | `quarterly_growth_multiple` | `avg_week_growth_multiple ^ (91.5 / 7)` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 周序号与窗口 | `week_index` / `week_start_dt` / `week_end_dt` / `week_label` | 固定 7 日窗口 | `week_index = DIV(DATE_DIFF(dt, DATE '2026-04-13', DAY), 7)`；从 `2026-04-13` 起每 7 天一个窗口，只保留满 7 天的周 | 无 | 不聚合 |
+| 周内总新增 views | `weekly_view_increment` | 视频 | 完整 7 天窗口内 `daily_view_increment` 之和 | 无 | 可跨周求和 |
+| 每日新增总 views 周均值 | `weekly_avg_daily_view_increment` | 视频 | 完整 7 天窗口内 `daily_view_increment` 的算术平均值 | 只统计完整 7 天窗口 | 不可跨周平均；须用 `SUM(weekly_view_increment) / SUM(day_count)` 重算 |
+| 上周周均值 | `previous_week_avg_daily_view_increment` | 视频 | 上一个 7 天窗口的周均值，作为增长倍数分母 | 无 | 不聚合 |
+| 周增长倍数 | `week_growth_multiple` | 视频 | 当前周均值 / 上一周周均值；首周固定为 `1`；非首周上周均值为 0 时返回 `NULL` | 无 | 不可求和或平均 |
+| 周增长倍数卡片 | `avg_week_growth_multiple` | 视频 | 排除首周基准后的 `week_growth_multiple` 算术平均值 | 排除首周 | 已是全周期汇总值，不可再聚合 |
+| 月度增长倍数 | `monthly_growth_multiple` | 视频 | `avg_week_growth_multiple ^ (30.5 / 7)` | 无 | 已是全周期汇总值，不可再聚合 |
+| 季度增长倍数 | `quarterly_growth_multiple` | 视频 | `avg_week_growth_multiple ^ (91.5 / 7)` | 无 | 已是全周期汇总值，不可再聚合 |
 
 补充说明：
 
 - 该主题只看正式号视频，不再额外维护 AI-Fashion 账号名单
 - YouTube 累计播放与点赞复用 Social Content v2 链路，来源为 `videos.yt_video_stats_log.view_count / like_count`；TikTok、Instagram 数据源保持不变
-- 日增播放、日增点赞和新增视频数可跨日求和；累计账号/视频数、平均 LTV 和所有增长倍数不可跨日或跨周求和、平均
-- 平均 LTV 无样本时落 `0`；周增长倍数首周固定为 `1`，非首周的前周均值为 0 时返回 `NULL`
 - ECN 日表从 `2026-03-30` 开始，而 v2 状态链路从 `2026-03-13` 开始构建，能够承接日增量首日差分和 7 天 LTV 所需历史
 - `dim_video` 保留 Social Content 原有 YouTube AI 团队排除规则，但正式号 tag 命中的视频会作为例外保留
-- 内容账号总数不按视频发布时间或正式号 tag `created_at` 累计，而是按账号下第一个正式号视频首次采集到 `views > 0` 的日期累计；账号进入正式号集合后，后续每日都计入
 - 如果正式号 tag 视频尚未出现在平台主视频表中，`dim_video` 使用 tag 创建时间作为 `published_dt` 兜底；新增视频和 LTV 仍以首次采集正播放日期为准
-- 截至 2026-05-12 本次上线校验，`env=prod` 正式号视频共 292 条、内容账号 289 个，正式号 tag 日期均为美东 `2026-05-11`；正式号累计账号/视频不使用该 tag 日期入表，而等待首次采集正播放日期
-- 2026-05-12 首次上线时旧 analytics 源暂无正式号正播放快照；该结论仅是历史校验记录，切换到 stats 链路后不再作为当前数据状态判断依据
 
 ## 依赖
 
