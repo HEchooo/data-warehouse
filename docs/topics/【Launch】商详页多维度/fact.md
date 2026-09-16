@@ -24,7 +24,7 @@
 - 表：`my-project-8584-jetonai.decom.ads_daily_launch_product_detail_dimension`
 - 状态：`active`
 - 粒度：一行代表一个日周期和 5 个来源维度组合
-- 时区：`America/Toronto`
+- 时区：`America/New_York`（与 ETL 实现一致）
 - 数据范围：Launch 商详页按来源维度拆分的日访问。
 - 必要过滤：按目标来源维度过滤。
 - 不包含：第三方外跳。
@@ -34,7 +34,7 @@
 - 表：`my-project-8584-jetonai.decom.ads_weekly_launch_product_detail_dimension`
 - 状态：`active`
 - 粒度：一行代表一个自然周和 5 个来源维度组合
-- 时区：`America/Toronto`
+- 时区：`America/New_York`（与 ETL 实现一致）
 - 数据范围：Launch 商详页按来源维度拆分的周访问。
 - 必要过滤：按目标来源维度过滤。
 - 不包含：第三方外跳。
@@ -44,7 +44,7 @@
 - 表：`my-project-8584-jetonai.decom.ads_monthly_launch_product_detail_dimension`
 - 状态：`active`
 - 粒度：一行代表一个自然月和 5 个来源维度组合
-- 时区：`America/Toronto`
+- 时区：`America/New_York`（与 ETL 实现一致）
 - 数据范围：Launch 商详页按来源维度拆分的月访问。
 - 必要过滤：按目标来源维度过滤。
 - 不包含：第三方外跳。
@@ -54,7 +54,7 @@
 - 表：`my-project-8584-jetonai.decom.ads_daily_launch_product_detail_video_source`
 - 状态：`active`
 - 粒度：一行代表一个日周期和视频来源分组
-- 时区：`America/Toronto`
+- 时区：`America/New_York`（与 ETL 实现一致）
 - 数据范围：Launch 商详页有、无视频来源的日概览。
 - 必要过滤：按目标来源分组过滤。
 - 不包含：5 个来源维度明细和第三方外跳。
@@ -64,7 +64,7 @@
 - 表：`my-project-8584-jetonai.decom.ads_weekly_launch_product_detail_video_source`
 - 状态：`active`
 - 粒度：一行代表一个自然周和视频来源分组
-- 时区：`America/Toronto`
+- 时区：`America/New_York`（与 ETL 实现一致）
 - 数据范围：Launch 商详页有、无视频来源的周概览。
 - 必要过滤：按目标来源分组过滤。
 - 不包含：5 个来源维度明细和第三方外跳。
@@ -74,7 +74,7 @@
 - 表：`my-project-8584-jetonai.decom.ads_monthly_launch_product_detail_video_source`
 - 状态：`active`
 - 粒度：一行代表一个自然月和视频来源分组
-- 时区：`America/Toronto`
+- 时区：`America/New_York`（与 ETL 实现一致）
 - 数据范围：Launch 商详页有、无视频来源的月概览。
 - 必要过滤：按目标来源分组过滤。
 - 不包含：5 个来源维度明细和第三方外跳。
@@ -97,67 +97,33 @@
 
 ## 字段
 
-### 明细表（按 5 个维度拆分）
+只统计商品页浏览 `v_launch_product_detail`，不含第三方外跳。日、周、月三套表字段一致，周期字段分别为 `dt` / `week_start_dt` + `week_end_dt`（周一至周日）/ `month`（月初日期）。维度组合天然稀疏，不做零值行兜底。
 
-| 需求字段 | 定义 |
-|---|---|
-| 视频代码 | `args.video_id`；为空归为「无法识别来源」 |
-| 投放平台 | `args.channel`；为空归为「-」 |
-| 红人账号 | `args.kol_name`；为空归为「-」 |
-| 国家 | `args.country`；为空归为「-」 |
-| 商家 | `args.merchant`；为空归为「-」 |
-| 商品页 PV | `COUNT(DISTINCT raw_event_id)` |
-| 商品页 UV | `COUNT(DISTINCT prop_device_id)` |
-| PV 贡献占比 | 当前维度组合 PV / 当前 dt/week/month 全维度合计 PV |
-| UV 贡献占比 | 当前维度组合 UV / 当前 dt/week/month 全维度合计 UV（合计 UV 按 `device_id` 去重，不对各维度 UV 求和） |
-| 人均访问次数 | 当前维度组合 PV / 当前维度组合 UV |
-| 周期粒度 | dt / week（周一起，ISO 周）/ month 三个独立表 |
+### 明细表（按 5 个来源维度拆分）
 
-### 来源概览表（不拆维度，按 video_id 是否有来源分桶）
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 视频代码 | `video_id` | 来源视频 | `COALESCE(NULLIF(JSON_VALUE(args,'$.video_id'), ''), '无法识别来源')` | 按目标维度过滤 | 不聚合 |
+| 投放平台 | `channel` | 投放平台 | `COALESCE(NULLIF(JSON_VALUE(args,'$.channel'), ''), '-')` | 按目标维度过滤 | 不聚合 |
+| 红人账号 | `kol_name` | 红人 | `COALESCE(NULLIF(JSON_VALUE(args,'$.kol_name'), ''), '-')` | 按目标维度过滤 | 不聚合 |
+| 国家 | `country` | 国家 | `COALESCE(NULLIF(JSON_VALUE(args,'$.country'), ''), '-')` | 按目标维度过滤 | 不聚合 |
+| 商家 | `merchant` | 商家 | `COALESCE(NULLIF(JSON_VALUE(args,'$.merchant'), ''), '-')` | 按目标维度过滤 | 不聚合 |
+| 商品页 PV | `product_detail_pv` | 事件 | 维度组合内 `raw_event_id` 去重后求和 | 无 | 可跨天求和 |
+| 商品页 UV | `product_detail_uv` | 设备 | 维度组合内 `pv > 0` 的 `device_id` 去重计数 | 无 | 不可跨天或跨维度求和；须回 `dws_launch_product_detail_device_daily` 按 `device_id` 重新去重 |
+| PV 贡献占比 | `pv_contribution_rate` | 事件 | `SAFE_DIVIDE(维度 PV, 当期全维度合计 PV)`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨周期或跨维度须分别汇总分子分母后重算 |
+| UV 贡献占比 | `uv_contribution_rate` | 设备 | `SAFE_DIVIDE(维度 UV, 当期全维度合计 UV)`；合计 UV 单独按 `device_id` 去重，不对各维度 UV 求和 | 无 | 不可 `AVG`；跨周期或跨维度须分别汇总分子分母后重算 |
+| 人均访问次数 | `avg_visit_per_uv` | 设备 | `SAFE_DIVIDE(维度 PV, 维度 UV)`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨周期或跨维度须分别汇总分子分母后重算 |
 
-| 需求字段 | 定义 |
-|---|---|
-| 商品页 PV | 当期全量 `COUNT(DISTINCT raw_event_id)`（不区分来源） |
-| 商品页 UV | 当期全量 `COUNT(DISTINCT prop_device_id)`（不区分来源） |
-| 有来源 UV | `video_id != '无法识别来源'` 的 `prop_device_id` 去重计数 |
-| 无法识别来源 UV | `video_id = '无法识别来源'` 的 `prop_device_id` 去重计数 |
-| 周期粒度 | dt / week（周一起）/ month 三个独立表 |
+### 来源概览表（按 `video_id` 是否有来源分桶）
 
-## 已落地字段
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 商品页 PV | `product_detail_pv` | 事件 | 当期全量 `raw_event_id` 去重后求和，不区分来源 | 无 | 可跨天求和 |
+| 商品页 UV | `product_detail_uv` | 设备 | 当期全量 `pv > 0` 的 `device_id` 去重计数 | 无 | 不可跨天或跨维度求和；须回 `dws_launch_product_detail_device_daily` 按 `device_id` 重新去重 |
+| 有来源 UV | `has_source_uv` | 设备 | `video_id != '无法识别来源' AND pv > 0` 的 `device_id` 去重计数 | 无 | 不可跨天或跨维度求和；须回 `dws_launch_product_detail_device_daily` 按 `device_id` 重新去重 |
+| 无法识别来源 UV | `no_source_uv` | 设备 | `video_id = '无法识别来源' AND pv > 0` 的 `device_id` 去重计数 | 无 | 不可跨天或跨维度求和；须回 `dws_launch_product_detail_device_daily` 按 `device_id` 重新去重 |
 
-### `decom.ads_daily_launch_product_detail_dimension` / `decom.ads_weekly_launch_product_detail_dimension` / `decom.ads_monthly_launch_product_detail_dimension`
-
-| 需求字段 | 落地字段 | 口径 |
-|---|---|---|
-| 日期/周/月 | `dt` / `week_start_dt` + `week_end_dt` / `month` | 周固定周一至周日；月为月初日期 |
-| 视频代码 | `video_id` | `COALESCE(NULLIF(JSON_VALUE(args,'$.video_id'), ''), '无法识别来源')` |
-| 投放平台 | `channel` | `COALESCE(NULLIF(JSON_VALUE(args,'$.channel'), ''), '-')` |
-| 红人账号 | `kol_name` | `COALESCE(NULLIF(JSON_VALUE(args,'$.kol_name'), ''), '-')` |
-| 国家 | `country` | `COALESCE(NULLIF(JSON_VALUE(args,'$.country'), ''), '-')` |
-| 商家 | `merchant` | `COALESCE(NULLIF(JSON_VALUE(args,'$.merchant'), ''), '-')` |
-| 商品页 PV | `product_detail_pv` | 维度组合内 `raw_event_id` 去重后求和 |
-| 商品页 UV | `product_detail_uv` | 维度组合内 `pv > 0` 的 `device_id` 去重计数 |
-| PV 贡献占比 | `pv_contribution_rate` | `SAFE_DIVIDE(维度 PV, 当期全维度合计 PV)` |
-| UV 贡献占比 | `uv_contribution_rate` | `SAFE_DIVIDE(维度 UV, 当期全维度合计 UV)`；合计 UV 单独按 `device_id` 去重计算 |
-| 人均访问次数 | `avg_visit_per_uv` | `SAFE_DIVIDE(维度 PV, 维度 UV)` |
-
-### `decom.ads_daily_launch_product_detail_video_source` / `decom.ads_weekly_launch_product_detail_video_source` / `decom.ads_monthly_launch_product_detail_video_source`
-
-| 需求字段 | 落地字段 | 口径 |
-|---|---|---|
-| 日期/周/月 | `dt` / `week_start_dt` + `week_end_dt` / `month` | 同上 |
-| 商品页 PV | `product_detail_pv` | 当期全量 `raw_event_id` 去重后求和 |
-| 商品页 UV | `product_detail_uv` | 当期全量 `pv > 0` 的 `device_id` 去重计数 |
-| 有来源 UV | `has_source_uv` | `video_id != '无法识别来源' AND pv > 0` 的 `device_id` 去重计数 |
-| 无法识别来源 UV | `no_source_uv` | `video_id = '无法识别来源' AND pv > 0` 的 `device_id` 去重计数 |
-
-补充说明：
-
-- 只统计商品页浏览（`v_launch_product_detail`），不含第三方外跳
-- 明细表维度组合天然稀疏，不做零值行兜底（与总览报表固定补零曝光日不同）
-- 分母为 0 时 `SAFE_DIVIDE` 返回 NULL
-- PV 贡献占比、UV 贡献占比和人均访问次数不可跨周期或维度直接求和、平均；应使用目标粒度的 PV 与全局去重 UV 重算
-- 同一设备当期若既有可识别来源事件、也有无法识别来源事件，会分别计入 `has_source_uv` 和 `no_source_uv` 两个桶，因此二者之和不一定等于 `product_detail_uv`
+同一设备当期若既有可识别来源事件、也有无法识别来源事件，会分别计入两个桶，因此 `has_source_uv + no_source_uv` 不一定等于 `product_detail_uv`。
 
 ## 依赖
 
