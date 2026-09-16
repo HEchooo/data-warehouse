@@ -51,45 +51,43 @@ Style Me 用户的次日、第 7 日、第 30 日留存率。
 
 ## 字段
 
-| ADS 字段 | 含义 | 计算 |
-|---|---|---|
-| `styleme_user_uv` | Style Me 用户数（留存基数） | 群组定义 |
-| `next_day_retention_rate` | 次日留存率 | retained / (retained + not_retained) |
-| `next_day_retained_uv` | 次日留存人数 | - |
-| `day_7_retention_rate` | 第 7 日留存率 | 同上 |
-| `day_7_retained_uv` | 第 7 日留存人数 | - |
-| `day_30_retention_rate` | 第 30 日留存率 | 同上 |
-| `day_30_retained_uv` | 第 30 日留存人数 | - |
-| `popup_exposure_uv` | 弹窗曝光 UV（三场景共用） | `v_styleme_popup` UV |
-| `quick_try_btn_uv` | Quick Mode Try it 点击 UV | `c_styleme_try_btn && button_type='quick_signle'` |
-| `quick_penetration_rate` | Quick Mode 渗透率 | quick_try_btn_uv / popup_exposure_uv |
-| `quick_task_success_count` | Quick Mode 任务成功数 | `task_type='QUICK_TRY_ON' && task_scene='STYLE_ME' && status='SUCCESS'` |
-| `quick_add_closet_uv` | Quick Mode Add to Closet UV | `c_add_to_closet` join task（Quick Mode 条件） |
-| `quick_add_closet_calendar_uv` | Quick Mode Add to Closet & Calendar UV | `c_add_to_closet_calendar` join task |
-| `quick_result_success_uv` | Quick Mode 结果成功页曝光 UV | `v_result_success && page_key='quick_result'` |
-| `quick_add_closet_rate` | Quick Mode Add to Closet 率 | quick_add_closet_uv / quick_result_success_uv |
-| `quick_add_closet_calendar_rate` | Quick Mode Add to Closet & Calendar 率 | quick_add_closet_calendar_uv / quick_result_success_uv |
-| `plus_item_try_btn_uv` | Plus Item Try it 点击 UV | `c_styleme_try_btn && button_type='plus_single'` |
-| `plus_item_penetration_rate` | Plus Item 渗透率 | plus_item_try_btn_uv / popup_exposure_uv |
-| `plus_item_task_success_count` | Plus Item 任务成功数 | `task_scene='STYLE_ME' && referenceProducts 非空 && status='SUCCESS'` |
-| `plus_item_add_closet_uv` | Plus Item Add to Closet UV | `c_add_to_closet` join task（Plus Item 条件） |
-| `plus_item_add_closet_calendar_uv` | Plus Item Add to Closet & Calendar UV | `c_add_to_closet_calendar` join task |
-| `plus_result_success_uv` | Plus 结果成功页曝光 UV（Item 与 Outfit 共用） | `v_result_success && page_key='plus_result'` |
-| `plus_item_add_closet_rate` | Plus Item Add to Closet 率 | plus_item_add_closet_uv / plus_result_success_uv |
-| `plus_item_add_closet_calendar_rate` | Plus Item Add to Closet & Calendar 率 | plus_item_add_closet_calendar_uv / plus_result_success_uv |
-| `plus_outfit_try_btn_uv` | Plus Outfit Try it 点击 UV | `c_styleme_try_btn && button_type='plus_outfit'` |
-| `plus_outfit_penetration_rate` | Plus Outfit 渗透率 | plus_outfit_try_btn_uv / popup_exposure_uv |
-| `plus_outfit_task_success_count` | Plus Outfit 任务成功数 | `task_scene='STYLE_ME' && referenceProducts 空 && task_type!='QUICK_TRY_ON' && status='SUCCESS'` |
-| `plus_outfit_add_closet_uv` | Plus Outfit Add to Closet UV | `c_add_to_closet` join task（Plus Outfit 条件） |
-| `plus_outfit_add_closet_calendar_uv` | Plus Outfit Add to Closet & Calendar UV | `c_add_to_closet_calendar` join task |
-| `plus_outfit_add_closet_rate` | Plus Outfit Add to Closet 率 | plus_outfit_add_closet_uv / plus_result_success_uv |
-| `plus_outfit_add_closet_calendar_rate` | Plus Outfit Add to Closet & Calendar 率 | plus_outfit_add_closet_calendar_uv / plus_result_success_uv |
+所有 UV 按已登录 `prop_user_id` / 服务端 `user_id` 在 `dt` 日内去重；不同场景的 UV 不可相加。
 
-补充说明：
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| Style Me 用户数 | `styleme_user_uv` | 已登录用户 | 留存基数；当日满足任一条件的去重用户：① 有 `c_styleme_try_btn` 事件；② 有 `v_styleme_page` 事件且后台有 `task_scene = 'STYLE_ME'` 任务 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| 次日留存人数 | `next_day_retained_uv` | 已登录用户 | 群组用户在 `dt+1` 回到平台（出现在 `dws_user_daily`）的去重人数 | 观察窗口 `DATE_ADD(dt, INTERVAL 1 DAY) <= CURRENT_DATE('America/Toronto')` | 未到观察日返回 `NULL`，不可当 `0`；不可跨天求和或平均 |
+| 次日留存率 | `next_day_retention_rate` | 已登录用户 | `retained / (retained + not_retained)`；分母为 0 时返回 `NULL` | 同上 | 未到观察日返回 `NULL`，不可当 `0`；不可跨天求和或平均 |
+| 第 7 日留存人数 | `day_7_retained_uv` | 已登录用户 | 群组用户在 `dt+7` 回到平台的去重人数 | 观察日已到 | 未到观察日返回 `NULL`，不可当 `0`；不可跨天求和或平均 |
+| 第 7 日留存率 | `day_7_retention_rate` | 已登录用户 | 同次日口径，观察日为 `dt+7` | 同上 | 未到观察日返回 `NULL`，不可当 `0`；不可跨天求和或平均 |
+| 第 30 日留存人数 | `day_30_retained_uv` | 已登录用户 | 群组用户在 `dt+30` 回到平台的去重人数 | 观察日已到 | 未到观察日返回 `NULL`，不可当 `0`；不可跨天求和或平均 |
+| 第 30 日留存率 | `day_30_retention_rate` | 已登录用户 | 同次日口径，观察日为 `dt+30` | 同上 | 未到观察日返回 `NULL`，不可当 `0`；不可跨天求和或平均 |
+| 弹窗曝光 UV | `popup_exposure_uv` | 已登录用户 | `v_styleme_popup` 的去重用户数；三个场景共用同一分母 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Quick Mode Try it 点击 UV | `quick_try_btn_uv` | 已登录用户 | `c_styleme_try_btn` 且 `button_type = 'quick_signle'` 的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Quick Mode 渗透率 | `quick_penetration_rate` | 已登录用户 | `quick_try_btn_uv / popup_exposure_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Quick Mode 任务成功数 | `quick_task_success_count` | 任务 | `task_type = 'QUICK_TRY_ON'` 且 `task_scene = 'STYLE_ME'` 且 `status = 'SUCCESS'` 的任务行数 | 无 | 可跨天求和 |
+| Quick Mode Add to Closet UV | `quick_add_closet_uv` | 已登录用户 | `c_add_to_closet` 关联到 Quick Mode 任务后的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Quick Mode Add to Closet & Calendar UV | `quick_add_closet_calendar_uv` | 已登录用户 | `c_add_to_closet_calendar` 关联到 Quick Mode 任务后的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Quick Mode 结果成功页曝光 UV | `quick_result_success_uv` | 已登录用户 | `v_result_success` 且 `page_key = 'quick_result'` 的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Quick Mode Add to Closet 率 | `quick_add_closet_rate` | 已登录用户 | `quick_add_closet_uv / quick_result_success_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Quick Mode Add to Closet & Calendar 率 | `quick_add_closet_calendar_rate` | 已登录用户 | `quick_add_closet_calendar_uv / quick_result_success_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Plus Item Try it 点击 UV | `plus_item_try_btn_uv` | 已登录用户 | `c_styleme_try_btn` 且 `button_type = 'plus_single'` 的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Plus Item 渗透率 | `plus_item_penetration_rate` | 已登录用户 | `plus_item_try_btn_uv / popup_exposure_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Plus Item 任务成功数 | `plus_item_task_success_count` | 任务 | `task_scene = 'STYLE_ME'` 且 `referenceProducts` 非空 且 `status = 'SUCCESS'` 的任务行数 | 无 | 可跨天求和 |
+| Plus Item Add to Closet UV | `plus_item_add_closet_uv` | 已登录用户 | `c_add_to_closet` 关联到 Plus Item 任务后的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Plus Item Add to Closet & Calendar UV | `plus_item_add_closet_calendar_uv` | 已登录用户 | `c_add_to_closet_calendar` 关联到 Plus Item 任务后的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Plus Item Add to Closet 率 | `plus_item_add_closet_rate` | 已登录用户 | `plus_item_add_closet_uv / plus_result_success_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Plus Item Add to Closet & Calendar 率 | `plus_item_add_closet_calendar_rate` | 已登录用户 | `plus_item_add_closet_calendar_uv / plus_result_success_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Plus Outfit Try it 点击 UV | `plus_outfit_try_btn_uv` | 已登录用户 | `c_styleme_try_btn` 且 `button_type = 'plus_outfit'` 的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Plus Outfit 渗透率 | `plus_outfit_penetration_rate` | 已登录用户 | `plus_outfit_try_btn_uv / popup_exposure_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Plus Outfit 任务成功数 | `plus_outfit_task_success_count` | 任务 | `task_scene = 'STYLE_ME'` 且 `referenceProducts` 为空 且 `task_type != 'QUICK_TRY_ON'` 且 `status = 'SUCCESS'` 的任务行数 | 无 | 可跨天求和 |
+| Plus Outfit Add to Closet UV | `plus_outfit_add_closet_uv` | 已登录用户 | `c_add_to_closet` 关联到 Plus Outfit 任务后的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Plus Outfit Add to Closet & Calendar UV | `plus_outfit_add_closet_calendar_uv` | 已登录用户 | `c_add_to_closet_calendar` 关联到 Plus Outfit 任务后的去重用户数 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
+| Plus Outfit Add to Closet 率 | `plus_outfit_add_closet_rate` | 已登录用户 | `plus_outfit_add_closet_uv / plus_result_success_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Plus Outfit Add to Closet & Calendar 率 | `plus_outfit_add_closet_calendar_rate` | 已登录用户 | `plus_outfit_add_closet_calendar_uv / plus_result_success_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天须用对应去重分子、分母重算 |
+| Plus 结果成功页曝光 UV | `plus_result_success_uv` | 已登录用户 | `v_result_success` 且 `page_key = 'plus_result'` 的去重用户数；Plus Item 与 Plus Outfit 共用 | 无 | 不可跨天或跨场景求和；须回明细按目标范围重新去重 |
 
-- 所有 UV 均按已登录 `prop_user_id` / 服务端 `user_id` 在 `dt` 日内去重；不同场景的 UV 不可相加
-- 所有留存率、渗透率和加衣橱率在分母为 0 时返回 `NULL`；未到观察日的留存同样为 `NULL`，不表示 0 留存
-- 率值不可跨天或跨场景求和、平均；跨期必须用对应去重分子、分母重算
+Chart 2 的三种场景（Quick Mode / Plus Item / Plus Outfit）由 Superset 虚拟 dataset `ads_daily_ai_fashion_styleme_scenario_detail` 把上面的宽表转成 `dt + scenario` 长表，每日固定 3 行。
 
 ## 依赖
 

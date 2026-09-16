@@ -55,23 +55,15 @@
 
 ## 字段
 
-| 字段 | 含义 | 计算 |
-|---|---|---|
-| `dt` | 日报日期，美东时区（`America/Toronto`）切天 |  |
-| `ac_creative` | 投放素材 ID（投放平台原始 UUID，与 `dim_asset.asset_code` 无关，仓库内无名称映射）；`'overall'` 为全素材汇总行 |  |
-| `product_detail_exposure_uv` | 商详页曝光 UV | `v_product_detail` 的 `COUNT(DISTINCT prop_device_id)` |
-| `product_detail_exposure_pv` | 商详页曝光 PV | `v_product_detail` 的 `COUNT(DISTINCT raw_event_id)` |
-| `third_party_click_uv` | 点击跳转 UV | `c_third_party_goods` 的 `COUNT(DISTINCT prop_device_id)` |
-| `third_party_click_pv` | 点击跳转 PV | `c_third_party_goods` 的 `COUNT(DISTINCT raw_event_id)` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 投放素材 | `ac_creative` | 投放素材 | 投放平台原始 UUID，与 `dim_asset.asset_code` 无关，仓库内无名称映射；`'overall'` 为全素材按设备全局去重的汇总行，不是各素材之和 | 全素材结果取 `ac_creative = 'overall'` | `overall` 与素材明细行不可一起聚合 |
+| 商详页曝光 UV | `product_detail_exposure_uv` | 设备 | `v_product_detail` 的 `COUNT(DISTINCT prop_device_id)`，空去重键不参与统计 | 投放流量条件（见上） | 不可跨天、跨渠道或跨素材求和；须回事件明细按目标范围重新去重 |
+| 商详页曝光 PV | `product_detail_exposure_pv` | 事件 | `v_product_detail` 的 `COUNT(DISTINCT raw_event_id)` | 投放流量条件（见上） | 可跨天求和；不可混入 `overall` 行 |
+| 点击跳转 UV | `third_party_click_uv` | 设备 | `c_third_party_goods` 的 `COUNT(DISTINCT prop_device_id)` | 投放流量条件（见上） | 不可跨天、跨渠道或跨素材求和；须回事件明细按目标范围重新去重 |
+| 点击跳转 PV | `third_party_click_pv` | 事件 | `c_third_party_goods` 的 `COUNT(DISTINCT raw_event_id)` | 投放流量条件（见上） | 可跨天求和；不可混入 `overall` 行 |
 
-补充说明：
-
-- UV 以设备 `prop_device_id` 去重，PV 以原始事件 `raw_event_id` 去重；空去重键不参与统计
-- UV 不可跨天、渠道或素材直接求和；需要汇总时回到事件明细按目标范围重新去重
-
-## 已落地字段
-
-需求字段已全部落地，无缺口。
+素材明细行只出现实际有数据的 `(dt, ac_creative)` 组合，不补零；每天固定补一行 `ac_creative = 'overall'`（无数据时为全零行）。
 
 ## 依赖
 
