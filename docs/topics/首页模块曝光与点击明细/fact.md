@@ -32,19 +32,14 @@
 
 ## 字段
 
-| 字段 | 口径 |
-|------|------|
-| module_exposure_uv | 已登录用户模块曝光 UV；`COUNT(DISTINCT prop_user_id)`，且仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的曝光事件 |
-| module_click_uv | 已登录用户模块点击 UV；`COUNT(DISTINCT prop_user_id)`，且仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的点击事件 |
-| click_rate | 点击 UV / 曝光 UV |
-| click_pv | 已登录用户模块点击 PV；仅统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的点击事件，并按 `raw_event_id` 去重 |
-| avg_click_count_per_user | 点击 PV / 点击 UV |
-
-补充说明：
-- 固定模块：`star`, `magazine`, `brand`, `feeds`
-- 登录用户口径：所有指标仅纳入 `prop_user_id` 非空的事件
-- 事件映射：`v_home_* / c_home_*`
-- `click_rate` 和 `avg_click_count_per_user` 的分母为 0 时落 `0`；跨天或跨模块必须汇总对应分子、分母后重算
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 模块 | `module` | 首页模块 | 固定取值 `star` / `magazine` / `brand` / `feeds`，事件映射 `v_home_* / c_home_*` | 按目标模块过滤 | 不聚合 |
+| 模块曝光 UV | `module_exposure_uv` | 已登录用户 | 曝光事件的 `COUNT(DISTINCT prop_user_id)` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天或跨模块求和 |
+| 模块点击 UV | `module_click_uv` | 已登录用户 | 点击事件的 `COUNT(DISTINCT prop_user_id)` | 同上 | 不可跨天或跨模块求和 |
+| 点击率 | `click_rate` | 已登录用户 | `module_click_uv / module_exposure_uv`；分母为 0 时返回 `0` | 同上 | 不可 `AVG`；跨天、跨模块须用汇总分子分母重算 |
+| 模块点击 PV | `click_pv` | 事件 | 点击事件按 `raw_event_id` 去重 | 同上 | 可跨天、跨模块求和 |
+| 人均点击次数 | `avg_click_count_per_user` | 已登录用户 | `click_pv / module_click_uv`；分母为 0 时返回 `0` | 同上 | 不可 `AVG`；跨天、跨模块须用汇总分子分母重算 |
 
 ## 依赖
 

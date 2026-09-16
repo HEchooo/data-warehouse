@@ -31,26 +31,24 @@
 
 ## 字段
 
-| 字段 | 口径 |
-|------|------|
-| user_group | 用户分群；固定取值为 `新用户` / `老用户`；新用户 = `first_active_date = dt`，老用户 = `first_active_date < dt` |
-| dau_uv | 当天活跃已登录用户数；基于 `decom.dws_user_activity_daily` 按 `dt × user_id` 去重后的 cohort，按 `COUNT(DISTINCT user_id)` 统计 |
-| feeds_exposure_uv | 当天首页 feeds 模块曝光的已登录 UV；复用 `dws_user_activity_daily.exposed_home_feeds = 1` 的用户集合 |
-| feeds_click_uv | 当天首页 feeds 模块点击的已登录 UV；复用 `dws_user_activity_daily.clicked_home_feeds = 1` |
-| star_exposure_uv | 当天首页 star 模块曝光的已登录 UV；复用 `dws_user_activity_daily.exposed_home_star = 1` |
-| star_click_uv | 当天首页 star 模块点击的已登录 UV；复用 `dws_user_activity_daily.clicked_home_star = 1` |
-| magazine_exposure_uv | 当天首页 magazine 模块曝光的已登录 UV；复用 `dws_user_activity_daily.exposed_home_magazine = 1` |
-| magazine_click_uv | 当天首页 magazine 模块点击的已登录 UV；复用 `dws_user_activity_daily.clicked_home_magazine = 1` |
-| brand_exposure_uv | 当天首页 brand 模块曝光的已登录 UV；复用 `dws_user_activity_daily.exposed_home_brand = 1` |
-| brand_click_uv | 当天首页 brand 模块点击的已登录 UV；复用 `dws_user_activity_daily.clicked_home_brand = 1` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 用户分群 | `user_group` | 已登录用户 | 固定取值 `新用户` / `老用户`；新用户 = `first_active_date = dt`，老用户 = `first_active_date < dt`，复用 `decom.dim_user_first_active` | 按目标分群过滤 | 两个分群互斥，但同一用户跨天会重复出现，UV 不可跨天求和 |
+| 活跃用户数 | `dau_uv` | 已登录用户 | 基于 `decom.dws_user_activity_daily` 按 `dt × user_id` 去重后 `COUNT(DISTINCT user_id)` | 无 | 不可跨天或跨分群求和 |
+| Feeds 模块曝光 UV | `feeds_exposure_uv` | 已登录用户 | `dws_user_activity_daily.exposed_home_feeds = 1` 的去重用户数；事件 `v_home_feeds` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+| Feeds 模块点击 UV | `feeds_click_uv` | 已登录用户 | `dws_user_activity_daily.clicked_home_feeds = 1` 的去重用户数；事件 `c_home_feeds` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+| Star 模块曝光 UV | `star_exposure_uv` | 已登录用户 | `dws_user_activity_daily.exposed_home_star = 1` 的去重用户数；事件 `v_home_star` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+| Star 模块点击 UV | `star_click_uv` | 已登录用户 | `dws_user_activity_daily.clicked_home_star = 1` 的去重用户数；事件 `c_home_star` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+| Magazine 模块曝光 UV | `magazine_exposure_uv` | 已登录用户 | `dws_user_activity_daily.exposed_home_magazine = 1` 的去重用户数；事件 `v_home_magazine` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+| Magazine 模块点击 UV | `magazine_click_uv` | 已登录用户 | `dws_user_activity_daily.clicked_home_magazine = 1` 的去重用户数；事件 `c_home_magazine` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+| Brand 模块曝光 UV | `brand_exposure_uv` | 已登录用户 | `dws_user_activity_daily.exposed_home_brand = 1` 的去重用户数；事件 `v_home_brand` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+| Brand 模块点击 UV | `brand_click_uv` | 已登录用户 | `dws_user_activity_daily.clicked_home_brand = 1` 的去重用户数；事件 `c_home_brand` | `prop_user_id IS NOT NULL AND prop_user_id != ''` | 不可跨天、跨模块或跨分群求和 |
+
+四个模块的点击率（`click_uv / exposure_uv`）不物化，由 Superset chart metric 现算；分母为 0 时返回 `NULL`，跨天、跨模块或跨用户组必须汇总去重分子分母后重算。
 
 补充说明：
 
-- 新老用户分群复用 `decom.dim_user_first_active` 下沉后的 `first_active_date`，不在 ADS 直接现算"首日访问"
-- 曝光/点击 UV 口径与 `decom.dws_home_module_daily` 完全对齐：`prop_user_id IS NOT NULL AND prop_user_id != ''`，事件名 `v_home_* / c_home_*`
-- 4 个模块的点击率（`click_uv / exposure_uv`）不物化，统一由 Superset chart metric 现算
-- 点击率分母为 0 时返回 `NULL`；跨天、跨模块或跨用户组必须汇总去重分子、分母后重算
-- 新用户与老用户是互斥 cohort，但同一用户跨天会重复出现，UV 不能跨天求和
+- 曝光 / 点击 UV 口径与 `decom.dws_home_module_daily` 完全对齐
 - 历史回填范围：`2026-05-01` 至今
 
 ## 依赖
