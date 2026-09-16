@@ -33,25 +33,21 @@
 
 ## 字段
 
-| 字段 | 口径 |
-|------|------|
-| post_exposure_uv | 帖子曝光去重已登录用户数；事件：`v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_star_post_feeds`, `v_magazine_post_feeds`, `v_brand_post_feeds`；仅统计 `prop_user_id` 非空事件，按 `COUNT(DISTINCT prop_user_id)` |
-| like_total_count | 点赞成功次数（PV）；服务端表：`v3_decom.community_post_like`；按 `gmt_create` 切天后计数，并通过 `community_post` 映射回 `post_code / column_id` |
-| like_rate | 点赞已登录用户数 / 帖子曝光已登录用户数 |
-| read_rate | 阅读已登录用户数 / 帖子曝光已登录用户数；阅读事件：`r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail`；仅统计 `prop_user_id` 非空事件，按 `COUNT(DISTINCT prop_user_id)` |
-| follow_total_count | 关注成功次数（PV）；服务端表：`v3_decom.community_star_follow`；按 `gmt_create` 切天后计数，并在同一天内按“同用户 + 同专栏 + 关注前最后一次帖子详情曝光”做 last-touch 归因到帖子 |
-| follow_rate | 归因关注已登录用户数 / 帖子曝光已登录用户数 |
-| tryon_total_count | 从该帖子发起的试穿次数；服务端表：`v3_decom.common_ext_ai_task`；`task_type IN ('TRY_ON', 'STYLE_ME')` 且 `request_param.postId` 非空；按任务行计数 |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 帖子 | `post_id` / `post_code` / `post_name` / `creator` | 帖子 | 由 `post_code` 经 `dim_post` 映射得到 | 按目标帖子过滤 | 不聚合 |
+| 模块与专栏 | `module` / `column_id` / `column_name` | 专栏 | `column_id` 经 `dim_column` 映射为 `column_name` | 按目标模块或专栏过滤 | 不聚合 |
+| 帖子曝光 UV | `post_exposure_uv` | 已登录用户 | 事件 `v_star_post_detail`, `v_magazine_post_detail`, `v_brand_post_detail`, `v_star_post_feeds`, `v_magazine_post_feeds`, `v_brand_post_feeds` 的 `COUNT(DISTINCT prop_user_id)` | 仅已登录事件 | 不可跨天或跨帖子求和 |
+| 点赞次数 | `like_total_count` | 点赞记录 | 服务端表 `v3_decom.community_post_like`，按 `gmt_create` 切天后计数，经 `dim_post` 映射回 `post_code / column_id` | 无 | 可跨天、跨帖子求和 |
+| 点赞率 | `like_rate` | 已登录用户 | 点赞已登录用户数 / `post_exposure_uv`；分母为 0 时返回 `0` | 无 | 不可 `AVG`；跨天、跨帖子须用汇总分子分母重算 |
+| 阅读率 | `read_rate` | 已登录用户 | 阅读已登录用户数 / `post_exposure_uv`；阅读事件 `r_star_post_detail`, `r_magazine_post_detail`, `r_brand_post_detail`, `r_kol_post_detail`；分母为 0 时返回 `0` | 仅已登录事件 | 不可 `AVG`；跨天、跨帖子须用汇总分子分母重算 |
+| 关注次数 | `follow_total_count` | 关注记录 | 服务端表 `v3_decom.community_star_follow`，按 `gmt_create` 切天后计数；服务端事实没有帖子主键，按同日「同用户 + 同专栏 + 关注前最后一次帖子详情曝光」做 last-touch 归因到帖子 | 无 | 可跨天、跨帖子求和 |
+| 关注率 | `follow_rate` | 已登录用户 | 归因关注已登录用户数 / `post_exposure_uv`；分母为 0 时返回 `0` | 无 | 不可 `AVG`；跨天、跨帖子须用汇总分子分母重算 |
+| 试穿次数 | `tryon_total_count` | 试穿任务 | 服务端表 `v3_decom.common_ext_ai_task`，`task_type IN ('TRY_ON', 'STYLE_ME')` 且 `request_param.postId` 非空，按任务行计数 | 无 | 可跨天、跨帖子求和 |
 
 补充说明：
-- 事件侧 UV 统一只统计 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的已登录用户
-- 事件侧 UV 统一按 `COUNT(DISTINCT prop_user_id)` 统计
-- `like_rate`、`read_rate`、`follow_rate` 的分母均为 `post_exposure_uv`；分母为 0 时落 `0`
-- 率值不可跨天或跨帖子求和、平均；跨期必须分别汇总对应 UV 分子、分母后重算
-- `点赞 / 试穿` 的帖子归因通过 `dim_post` 统一映射完成
-- `关注` 的服务端事实没有帖子主键，帖子级口径仍需依赖同日详情曝光做 last-touch；该逻辑已沉到 `dws_post_interaction_daily`
+- 关注的 last-touch 归因逻辑已沉到 `dws_post_interaction_daily`，不在 ADS 现算
 - `ads_daily_post_performance` 当前只消费 `dws_post_interaction_daily.platform = 'all'` 的总计口径，避免把跨平台 UV 直接相加
-- 维度映射：`post_code → post_id/post_name/creator` 用 `dim_post`；`column_id → column_name` 用 `dim_column`
 
 ## 依赖
 
