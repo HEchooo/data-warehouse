@@ -37,35 +37,30 @@
 
 ## 字段
 
-| 需求字段 | 定义 |
-|------|------|
-| 日期 | 按 `America/Toronto` 切天；图表不展示当前未走完的自然日 |
-| 渠道 | `全部渠道 / youtube / tiktok / ins`；`全部渠道` 的自动发布视频按 `task_id` 统一去重 |
-| 视频属性 | 仅影响视频类图表；`ext_info.production_type` 映射为 `normal -> 常规`、`brand -> CPM`、`brand_cps -> CPS` |
-| 视频品牌 | 仅影响视频类图表；取 `ext_info.video_task.video_brand_group.name`，空值展示为 `未设置` |
-| 博主属性 | 仅影响博主类图表；`ext_info.video_task.blogger_type` 映射为 `normal -> 常规`、`cpm -> CPM`、`cps -> CPS` |
-| 日增 Views / Likes | 视频日末累计值减前一日日末累计值，再按日期、渠道与属性汇总 |
-| 每天新增视频数 | `day_end_views > 0` 且前一日 `day_end_views = 0` 的视频数 |
-| 新增视频平均播放数 | `SUM(new_video_contributed_view_count) / SUM(new_video_count)` |
-| 新视频 7 天平均播放数 | `SUM(published_7d_cohort_view_count) / SUM(published_7d_cohort_video_count)` |
-| 发布时间 cohort 平均播放 | 按 `T / T+1 / T+3 / T+7 / T+14` 分别使用 `SUM(view_count) / SUM(video_count)` |
-| 前一天新增 Views / 博主总数 | `SUM(daily_view_increment) / SUM(creator_count_to_prev_day)` |
-| 每个博主最新 3 条平均赞播率 | 在博主属性范围内取每个博主截至 `dt` 有正播放的最新 3 条，按 `SUM(likes) / SUM(views)` 计算 |
+日期按 `America/Toronto` 切天；图表不展示当前未走完的自然日。属性映射落在 `decom.dim_social_video_attribute`（`video_key` / `task_id` / `video_attribute` / `video_brand` / `blogger_attribute`），分子分母落在 `decom.dws_social_attribute_daily_v2`。
 
-## 已落地字段
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 渠道 | `channel` | 视频 | `全部渠道 / youtube / tiktok / ins`；`全部渠道` 的自动发布视频按 `task_id` 统一去重 | 按目标渠道过滤 | `全部渠道` 与单渠道行不可一起聚合 |
+| 指标范围 | `metric_scope` | 指标 | 区分该行属于视频类还是博主类指标；视频属性 / 视频品牌只影响视频类，博主属性只影响博主类 | 按目标范围过滤 | 不同 `metric_scope` 行不可一起聚合 |
+| 视频属性 | `video_attribute` | 视频 | `ext_info.production_type` 映射：`normal -> 常规`、`brand -> CPM`、`brand_cps -> CPS` | 仅对视频类指标有效 | 不聚合 |
+| 视频品牌 | `video_brand` | 视频 | `ext_info.video_task.video_brand_group.name`，空值展示为 `未设置` | 仅对视频类指标有效 | 不聚合 |
+| 博主属性 | `blogger_attribute` | 博主 | `ext_info.video_task.blogger_type` 映射：`normal -> 常规`、`cpm -> CPM`、`cps -> CPS` | 仅对博主类指标有效 | 不聚合 |
+| 日增 Views | `daily_view_increment` | 视频 | 视频日末累计播放减前一日日末累计，再按日期、渠道与属性汇总 | 无 | 可跨天求和（同一渠道与属性组合内）；不可混入 `全部渠道` 行 |
+| 日增 Likes | `daily_like_increment` | 视频 | 视频日末累计点赞减前一日日末累计，再按日期、渠道与属性汇总 | 无 | 可跨天求和（同一渠道与属性组合内）；不可混入 `全部渠道` 行 |
+| 每天新增视频数 | `new_video_count` | 视频 | `day_end_views > 0` 且前一日 `day_end_views = 0` 的视频数 | 无 | 可跨天求和（同一渠道与属性组合内）；不可混入 `全部渠道` 行 |
+| 新增视频贡献播放 | `new_video_contributed_view_count` | 视频 | 新增视频首次变成正播放当天的 `day_end_views` 之和，是平均播放数的分子 | 无 | 可跨天求和（同一渠道与属性组合内）；不可混入 `全部渠道` 行 |
+| 新增视频平均播放数 | `avg_new_video_view_count` | 视频 | `SUM(new_video_contributed_view_count) / SUM(new_video_count)`；无有效分母时返回 `NULL` | 无 | 不可 `AVG`；跨天、跨渠道或跨属性须先汇总分子分母再重算 |
+| 新视频 7 天 cohort 样本 | `published_7d_cohort_video_count` / `published_7d_cohort_view_count` | 视频 | 统计日 `dt` 回看 `dt-6` 首采正播放 cohort 的样本数与 7 天累计播放数 | 无 | 可跨天求和（同一渠道与属性组合内）；不可混入 `全部渠道` 行 |
+| 新视频 7 天平均播放数 | `published_7d_cohort_avg_view_count` | 视频 | `SUM(published_7d_cohort_view_count) / SUM(published_7d_cohort_video_count)` | 无 | 不可 `AVG`；跨天、跨渠道或跨属性须先汇总分子分母再重算 |
+| 发布时间 cohort 样本 | `published_day0_*` / `published_day1_*` / `published_day3_*` / `published_day7_*` / `published_day14_*`（各含 `_video_count` 与 `_view_count`） | 视频 | 以 `published_dt = dt` 的视频为 cohort，取其在 `T / T+1 / T+3 / T+7 / T+14` 观察日的日末累计播放总和与视频数；未成熟 cohort 返回 `NULL` | 无 | 可跨天求和（同一渠道与属性组合内）；不可混入 `全部渠道` 行；未成熟 cohort 的 `NULL` 不可当 0 |
+| 发布时间 cohort 平均播放 | 未落地，按 `SUM(view_count) / SUM(video_count)` 现算 | 视频 | 对应观察日的平均播放，由 Superset 虚拟 dataset `virtual_social_content_attribute_published_horizon_views_v2`（id=276）按 `dt / channel / video_attribute / video_brand / horizon_label` 输出 | 无 | 不可 `AVG`；跨天、跨渠道或跨属性须先汇总分子分母再重算 |
+| 截至前一日博主总数 | `creator_count_to_prev_day` | 博主 | 截至 `dt-1` 已发布过视频的历史去重博主数 | 无 | 累计值，不可跨天求和 |
+| 前一天新增 Views / 博主总数 | `daily_view_increment_per_creator` | 博主 | `SUM(daily_view_increment) / SUM(creator_count_to_prev_day)` | 无 | 不可 `AVG`；跨天、跨渠道或跨属性须先汇总分子分母再重算 |
+| 最新 3 条样本 | `latest_3_sample_creator_count` / `latest_3_sample_video_count` / `latest_3_sample_like_count` / `latest_3_sample_view_count` | 博主 | 在博主属性范围内，取每个博主截至 `dt` 有正播放的最新 3 条视频，汇总样本博主数、视频数、点赞与播放 | 无 | 可跨天求和（同一渠道与属性组合内）；不可混入 `全部渠道` 行 |
+| 每个博主最新 3 条平均赞播率 | `latest_3_avg_like_view_rate` | 博主 | `SUM(latest_3_sample_like_count) / SUM(latest_3_sample_view_count)` | 无 | 不可 `AVG`；跨天、跨渠道或跨属性须先汇总分子分母再重算 |
 
-| 落地位置 | 主要字段 |
-|------|------|
-| Superset virtual dataset `virtual_social_content_attribute_published_horizon_views_v2`（id=276） | `dt`、`channel`、`video_attribute`、`video_brand`、`horizon_label`、`view_count`、`video_count` |
-| `decom.dim_social_video_attribute` | `video_key`、`task_id`、`video_attribute`、`video_brand`、`blogger_attribute` |
-| `decom.dws_social_attribute_daily_v2` | `metric_scope`、属性维度与各指标分子分母 |
-| `decom.ads_daily_social_content_attribute_v2` | 报表粒度字段与平均值 / 比率轻派生 |
-
-补充说明：
-
-- 视频平均值和赞播率都必须用表内对应的总播放、点赞和样本数分子分母重算，不能跨日期、渠道或属性直接平均
-- 分母为 0 时平均值与比率返回 `NULL`；`NULL` 表示无有效样本，不表示指标为 0
-- `全部渠道` 已按统一视频键去重，不能与单渠道行一起聚合
+平均值与比率在分母为 0 时返回 `NULL`；`NULL` 表示无有效样本，不表示指标为 0。
 
 ## 依赖
 
