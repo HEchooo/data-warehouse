@@ -35,19 +35,19 @@
 
 ## 字段
 
-| 字段 | 口径 |
-|------|------|
-| user_segment | 用户分群；固定取值为 `全量设备` / `游客` / `已登录用户` / `新用户` / `老用户` |
-| dau_uv | 日活 UV；按当前 `user_segment` 的统计主体去重 |
-| total_duration_min | 总使用时长（分钟）；`app_launch` 的 `args_session_duration` 按 `COALESCE(raw_event_id, hash_id)` 去重后求和 |
-| avg_duration_min | `total_duration_min / dau_uv` |
-| app_launch_count | 启动次数；事件：`app_launch`；按 `COALESCE(raw_event_id, hash_id)` 去重 |
-| avg_visit_freq | `app_launch_count / dau_uv` |
-| next_day_retention_rate | 当日活跃 cohort 在 dt+1 仍活跃的比例；未到期返回 NULL |
-| day_7_retention_rate | 当日活跃 cohort 在 dt+7 仍活跃的比例；未到期返回 NULL |
-| day_30_retention_rate | 当日活跃 cohort 在 dt+30 仍活跃的比例；未到期返回 NULL |
-| mau_uv | 当月月活（自然月） |
-| dau_mau | `dau_uv / mau_uv` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 用户分群 | `user_segment` | 随分群变化 | 固定取值 `全量设备` / `游客` / `已登录用户` / `新用户` / `老用户`；各分群统计主体见下方补充说明 | 按目标分群过滤 | 各分群统计主体不一致，不可相加或互相校验 |
+| 日活 UV | `dau_uv` | 设备或用户（随分群） | 按当前 `user_segment` 的统计主体去重 | 排除 `send_push`、`send_email` 等被动触达事件 | 不可跨天或跨分群求和 |
+| 总使用时长（分钟） | `total_duration_min` | 会话 | `app_launch` 的 `args_session_duration` 按 `COALESCE(raw_event_id, hash_id)` 去重后求和 | 事件名为 `app_launch` | 可跨天求和；不可跨分群求和 |
+| 人均使用时长（分钟） | `avg_duration_min` | 设备或用户（随分群） | `total_duration_min / dau_uv`；分母为 0 时返回 `0` | 无 | 不可求和或平均；跨天须用汇总分子分母重算 |
+| 启动次数 | `app_launch_count` | 事件 | 事件 `app_launch` 按 `COALESCE(raw_event_id, hash_id)` 去重 | 事件名为 `app_launch` | 可跨天求和；不可跨分群求和 |
+| 人均访问频次 | `avg_visit_freq` | 设备或用户（随分群） | `app_launch_count / dau_uv`；分母为 0 时返回 `0` | 无 | 不可求和或平均；跨天须用汇总分子分母重算 |
+| 次日留存率 | `next_day_retention_rate` | 当日活跃 cohort | cohort 在 `dt+1` 仍活跃的比例；分子只要求同一主体在观察日活跃，不要求仍属当日分群 | 排除被动触达事件；只取已走完观察日的 cohort | 未到观察日返回 `NULL`，不可当 `0`；不可跨天或跨分群求和、平均 |
+| 7 日留存率 | `day_7_retention_rate` | 当日活跃 cohort | cohort 在 `dt+7` 仍活跃的比例 | 同上 | 同上 |
+| 30 日留存率 | `day_30_retention_rate` | 当日活跃 cohort | cohort 在 `dt+30` 仍活跃的比例 | 同上 | 同上 |
+| 月活 UV | `mau_uv` | 设备或用户（随分群） | 所在自然月的去重主体数 | 排除被动触达事件 | 已是自然月口径，不可按天相加，也不可跨月求和 |
+| 粘性 | `dau_mau` | 设备或用户（随分群） | `dau_uv / mau_uv`；分母为 0 时返回 `0` | 无 | 不可求和或平均；跨天须用汇总分子分母重算 |
 
 补充说明：
 - `全量设备` 口径：不感知 `prop_user_id`，按 `NULLIF(prop_device_id,'')` 去重设备
@@ -55,21 +55,8 @@
 - `已登录用户` 口径：仅保留 `prop_user_id IS NOT NULL AND prop_user_id != ''` 的事件，按 `NULLIF(prop_user_id,'')` 去重用户
 - `新用户` 口径：仅保留已登录用户，且 `dim_user_first_active.first_active_date = dt`，按 `prop_user_id` 去重用户
 - `老用户` 口径：仅保留已登录用户，且 `dim_user_first_active.first_active_date < dt`，按 `prop_user_id` 去重用户
-- `新用户` / `老用户` 的留存分母按当日 cohort 分群，未来留存分子只要求同一 `prop_user_id` 在观察日活跃，不要求未来仍属于当日分群
-- `send_push`、`send_email` 属于被动触达事件，不计入任何分群的“活跃”与留存判定
-- 人均值、粘性和留存率在分母为 0 时落 `0`；留存观察日未成熟时返回 `NULL`，两者不能互换
-- 人均值、粘性和留存率不可跨天或跨分群求和、平均；必须用目标范围的分子、分母重算
 - 留存 cohort 和 MAU 都按各自分群下的同一统计主体理解
-- `全量设备`、`游客`、`已登录用户`、`新用户`、`老用户` 的统计主体不完全一致，分群结果不能直接相加校验
-- Batch 6 的代码链路已把活动事实下沉到 `decom.dws_device_activity_daily`；生产切换与历史回填需单独执行
-
-## 已落地字段
-
-| 需求字段 | 当前已落地 | 说明 |
-|------|------|------|
-| `dt` | `dt` | 已在线上表落地 |
-| `user_segment` | 已在线上表落地 | 原有 `全量设备` / `游客` / `已登录用户` 已有数据；`新用户` / `老用户` 代码已补齐，待生产回填或后续增量执行后进入 Superset filter 选项 |
-| 其余指标字段 | 已落地 | 当前线上表已存在 `dau_uv`、`total_duration_min`、`avg_duration_min`、`app_launch_count`、`avg_visit_freq`、`next_day_retention_rate`、`day_7_retention_rate`、`day_30_retention_rate`、`mau_uv`、`dau_mau` |
+- 活动事实已下沉到 `decom.dws_device_activity_daily`；`新用户` / `老用户` 两个分群的代码已补齐，生产回填完成前线上表只有 `全量设备` / `游客` / `已登录用户` 三类数据
 
 ## 依赖
 
