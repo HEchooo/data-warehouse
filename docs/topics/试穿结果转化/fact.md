@@ -30,15 +30,11 @@
 
 ## 字段
 
-| 字段 | 口径 |
-|------|------|
-| tryon_uv | 试穿用户数；事件：`c_tryon`；按 `COALESCE(raw_event_id, hash_id)` 去重事件后统计 UV |
-| add_cart_uv | 加购用户数；事件：`c_add_cart`；全量加购 UV，不做试穿归因 |
-| add_cart_rate | `add_cart_uv / tryon_uv`；`tryon_uv=0` 时为 0 |
-
-补充说明：
-- 访客去重：`visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))`
-- 由于口径为全量加购 UV，`add_cart_rate` 可能大于 1
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 试穿 UV | `tryon_uv` | 访客（`visitor_id`） | 事件 `c_tryon`，先按 `COALESCE(raw_event_id, hash_id)` 去重事件，再按 `visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))` 去重 | 无 | 不可跨天求和 |
+| 加购 UV | `add_cart_uv` | 访客（`visitor_id`） | 事件 `c_add_cart` 的全量加购去重访客数，不做试穿归因 | 无 | 不可跨天求和 |
+| 加购率 | `add_cart_rate` | 访客（`visitor_id`） | `add_cart_uv / tryon_uv`；`tryon_uv = 0` 时返回 `0`；分母只含试穿访客而分子是全量加购，数值可能大于 1 | 无 | 不可 `AVG`；跨天须用重新去重的加购 UV 与试穿 UV 重算 |
 
 ## 依赖
 
