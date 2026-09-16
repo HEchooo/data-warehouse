@@ -42,55 +42,29 @@
 
 ## 字段
 
-### 主题共用口径
+### ads_daily_user_tryon_penetration
 
-| 字段 | 口径 |
-|------|------|
-| user_group | 用户分群；固定取值为 `新用户` / `老用户`；新用户 = `first_active_date = dt`，老用户 = `first_active_date < dt` |
-| dau_uv | 当天活跃已登录用户数；基于 `decom.dws_user_activity_daily` 按 `dt × user_id` 去重后的 cohort，按 `COUNT(DISTINCT user_id)` 统计 |
-| tryon_uv | 当天发生 AI 试穿的已登录用户数；复用 `decom.dws_user_activity_daily.used_ai_tryon = 1` 的用户集合，按 `COUNT(DISTINCT user_id)` 统计 |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 用户分群 | `user_group` | 已登录用户 | 固定取值 `新用户` / `老用户`；新用户 = `first_active_date = dt`，老用户 = `first_active_date < dt`，`first_active_date` 来自 `decom.dim_user_first_active` | 按目标分群过滤 | 两个分群不可与总量混用 |
+| 活跃用户数 | `dau_uv` | 已登录用户 | 基于 `decom.dws_user_activity_daily` 按 `dt × user_id` 去重后 `COUNT(DISTINCT user_id)` | 无 | 不可跨天或跨分群直接求和 |
+| 试穿用户数 | `tryon_uv` | 已登录用户 | `decom.dws_user_activity_daily.used_ai_tryon = 1` 的 `COUNT(DISTINCT user_id)`；试穿判定来自服务端 `v3_decom.common_ext_ai_task` 的 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')` | 无 | 不可跨天或跨分群直接求和 |
+| 试穿渗透率 | 未落地，查询时按 `tryon_uv / dau_uv` 现算 | 已登录用户 | 分子 `tryon_uv`，分母 `dau_uv`；分母为 0 时返回 `NULL` | 同一 `dt + user_group` | 不可 `AVG`；跨天或跨分群须汇总去重分子分母后重算 |
 
-### 新用户分版本试穿明细
+### ads_daily_user_tryon_penetration_app_version
 
-| 字段 | 口径 |
-|------|------|
-| app_version | 用户当天命中过的完整版本号；取自 `decom.dwd_event_log.prop_app_version`；空值统一落为 `unknown` |
-| dau_uv | 当天活跃已登录用户数；按 `dt × user_group × app_version` 统计 `COUNT(DISTINCT user_id)` |
-| tryon_uv | 当天发生 AI 试穿的已登录用户数；按 `dt × user_group × app_version` 统计 `COUNT(DISTINCT IF(used_ai_tryon = 1, user_id, NULL))` |
-| tryon_penetration_rate | 试穿渗透率；`tryon_uv / dau_uv` |
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 用户分群 | `user_group` | 已登录用户 | 与主表同口径；底表保留 `新用户 / 老用户`，看板默认只展示新用户 | `user_group = 'new_user'` | 两个分群不可与总量混用 |
+| 完整版本号 | `app_version` | 已登录用户 | 用户当天命中过的完整版本号，取自 `decom.dwd_event_log.prop_app_version`；空值落为 `unknown` | 按目标版本过滤 | 同一用户当天多版本会在各版本重复计入，版本之和不回对主题总 UV |
+| 活跃用户数 | `dau_uv` | 已登录用户 | 基于 `decom.dws_user_activity_app_version_daily` 按 `dt × user_group × app_version` 统计 `COUNT(DISTINCT user_id)` | 无 | 不可跨天、跨版本或跨分群直接求和 |
+| 试穿用户数 | `tryon_uv` | 已登录用户 | `COUNT(DISTINCT IF(used_ai_tryon = 1, user_id, NULL))`，同粒度统计 | 无 | 不可跨天、跨版本或跨分群直接求和 |
+| 试穿渗透率 | `tryon_penetration_rate` | 已登录用户 | `tryon_uv / dau_uv`；分母为 0 时返回 `NULL` | 无 | 不可 `AVG`；跨天、跨版本或跨分群须汇总去重分子分母后重算 |
 
 补充说明：
 
 - 新老用户分群复用 `decom.dim_user_first_active` 下沉后的 `first_active_date`，不在 ADS 直接现算“首日访问”
-- `tryon_uv` 与平台整体内容表现看板一致，统一基于服务端 `v3_decom.common_ext_ai_task` 的 `task_type IN ('QUICK_TRY_ON', 'TRY_ON', 'OUTFIT')`
-- 该报表当前只落地基础事实 `DAU / 试穿 UV`，不物化 `试穿渗透率`
 - 该看板是独立 dashboard，不与 `【AI-Fashion】平台整体内容表现` 共用主题文档
-- 版本口径按“用户当天命中过的所有完整版本号”展开；同一用户同一天若上报多个版本，会在多个版本下分别计入，因此按版本汇总后的 `dau_uv / tryon_uv` 之和默认不会回对到主题总 UV
-- `tryon_penetration_rate` 的分母为 0 时返回 `NULL`；跨天、跨版本或跨用户组必须汇总去重分子、分母后重算
-- 版本明细报表默认只新增 chart 展示 `user_group = 新用户`，但底表仍同时保留 `新用户 / 老用户` 两类，方便后续复用
-
-## 已落地字段
-
-### 新老用户试穿渗透率
-
-| 需求字段 | 落地表 | 落地字段 | 口径 |
-|------|------|------|------|
-| 用户分群 | `decom.ads_daily_user_tryon_penetration` | `user_group` | 固定取值为 `新用户 / 老用户` |
-| 当天活跃已登录用户数 | `decom.ads_daily_user_tryon_penetration` | `dau_uv` | 基于 `decom.dws_user_activity_daily` 按 `dt × user_id` 去重后统计 |
-| 当天试穿已登录用户数 | `decom.ads_daily_user_tryon_penetration` | `tryon_uv` | 基于 `decom.dws_user_activity_daily.used_ai_tryon = 1` 统计 |
-
-### 新用户分版本试穿明细
-
-| 需求字段 | 落地表 | 落地字段 | 口径 |
-|------|------|------|------|
-| 用户分群 | `decom.ads_daily_user_tryon_penetration_app_version` | `user_group` | 固定取值为 `新用户 / 老用户` |
-| 完整版本号 | `decom.ads_daily_user_tryon_penetration_app_version` | `app_version` | 取自 `decom.dwd_event_log.prop_app_version`；空值统一落为 `unknown` |
-| 当天活跃已登录用户数 | `decom.ads_daily_user_tryon_penetration_app_version` | `dau_uv` | 基于 `decom.dws_user_activity_app_version_daily` 按 `dt × user_group × app_version` 统计去重用户数 |
-| 当天试穿已登录用户数 | `decom.ads_daily_user_tryon_penetration_app_version` | `tryon_uv` | 基于 `decom.dws_user_activity_app_version_daily.used_ai_tryon = 1` 按 `dt × user_group × app_version` 统计去重用户数 |
-| 试穿渗透率 | `decom.ads_daily_user_tryon_penetration_app_version` | `tryon_penetration_rate` | `tryon_uv / dau_uv` |
-
-补充说明：
-
 - 版本明细链路代码、DDL 与调度配置已补齐；是否创建生产表、刷新历史分区并创建 Superset 资产，需要单独执行
 
 ## 依赖

@@ -31,17 +31,13 @@
 
 ## 字段
 
-| 字段 | 口径 |
-|------|------|
-| exposure_uv | 商品曝光 UV；事件：`v_product_detail` + `v_home_feeds`；仅统计 `product_code` 非空的行 |
-| tryon_total_count | 商品被试穿次数（PV）；事件：`c_tryon`，限 `args_page_key='product_detail'`；按 `COALESCE(raw_event_id, hash_id)` 去重 |
-| add_cart_uv | 商品加购 UV；事件：`c_add_cart`；全量加购，不区分来源 |
-
-补充说明：
-- SPU：`dwd_event_log.product_code`
-- SKU：`dwd_event_log.args_sku`，去掉首尾双引号，`''/null` 视为 NULL
-- 访客去重：`visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))`
-- `exposure_uv`、`add_cart_uv` 均按访客去重；不可跨天、SPU 或 SKU 直接求和，汇总时必须回到访客级事实重算
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| SPU | `spu` | 商品 | `dwd_event_log.product_code` | 按目标 SPU 过滤 | 不聚合 |
+| SKU | `sku` | 商品 | `dwd_event_log.args_sku`，去掉首尾双引号，`''` / `null` 视为 `NULL` | 按目标 SKU 过滤 | 不聚合 |
+| 商品曝光 UV | `exposure_uv` | 访客（`visitor_id`） | 事件 `v_product_detail` + `v_home_feeds`，按 `visitor_id = COALESCE(NULLIF(prop_user_id,''), NULLIF(prop_device_id,''))` 去重 | 仅统计 `product_code` 非空的行 | 不可跨天、跨 SPU 或跨 SKU 直接求和；汇总须回访客级事实重算 |
+| 商品试穿次数 | `tryon_total_count` | 事件 | 事件 `c_tryon` 的 PV，按 `COALESCE(raw_event_id, hash_id)` 去重 | `args_page_key = 'product_detail'` | 可跨天、跨 SPU 或跨 SKU 求和 |
+| 商品加购 UV | `add_cart_uv` | 访客（`visitor_id`） | 事件 `c_add_cart` 的全量加购去重访客数，不区分来源 | 无 | 不可跨天、跨 SPU 或跨 SKU 直接求和；汇总须回访客级事实重算 |
 
 ## 依赖
 
