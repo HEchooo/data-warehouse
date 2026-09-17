@@ -29,7 +29,8 @@
 
 - Dashboard：[【Social Content】联盟项目数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content-affiliate-project/)（id=134，slug `social-content-affiliate-project`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_project`（id=299），主时间列 `dt`
-- Superset chart：`727`（联盟项目视频日报，raw table）
+- Superset chart：`727`（联盟项目视频日报，raw table）；`728`（联盟项目视频汇总，aggregate）
+- 明细按 `dt × video_key` 出一行。汇总不按 `dt` 分组：`dt` 只做时间筛选，维度是 `region + account_name + published_dt + channel + video_id + video_link`，指标按所选时间段汇总
 - 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；`video_id` 展示在视频链接左边，`channel` 展示在视频 ID 左边
 
 ## 字段
@@ -82,6 +83,7 @@
 - 一个视频当天可能对应多条广告，DWS 按 `dt × video_id` 把 spend / 广告 GMV / 广告件数加总后再左连。
 - 视频维度 RPA 按商品出多行，本表在 DWS 已按视频收口，不能再拿橱窗号视频商品 DWS 直接当件数（那张表丢掉了无商品名的行）。
 - ROI、销售金额的 max、投流后自然件数都是行级派生值，看板汇总不得对 `roi` 求平均。
+- 汇总表：ROI 用 `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))`；可加列 `SUM`；投流前件数是视频级快照，用 `MAX` 不 `SUM`；投流后自然件数现算 `SUM(sales_items) - MAX(items_before_ads) - IFNULL(SUM(ad_items), 0)`，投流前件数为空时保持空。不得 `SUM(organic_items_after_ads)`。
 
 ## 依赖
 
