@@ -30,7 +30,7 @@
 - Dashboard：[【Social Content】联盟项目数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content-affiliate-project/)（id=134，slug `social-content-affiliate-project`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_project`（id=299），主时间列 `dt`
 - Superset chart：`727`（联盟项目视频日报，raw table）
-- 视频链接列单元格文字是 `video_url`，href 指向 `video_link`
+- 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；`video_id` 展示在视频链接左边
 
 ## 字段
 
@@ -41,6 +41,7 @@
 | 账号名称 | `account_name` | 账号 | `dim_video` / 账号快照的 `display_name`，不是广告 `identity_id` | 按目标账号过滤 | 不聚合 |
 | 账号 handle | `account_handle` | 账号 | 内部 `username`，只作展示和 ECN 入参，不当 join key | 按目标账号过滤 | 不聚合 |
 | 视频发布日期 | `published_dt` | 视频 | `dim_video.published_dt` | 无 | 不聚合 |
+| 视频 ID | `video_id` | 视频 | `dim_video.video_id`，等于广告 `tiktok_item_id`。看板展示在视频链接左边 | 按目标视频过滤 | 不聚合 |
 | 视频链接文案 | `video_url` | 视频 | 固定字符串 `video_url` | 无 | 不聚合 |
 | 视频链接 | `video_link` | 视频 | `dim_video.video_link`，看板超链接指向这里 | 按目标视频过滤 | 不聚合 |
 | 广告投放 ROI | `roi` | 视频 | `广告 GMV / spend`，倍数。分子只用广告侧 Shop GMV，不用 RPA、不用接口 `onsite_shopping_roas` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))` |
