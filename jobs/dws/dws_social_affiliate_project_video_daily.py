@@ -67,6 +67,7 @@ def build_select_sql() -> str:
             v.creator_id,
             v.video_id,
             v.video_key,
+            v.channel,
             v.published_dt,
             v.video_link,
             a.account_name,
@@ -200,7 +201,7 @@ def build_select_sql() -> str:
     )
     SELECT
         d.dt,
-        '{AFFILIATE_CHANNEL}' AS channel,
+        v.channel,
         v.creator_id,
         v.account_name,
         v.account_handle,
@@ -265,6 +266,7 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', video_key)) AS unique_key_count,
                 COUNTIF(dt IS NULL OR video_key IS NULL) AS null_key_count,
+                COUNTIF(channel IS NULL OR channel = '') AS null_channel_count,
                 COUNTIF(spend < 0 OR ad_gmv < 0 OR rpa_gmv < 0) AS negative_amount_count,
                 COUNTIF(ad_items < 0 OR rpa_items < 0 OR items_before_ads < 0) AS negative_item_count
             FROM `{staging_table}`
@@ -277,6 +279,8 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("联盟项目视频事实校验失败：统计日和视频不唯一")
     if result.null_key_count:
         raise RuntimeError("联盟项目视频事实校验失败：主键字段存在空值")
+    if result.null_channel_count:
+        raise RuntimeError("联盟项目视频事实校验失败：channel 存在空值")
     if result.negative_amount_count:
         raise RuntimeError("联盟项目视频事实校验失败：存在负金额")
     if result.negative_item_count:

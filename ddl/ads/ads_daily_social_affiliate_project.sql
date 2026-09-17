@@ -31,3 +31,7 @@ CREATE TABLE IF NOT EXISTS `my-project-8584-jetonai.decom.ads_daily_social_affil
 )
 PARTITION BY dt
 CLUSTER BY creator_id, video_key;
+
+-- 2026-09-17 透传视频渠道，供看板区分 youtube / tiktok / ins。
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_project`
+    ADD COLUMN IF NOT EXISTS channel STRING;

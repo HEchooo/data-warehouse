@@ -30,7 +30,7 @@
 - Dashboard：[【Social Content】联盟项目数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content-affiliate-project/)（id=134，slug `social-content-affiliate-project`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_project`（id=299），主时间列 `dt`
 - Superset chart：`727`（联盟项目视频日报，raw table）
-- 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；`video_id` 展示在视频链接左边
+- 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；`video_id` 展示在视频链接左边，`channel` 展示在视频 ID 左边
 
 ## 字段
 
@@ -41,6 +41,7 @@
 | 账号名称 | `account_name` | 账号 | `dim_video` / 账号快照的 `display_name`，不是广告 `identity_id` | 按目标账号过滤 | 不聚合 |
 | 账号 handle | `account_handle` | 账号 | 内部 `username`，只作展示和 ECN 入参，不当 join key | 按目标账号过滤 | 不聚合 |
 | 视频发布日期 | `published_dt` | 视频 | `dim_video.published_dt` | 无 | 不聚合 |
+| 渠道 | `channel` | 视频 | `dim_video.channel` 枚举 `youtube / tiktok / ins`。当前左表只收 `tiktok-affiliate` 橱窗号，看板值实际都是 `tiktok` | 按目标渠道过滤 | 不聚合 |
 | 视频 ID | `video_id` | 视频 | `dim_video.video_id`，等于广告 `tiktok_item_id`。看板展示在视频链接左边 | 按目标视频过滤 | 不聚合 |
 | 视频链接文案 | `video_url` | 视频 | 固定字符串 `video_url` | 无 | 不聚合 |
 | 视频链接 | `video_link` | 视频 | `dim_video.video_link`，看板超链接指向这里 | 按目标视频过滤 | 不聚合 |

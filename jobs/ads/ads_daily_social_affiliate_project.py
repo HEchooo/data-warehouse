@@ -58,6 +58,7 @@ def build_select_sql() -> str:
         SELECT
             d.dt,
             d.region,
+            d.channel,
             d.creator_id,
             d.account_name,
             d.account_handle,
@@ -107,6 +108,7 @@ def build_select_sql() -> str:
     SELECT
         dt,
         region,
+        channel,
         creator_id,
         account_name,
         account_handle,
@@ -144,6 +146,7 @@ def validate(staging_table: str) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', video_key)) AS unique_key_count,
                 COUNTIF(dt IS NULL OR video_key IS NULL) AS null_key_count,
+                COUNTIF(channel IS NULL OR channel = '') AS null_channel_count,
                 COUNTIF(spend > 0 AND ad_gmv_usd > 0 AND roi IS NULL) AS broken_roi_count,
                 COUNTIF(
                     IFNULL(spend, 0) = 0
@@ -161,6 +164,8 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("联盟项目看板日报校验失败：统计日和视频不唯一")
     if result.null_key_count:
         raise RuntimeError("联盟项目看板日报校验失败：主键字段存在空值")
+    if result.null_channel_count:
+        raise RuntimeError("联盟项目看板日报校验失败：channel 存在空值")
     if result.broken_roi_count:
         raise RuntimeError("联盟项目看板日报校验失败：有消耗有广告 GMV 的行算不出 ROI")
     if result.zero_fill_count:
