@@ -53,3 +53,15 @@ CLUSTER BY advertiser_id, store_id, ad_id;
 -- 取自 /advertiser/info/ 的 currency；报表接口本身不返回货币。
 ALTER TABLE `my-project-8584-jetonai.decom.ods_tiktok_ad_daily`
     ADD COLUMN IF NOT EXISTS currency STRING;
+
+-- 2026-09-17 联盟项目看板：广告素材 ID、identity，以及 Shop 成交（AUCTION 没有 GMV Max 的 gross_revenue）。
+ALTER TABLE `my-project-8584-jetonai.decom.ods_tiktok_ad_daily`
+    ADD COLUMN IF NOT EXISTS tiktok_item_id STRING,
+    ADD COLUMN IF NOT EXISTS identity_id STRING,
+    ADD COLUMN IF NOT EXISTS identity_type STRING,
+    ADD COLUMN IF NOT EXISTS identity_display_name STRING,
+    ADD COLUMN IF NOT EXISTS identity_username STRING,
+    ADD COLUMN IF NOT EXISTS shop_gross_revenue_by_order_submission FLOAT64,
+    ADD COLUMN IF NOT EXISTS total_onsite_shopping_value FLOAT64,
+    ADD COLUMN IF NOT EXISTS shop_total_items_purchased INT64,
+    ADD COLUMN IF NOT EXISTS shop_total_purchase_by_order_submission FLOAT64;

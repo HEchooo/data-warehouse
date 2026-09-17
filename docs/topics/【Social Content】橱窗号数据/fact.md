@@ -14,7 +14,7 @@
 
 - 业务线：`TikTok 橱窗号`
 - 适合：查询 TikTok 橱窗号的账号和视频日表现，以及 GMV、商品件数和订单。
-- 不适合：广告投放数据应使用[Makepod 店铺 TK 广告投放数据](../【Social Content】Makepod 店铺 TK 广告投放数据/fact.md)；跨渠道社媒总览应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
+- 不适合：橱窗号投流对照应使用[联盟项目数据看板](../【Social Content】联盟项目数据看板/fact.md)；Makepod 店铺广告应使用[Makepod 店铺 TK 广告投放数据](../【Social Content】Makepod 店铺 TK 广告投放数据/fact.md)；跨渠道社媒总览应使用[Social Content 社媒表现](../【Social Content】社媒表现数据看板/fact.md)。
 - 需要澄清：需要确认账号或视频粒度、增量或累计指标、日期范围。
 
 ## 报表

@@ -29,7 +29,7 @@
 
 - 业务线：`TikTok Makepod 小店`
 - 适合：查询指定 Makepod TikTok 店铺的广告消耗、成交、回报率和广告维度明细。
-- 不适合：Makepod 独立站自然流量与订单应使用[Makepod 独立站日报](../Makepod 独立站日报/fact.md)；橱窗号自然内容表现应使用[Social Content 橱窗号数据](../【Social Content】橱窗号数据/fact.md)。
+- 不适合：Makepod 独立站自然流量与订单应使用[Makepod 独立站日报](../Makepod 独立站日报/fact.md)；橱窗号自然内容表现应使用[Social Content 橱窗号数据](../【Social Content】橱窗号数据/fact.md)；橱窗号投流对照应使用[联盟项目数据看板](../【Social Content】联盟项目数据看板/fact.md)。
 - 需要澄清：需要确认日期、广告、投放类型，以及金额或率值指标。
 
 ## 报表

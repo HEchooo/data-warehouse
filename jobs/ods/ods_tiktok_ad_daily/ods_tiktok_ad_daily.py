@@ -2,7 +2,8 @@
 
 数据源：TikTok Business API
 - `/report/integrated/get/`：AUCTION_AD 层级的 ad × 天指标
-- `/ad/get/`：补广告的投放店铺（`showcase_products[].store_id`）
+- `/ad/get/`：补店铺、`tiktok_item_id`、identity
+- `/identity/get/`：补 identity username（只展示，不当 join key）
 
 默认按广告主时区回刷最近 4 天（CURRENT_DATE-3 ~ CURRENT_DATE），走 crontab 每日重跑即可覆盖
 TikTok 归因回溯带来的历史修正。
@@ -50,6 +51,10 @@ REPORT_METRICS = [
     "secondary_goal_result",  # 合格转化
     "cost_per_secondary_goal_result",  # 合格转化平均成本
     "secondary_goal_result_rate",  # 合格转化率
+    "shop_gross_revenue_by_order_submission",  # Gross revenue (Shop)
+    "total_onsite_shopping_value",  # Total complete payment value (onsite)
+    "shop_total_items_purchased",  # Items purchased (Shop)
+    "shop_total_purchase_by_order_submission",  # Purchases by order submission（笔数）
     "campaign_id",
     "campaign_name",
     "adgroup_id",
@@ -70,8 +75,21 @@ FLOAT_METRICS = [
     "secondary_goal_result",
     "cost_per_secondary_goal_result",
     "secondary_goal_result_rate",
+    "shop_gross_revenue_by_order_submission",
+    "total_onsite_shopping_value",
+    "shop_total_purchase_by_order_submission",
 ]
-INT_METRICS = ["impressions", "clicks"]
+INT_METRICS = ["impressions", "clicks", "shop_total_items_purchased"]
+AD_FIELDS = [
+    "ad_id",
+    "adgroup_id",
+    "campaign_id",
+    "tiktok_item_id",
+    "identity_id",
+    "identity_type",
+    "display_name",
+    "showcase_products",
+]
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -117,13 +135,22 @@ def to_int(value) -> int | None:
     return int(number) if number is not None else None
 
 
-def fetch_all_pages(session: requests.Session, path: str, params: dict) -> list[dict]:
+def to_str(value) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    if text in ("", "-"):
+        return None
+    return text
+
+
+def fetch_all_pages(
+    session: requests.Session, path: str, params: dict, page_size: int = API_PAGE_SIZE
+) -> list[dict]:
     """TikTok 接口统一按 page_info.total_page 翻页。"""
     rows, page = [], 1
     while True:
         response = session.get(
             f"{TIKTOK_API_BASE}{path}",
-            params={**params, "page": page, "page_size": API_PAGE_SIZE},
+            params={**params, "page": page, "page_size": page_size},
             timeout=120,
         )
         response.raise_for_status()
@@ -173,9 +200,9 @@ def fetch_report(session: requests.Session, start_date: date, end_date: date) ->
     return rows
 
 
-def fetch_ad_stores(session: requests.Session, ad_ids: list[str]) -> dict[str, str | None]:
-    """ad_id -> store_id；非带货广告（如 VIDEO_VIEWS Smart+）三层都没有店铺，返回空值。"""
-    stores: dict[str, str | None] = {}
+def fetch_ad_meta(session: requests.Session, ad_ids: list[str]) -> dict[str, dict]:
+    """ad_id -> 店铺 / 素材视频 / identity。非带货广告没有店铺，tiktok_item_id 也可能为空。"""
+    ads: dict[str, dict] = {}
     for offset in range(0, len(ad_ids), AD_ID_BATCH_SIZE):
         batch = ad_ids[offset : offset + AD_ID_BATCH_SIZE]
         for ad in fetch_all_pages(
@@ -184,6 +211,7 @@ def fetch_ad_stores(session: requests.Session, ad_ids: list[str]) -> dict[str, s
             {
                 "advertiser_id": ADVERTISER_ID,
                 "filtering": json.dumps({"ad_ids": batch}),
+                "fields": json.dumps(AD_FIELDS),
             },
         ):
             store_ids = sorted(
@@ -191,25 +219,67 @@ def fetch_ad_stores(session: requests.Session, ad_ids: list[str]) -> dict[str, s
             )
             if len(store_ids) > 1:
                 logging.warning("广告命中多个店铺，取最小值: ad_id=%s store_ids=%s", ad["ad_id"], store_ids)
-            stores[ad["ad_id"]] = store_ids[0] if store_ids else None
+            ads[ad["ad_id"]] = {
+                "store_id": store_ids[0] if store_ids else None,
+                "tiktok_item_id": to_str(ad.get("tiktok_item_id")),
+                "identity_id": to_str(ad.get("identity_id")),
+                "identity_type": to_str(ad.get("identity_type")),
+                "identity_display_name": to_str(ad.get("display_name")),
+            }
 
-    missing = [ad_id for ad_id in ad_ids if ad_id not in stores]
+    missing = [ad_id for ad_id in ad_ids if ad_id not in ads]
     if missing:
-        logging.warning("有 %d 个广告在 /ad/get/ 查不到，店铺置空: %s", len(missing), missing[:10])
+        logging.warning("有 %d 个广告在 /ad/get/ 查不到: %s", len(missing), missing[:10])
     logging.info(
-        "店铺归属解析完成: 有店铺 %d 个，无店铺 %d 个",
-        sum(1 for v in stores.values() if v),
-        sum(1 for v in stores.values() if not v),
+        "广告素材解析完成: 有店铺 %d 个，有 tiktok_item_id %d 个",
+        sum(1 for v in ads.values() if v.get("store_id")),
+        sum(1 for v in ads.values() if v.get("tiktok_item_id")),
     )
-    return stores
+    return ads
 
 
-def build_rows(report_rows: list[dict], stores: dict[str, str | None], currency: str) -> list[dict]:
+def fetch_identities(session: requests.Session) -> dict[str, str | None]:
+    """identity_id -> username，只入库展示。返回结构是 identity_list，page_info 可能全 0。"""
+    rows, page = [], 1
+    while True:
+        response = session.get(
+            f"{TIKTOK_API_BASE}/identity/get/",
+            params={"advertiser_id": ADVERTISER_ID, "page": page, "page_size": 100},
+            timeout=60,
+        )
+        response.raise_for_status()
+        body = response.json()
+        if body.get("code") != 0:
+            raise RuntimeError(
+                f"TikTok /identity/get/ 返回错误: code={body.get('code')} message={body.get('message')}"
+            )
+        chunk = body.get("data", {}).get("identity_list") or []
+        rows.extend(chunk)
+        if len(chunk) < 100:
+            break
+        page += 1
+    identities = {
+        identity["identity_id"]: to_str(identity.get("username"))
+        for identity in rows
+        if identity.get("identity_id")
+    }
+    logging.info("identity 拉取完成: %d 个", len(identities))
+    return identities
+
+
+def build_rows(
+    report_rows: list[dict],
+    ads: dict[str, dict],
+    identities: dict[str, str | None],
+    currency: str,
+) -> list[dict]:
     fetched_at = datetime.now(timezone.utc).isoformat()
     rows = []
     for item in report_rows:
         metrics, dimensions = item["metrics"], item["dimensions"]
         ad_id = dimensions["ad_id"]
+        ad = ads.get(ad_id, {})
+        identity_id = ad.get("identity_id")
         rows.append(
             {
                 "dt": dimensions["stat_time_day"][:10],
@@ -220,7 +290,12 @@ def build_rows(report_rows: list[dict], stores: dict[str, str | None], currency:
                 "adgroup_name": metrics.get("adgroup_name"),
                 "ad_id": ad_id,
                 "ad_name": metrics.get("ad_name"),
-                "store_id": stores.get(ad_id),
+                "store_id": ad.get("store_id"),
+                "tiktok_item_id": ad.get("tiktok_item_id"),
+                "identity_id": identity_id,
+                "identity_type": ad.get("identity_type"),
+                "identity_display_name": ad.get("identity_display_name"),
+                "identity_username": identities.get(identity_id) if identity_id else None,
                 **{name: to_float(metrics.get(name)) for name in FLOAT_METRICS},
                 **{name: to_int(metrics.get(name)) for name in INT_METRICS},
                 "currency": currency,
@@ -321,9 +396,10 @@ def run(args: argparse.Namespace) -> None:
     currency = fetch_currency(session)
     report_rows = fetch_report(session, start_date, end_date)
     ad_ids = sorted({item["dimensions"]["ad_id"] for item in report_rows})
-    stores = fetch_ad_stores(session, ad_ids) if ad_ids else {}
+    ads = fetch_ad_meta(session, ad_ids) if ad_ids else {}
+    identities = fetch_identities(session) if ads else {}
 
-    replace_partitions(build_rows(report_rows, stores, currency), start_date, end_date)
+    replace_partitions(build_rows(report_rows, ads, identities, currency), start_date, end_date)
 
 
 if __name__ == "__main__":

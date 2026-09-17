@@ -74,6 +74,31 @@
       "schedule_group": "ods_tiktok_gmv_max_daily"
     },
     {
+      "layer": "ODS",
+      "table_name": "ods_ecn_account_affiliation",
+      "stage": "ODS",
+      "name": "ODS ECN 账号联盟归属快照 ETL",
+      "script": "jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py",
+      "enabled": false,
+      "depends_on": [
+        "dws_social_creator_snapshot_daily"
+      ],
+      "schedule_group": "ods_ecn_account_affiliation"
+    },
+    {
+      "layer": "ODS",
+      "table_name": "ods_ecn_video_promotion_entry",
+      "stage": "ODS",
+      "name": "ODS ECN 视频首次投流时间快照 ETL",
+      "script": "jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py",
+      "enabled": false,
+      "depends_on": [
+        "dim_video",
+        "dws_social_creator_snapshot_daily"
+      ],
+      "schedule_group": "ods_ecn_video_promotion_entry"
+    },
+    {
       "layer": "DWD",
       "table_name": "dwd_event_log",
       "stage": "DWD",
@@ -885,6 +910,23 @@
       "schedule_group": "dws_tiktok_gmv_max_daily"
     },
     {
+      "layer": "DWS",
+      "table_name": "dws_social_affiliate_project_video_daily",
+      "stage": "DWS",
+      "name": "DWS 联盟项目视频日事实 ETL",
+      "script": "jobs/dws/dws_social_affiliate_project_video_daily.py",
+      "enabled": true,
+      "depends_on": [
+        "ods_tiktok_ad_daily",
+        "ods_ecn_account_affiliation",
+        "ods_ecn_video_promotion_entry",
+        "dim_video",
+        "dws_social_creator_snapshot_daily",
+        "dws_social_video_state_daily_v2"
+      ],
+      "schedule_group": "dws_social_affiliate_project_video_daily"
+    },
+    {
       "layer": "ADS",
       "table_name": "ads_daily_closet_overview",
       "stage": "ADS",
@@ -1498,6 +1540,18 @@
         "dws_social_affiliate_video_product_daily"
       ],
       "schedule_group": "ads_daily_social_affiliate_video"
+    },
+    {
+      "layer": "ADS",
+      "table_name": "ads_daily_social_affiliate_project",
+      "stage": "ADS",
+      "name": "ADS Social Content 联盟项目数据看板 ETL",
+      "script": "jobs/ads/ads_daily_social_affiliate_project.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_social_affiliate_project_video_daily"
+      ],
+      "schedule_group": "ads_daily_social_affiliate_project"
     },
     {
       "layer": "ADS",
