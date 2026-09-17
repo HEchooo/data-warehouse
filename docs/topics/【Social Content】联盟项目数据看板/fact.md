@@ -105,4 +105,4 @@ python3 jobs/ads/ads_daily_social_affiliate_project.py
 
 TikTok 广告 ODS 默认只重刷最近 4 天。更早分区的 `tiktok_item_id` / Shop 指标需要显式 `--start-date` / `--end-date` 回填，回填前必须先问。
 
-ECN 两个 ODS 在 `env/etl_config.json` 里先关掉（`enabled: false`）。把 `env/ecn.json.example` 复制为 `env/ecn.json` 填好 host / key 后再打开，不要回填广告历史分区。
+ECN 凭据读 `env/ecn.json`（未跟踪）。两个 ODS 已打开；网关偶发 502 时脚本会退避重试。

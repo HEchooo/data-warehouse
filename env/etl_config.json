@@ -74,31 +74,6 @@
       "schedule_group": "ods_tiktok_gmv_max_daily"
     },
     {
-      "layer": "ODS",
-      "table_name": "ods_ecn_account_affiliation",
-      "stage": "ODS",
-      "name": "ODS ECN 账号联盟归属快照 ETL",
-      "script": "jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py",
-      "enabled": false,
-      "depends_on": [
-        "dws_social_creator_snapshot_daily"
-      ],
-      "schedule_group": "ods_ecn_account_affiliation"
-    },
-    {
-      "layer": "ODS",
-      "table_name": "ods_ecn_video_promotion_entry",
-      "stage": "ODS",
-      "name": "ODS ECN 视频首次投流时间快照 ETL",
-      "script": "jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py",
-      "enabled": false,
-      "depends_on": [
-        "dim_video",
-        "dws_social_creator_snapshot_daily"
-      ],
-      "schedule_group": "ods_ecn_video_promotion_entry"
-    },
-    {
       "layer": "DWD",
       "table_name": "dwd_event_log",
       "stage": "DWD",
@@ -908,6 +883,31 @@
         "ods_tiktok_gmv_max_daily"
       ],
       "schedule_group": "dws_tiktok_gmv_max_daily"
+    },
+    {
+      "layer": "ODS",
+      "table_name": "ods_ecn_account_affiliation",
+      "stage": "ODS",
+      "name": "ODS ECN 账号联盟归属快照 ETL",
+      "script": "jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_social_creator_snapshot_daily"
+      ],
+      "schedule_group": "ods_ecn_account_affiliation"
+    },
+    {
+      "layer": "ODS",
+      "table_name": "ods_ecn_video_promotion_entry",
+      "stage": "ODS",
+      "name": "ODS ECN 视频首次投流时间快照 ETL",
+      "script": "jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_video",
+        "dws_social_creator_snapshot_daily"
+      ],
+      "schedule_group": "ods_ecn_video_promotion_entry"
     },
     {
       "layer": "DWS",

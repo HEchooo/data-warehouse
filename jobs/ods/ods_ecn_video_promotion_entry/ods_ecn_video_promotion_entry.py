@@ -24,6 +24,7 @@ AFFILIATE_USAGE_TYPE = "tiktok-affiliate"
 PLATFORM = "tiktok"
 API_PATH = "/api/v1/open-api/videos/promotion-entry"
 BUSINESS_STATUS = {404, 409}
+RETRY_STATUS = {502, 503, 504}
 SCHEMA = [
     bigquery.SchemaField("platform", "STRING"),
     bigquery.SchemaField("video_id", "STRING"),
@@ -108,13 +109,33 @@ def error_code(payload) -> str | None:
     return None
 
 
+def parse_json(response: requests.Response) -> dict:
+    try:
+        payload = response.json() if response.content else {}
+    except ValueError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def get_with_retry(session: requests.Session, url: str, params: dict) -> requests.Response:
+    response = None
+    for attempt in range(5):
+        response = session.get(url, params=params, timeout=60)
+        if response.status_code not in RETRY_STATUS:
+            return response
+        delay = 2 * (2 ** attempt)
+        logging.warning("ECN 返回 %s，%ss 后重试 %s/5", response.status_code, delay, attempt + 1)
+        time.sleep(delay)
+    return response
+
+
 def fetch_promotion_entry(session: requests.Session, host: str, video_id: str) -> dict:
-    response = session.get(
+    response = get_with_retry(
+        session,
         f"{host}{API_PATH}",
-        params={"platform": PLATFORM, "video_id": video_id},
-        timeout=60,
+        {"platform": PLATFORM, "video_id": video_id},
     )
-    payload = response.json() if response.content else {}
+    payload = parse_json(response)
     if response.status_code == 200:
         return {
             "platform": PLATFORM,
@@ -205,7 +226,7 @@ def run() -> None:
         row["fetched_at"] = fetched_at
         row["update_time"] = fetched_at
         rows.append(row)
-        time.sleep(0.05)
+        time.sleep(0.2)
     replace_table(rows)
 
 

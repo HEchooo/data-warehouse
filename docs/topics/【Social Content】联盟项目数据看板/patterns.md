@@ -16,7 +16,7 @@
 
 - affiliation 查不到或不是美墨联盟：落一行空 `affiliation_label`，region 保持空。
 - promotion-entry 尚未投流：落一行空 `ads_first_sent_at`，广告字段保持空，投流前件数走当日 RPA。
-- 只有 401 / 5xx / 参数 422 才应让 ODS 失败。
+- ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。
 
 ## `/identity/get/` 的 page_size 上限是 100
 
