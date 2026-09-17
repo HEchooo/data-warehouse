@@ -18,6 +18,12 @@
 - promotion-entry 尚未投流：落一行空 `ads_first_sent_at`，广告字段保持空，投流前件数走当日 RPA。
 - ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。
 
+## 看板 `Unknown column used in orderby: dt`
+
+- table 图为了中文列名，`all_columns` 用了 `sqlExpression: "dt "`（末尾空格）。
+- 看板时间筛选会按 `order_by_cols` 重写排序。写成 `["dt ", false]` 时，后端按字符串列名 `dt ` 去找，找不到就报这个错。
+- 排序必须用不带空格的物理列：`order_by_cols = ['["dt", false]']`，`query_context.queries[0].orderby = [["dt", false]]`。两处都要改。
+
 ## `/identity/get/` 的 page_size 上限是 100
 
 - 报表 `/report/integrated/get/` 可以 `page_size=1000`。identity 接口传 1000 会报 `code=40002 page_size: number must be most 100`。
