@@ -1,15 +1,17 @@
 """ODS ECN 账号联盟归属快照 ETL。
 
 GET /api/v1/open-api/account-affiliation
-404 / 409 落空标签，不当失败。Key 从环境变量 ACCOUNT_CHANNEL_API_KEY 读。
+404 / 409 落空标签，不当失败。凭据读 env/ecn.json，不入库。
 """
 
+import json
 import logging
 import os
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
-from google.cloud import bigquery, secretmanager
+from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 import requests
 
@@ -50,34 +52,26 @@ def target_table_exists() -> bool:
         return False
 
 
-def get_ecn_host() -> str:
-    host = os.environ.get("ECN_API_HOST", "").strip().rstrip("/")
-    if not host:
-        raise RuntimeError("缺少 ECN_API_HOST")
+def load_ecn_config() -> tuple[str, str]:
+    path = Path(__file__).resolve().parents[3] / "env" / "ecn.json"
+    data = {}
+    if path.is_file():
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise RuntimeError("env/ecn.json 必须是 JSON 对象")
+        data = loaded
+    host = (
+        os.environ.get("ECN_API_HOST") or str(data.get("ECN_API_HOST") or "")
+    ).strip().rstrip("/")
+    key = (
+        os.environ.get("ACCOUNT_CHANNEL_API_KEY")
+        or str(data.get("ACCOUNT_CHANNEL_API_KEY") or "")
+    ).strip()
+    if not host or not key:
+        raise RuntimeError("缺少 ECN_API_HOST 或 ACCOUNT_CHANNEL_API_KEY，请写入 env/ecn.json")
     if not host.startswith("http"):
         host = f"https://{host}"
-    return host
-
-
-def get_ecn_api_key() -> str:
-    key = os.environ.get("ACCOUNT_CHANNEL_API_KEY", "").strip()
-    if key:
-        return key
-    secret_id = os.environ.get(
-        "ACCOUNT_CHANNEL_API_KEY_SECRET_ID", "prod-ecn-account-channel-api-key"
-    )
-    name = f"projects/{PROJECT_ID}/secrets/{secret_id}/versions/latest"
-    try:
-        return (
-            secretmanager.SecretManagerServiceClient()
-            .access_secret_version(request={"name": name})
-            .payload.data.decode("utf-8")
-            .strip()
-        )
-    except Exception as exc:
-        raise RuntimeError(
-            "缺少 ACCOUNT_CHANNEL_API_KEY，也读不到 Secret Manager 中的对应 secret"
-        ) from exc
+    return host, key
 
 
 def list_affiliate_handles() -> list[str]:
@@ -206,9 +200,9 @@ def replace_table(rows: list[dict]) -> None:
 
 
 def run() -> None:
-    host = get_ecn_host()
+    host, api_key = load_ecn_config()
     session = requests.Session()
-    session.headers["X-API-Key"] = get_ecn_api_key()
+    session.headers["X-API-Key"] = api_key
     fetched_at = datetime.now(timezone.utc).isoformat()
     rows = []
     for handle in list_affiliate_handles():

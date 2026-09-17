@@ -90,7 +90,7 @@
 - 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`
 - DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/ods/ods_ecn_video_promotion_entry.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口
-- 凭据：TikTok token 用 Secret Manager `prod-ads-runner-tiktok-access-token`。ECN 用环境变量 `ECN_API_HOST` + `ACCOUNT_CHANNEL_API_KEY`，不落仓库
+- 凭据：TikTok token 用 Secret Manager `prod-ads-runner-tiktok-access-token`。ECN 读未跟踪文件 `env/ecn.json`（模板 `env/ecn.json.example`），不入库
 - 规则：`docs/rules/video-mapping.md` 橱窗号一节、`docs/rules/layering.md`
 
 ## 运行
@@ -105,4 +105,4 @@ python3 jobs/ads/ads_daily_social_affiliate_project.py
 
 TikTok 广告 ODS 默认只重刷最近 4 天。更早分区的 `tiktok_item_id` / Shop 指标需要显式 `--start-date` / `--end-date` 回填，回填前必须先问。
 
-ECN 两个 ODS 在 `env/etl_config.json` 里先关掉（`enabled: false`），等生产配好 `ECN_API_HOST` 和 `ACCOUNT_CHANNEL_API_KEY` 再打开，避免全链路被缺凭据打断。
+ECN 两个 ODS 在 `env/etl_config.json` 里先关掉（`enabled: false`）。把 `env/ecn.json.example` 复制为 `env/ecn.json` 填好 host / key 后再打开，不要回填广告历史分区。
