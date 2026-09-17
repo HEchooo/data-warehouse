@@ -55,8 +55,8 @@
 | 广告件数 | `ad_items` | 视频 | API `shop_total_items_purchased`（Items purchased (Shop)），按视频汇总。看板「广告投放后带来销售件数」用这一列 | 无 | 可加 |
 | RPA 件数 | `rpa_items` | 视频 | RPA `items_sold` 按视频跨商品求和 | 无 | 可加 |
 | 销售件数 | `sales_items` | 视频 | 行级 `GREATEST(广告件数, RPA 件数)`；一侧为空时用另一侧，两侧都空则空 | 无 | 可按已取 max 的行求和 |
-| 广告投放前自然销售件数 | `items_before_ads` | 视频 | 有 `ads_first_sent_at` 时：RPA 源表里 `fetched_at < ads_first_sent_at` 的最新快照，按商品取最新再把件数加总；`fetched_at` 为空时退到 `stats_date`。尚未投流：等于该视频当日 RPA 件数。从未抓到则空 | 无 | 有投流时间的是视频级快照，同一视频跨天重复出现，不可跨天求和 |
-| 广告投放后自然销售件数 | `organic_items_after_ads` | 视频 | `销售件数 - 投流前件数 - 广告件数`。可能为负：投流前件数是累计快照，销售件数是当日值，相减没有业务保证非负。保留负数，不 `GREATEST(..., 0)` | 无 | 不可当作可靠增量跨天求和 |
+| 广告投放前自然销售件数 | `items_before_ads` | 视频 | 有 `ads_first_sent_at` 时：RPA 源表里 `fetched_at < ads_first_sent_at` 的最新快照，按商品取最新再把件数加总；`fetched_at` 为空时退到 `stats_date`。没有投流时间、或投流前从未抓到 RPA：空，不补 0，也不用当天 RPA 顶 | 无 | 视频级快照，同一视频跨天重复出现，不可跨天求和 |
+| 广告投放后自然销售件数 | `organic_items_after_ads` | 视频 | `销售件数 - 投流前件数 - 广告件数`。投流前件数为空时本列也为空。可能为负：投流前件数是累计快照，销售件数是当日值，相减没有业务保证非负。保留负数，不 `GREATEST(..., 0)` | 无 | 不可当作可靠增量跨天求和 |
 
 ### 数据边界
 
@@ -69,7 +69,7 @@
 | 时区 | 本表 `dt` 用 `America/Toronto`。广告源是 `Etc/GMT+5`（不含夏令时），RPA `stats_date` 是 Shop 后台日（历史店铺曾是 MX），`ads_first_sent_at` 是 UTC。跨源按日历日对齐，可能错位 1 小时到 1 天 |
 | `fetched_at` | RPA 源表是无时区 `DATETIME`，和 UTC 的 `ads_first_sent_at` 比较时按 UTC 解释；边界附近可能落到相邻一次快照 |
 | 汇率 | `decom.currency_conversion_dict` 只有当前快照。缺币种时美元金额保持空值 |
-| ECN 404 / 409 | 是业务结果，ODS 落「查过但没有」，任务不失败。region / 投流时间保持空 |
+| ECN 404 / 409 | 是业务结果，ODS 落「查过但没有」，任务不失败。region / 投流时间 / 投流前件数保持空 |
 | 省略 DWD | 广告日报已是报表粒度；affiliation / promotion-entry 是实体快照，没有去重和多源打平需求 |
 | 省略 DIM | 视频 ID 映射只服务本看板，DWS 直接 join `dim_video` |
 

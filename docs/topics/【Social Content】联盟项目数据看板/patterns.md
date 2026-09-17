@@ -15,8 +15,14 @@
 ## ECN 的 404 / 409 不是任务失败
 
 - affiliation 查不到或不是美墨联盟：落一行空 `affiliation_label`，region 保持空。
-- promotion-entry 尚未投流：落一行空 `ads_first_sent_at`，广告字段保持空，投流前件数走当日 RPA。
+- promotion-entry 尚未投流：落一行空 `ads_first_sent_at`，广告字段保持空，投流前件数也保持空。
 - ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。
+
+## 没投流不要用当天 RPA 顶「投流前件数」
+
+- 列名是投流前自然销售，没有 `ads_first_sent_at` 时这列不适用。
+- 曾经用当天 `rpa_items` 兜底，同一视频跨天数字会跟着当天成交变，看起来像口径错了。
+- 现口径：只有投流前快照才落数；没投流或没有投流前快照保持空，不补 0。空投流前件数时「投流后自然件数」也保持空。
 
 ## 看板 `Unknown column used in orderby: dt`
 

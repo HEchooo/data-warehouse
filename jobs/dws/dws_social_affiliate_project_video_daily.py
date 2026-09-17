@@ -219,10 +219,8 @@ def build_select_sql() -> str:
         r.rpa_gmv,
         r.rpa_items,
         r.rpa_currency,
-        CASE
-            WHEN e.ads_first_sent_at IS NOT NULL THEN b.items_before_ads
-            ELSE r.rpa_items
-        END AS items_before_ads,
+        -- 只有 ECN 有投流时间才落投流前件数；没投流或没有投流前快照保持空，不拿当天 RPA 顶。
+        b.items_before_ads,
         CASE
             WHEN cur.day_end_views IS NULL THEN NULL
             ELSE cur.day_end_views - COALESCE(prev.day_end_views, 0)
