@@ -41,6 +41,22 @@ MANUAL_US_HANDLES = (
     "summer_waverly",
     "trixie_retro",
     "zoey_nelson7x",
+    "chloe.bennett656",
+    "chloe_davis_1",
+    "chloedavies7x",
+    "makepodcustom",
+    "makepodcustom1",
+    "morganpaige7x",
+    "ninachopra7x",
+    "styledbysophie_2",
+    "user2228616398520",
+)
+MANUAL_MX_HANDLES = (
+    "nguynkiuqunh6297",
+    "ashleyguo9",
+    "geraldinebein8",
+    "jjh.245e",
+    "pedroshum4983",
 )
 
 client = bigquery.Client(project=PROJECT_ID)
@@ -115,6 +131,17 @@ def new_bindings_sql() -> str:
                     CURRENT_TIMESTAMP() AS first_bound_at,
                     1 AS priority
                 FROM UNNEST([{handles_sql(MANUAL_US_HANDLES)}]) AS handle
+
+                UNION ALL
+
+                SELECT
+                    'tiktok' AS platform,
+                    handle AS account_handle,
+                    'affiliate_mexico' AS affiliation,
+                    '联盟墨西哥' AS affiliation_label,
+                    CURRENT_TIMESTAMP() AS first_bound_at,
+                    1 AS priority
+                FROM UNNEST([{handles_sql(MANUAL_MX_HANDLES)}]) AS handle
             ) src
         )
         WHERE rn = 1
@@ -181,7 +208,7 @@ def validate_manual_covered(dim_table: str) -> None:
         client.query(
             f"""
             SELECT COUNT(*) AS missing_count
-            FROM UNNEST([{handles_sql(MANUAL_US_HANDLES)}]) AS handle
+            FROM UNNEST([{handles_sql(MANUAL_US_HANDLES + MANUAL_MX_HANDLES)}]) AS handle
             LEFT JOIN `{dim_table}` dim
                 ON dim.platform = 'tiktok'
                 AND {handle_key("dim")} = LOWER(LTRIM(handle, '@'))
@@ -191,7 +218,7 @@ def validate_manual_covered(dim_table: str) -> None:
     )[0].missing_count
     if missing:
         raise RuntimeError(
-            f"ECN 账号联盟归属维表校验失败：人工确认的美国账号有 {missing} 条未落入维表"
+            f"ECN 账号联盟归属维表校验失败：人工确认的账号有 {missing} 条未落入维表"
         )
 
 
