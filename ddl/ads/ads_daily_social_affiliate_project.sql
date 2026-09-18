@@ -1,4 +1,4 @@
--- 【Social Content】联盟项目数据看板。粒度 dt × video_key。
+-- 【Affiliate】投放数据看板。粒度 dt × video_key。
 -- 明细行可看 roi / sales_*；汇总 ROI 必须 SUM(广告 GMV) / SUM(spend)。
 CREATE TABLE IF NOT EXISTS `my-project-8584-jetonai.decom.ads_daily_social_affiliate_project` (
     dt DATE,

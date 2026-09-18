@@ -1545,7 +1545,7 @@
       "layer": "ADS",
       "table_name": "ads_daily_social_affiliate_project",
       "stage": "ADS",
-      "name": "ADS Social Content 联盟项目数据看板 ETL",
+      "name": "ADS 【Affiliate】投放数据看板 ETL",
       "script": "jobs/ads/ads_daily_social_affiliate_project.py",
       "enabled": true,
       "depends_on": [

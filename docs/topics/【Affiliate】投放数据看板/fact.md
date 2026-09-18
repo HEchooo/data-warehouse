@@ -1,17 +1,18 @@
-# 【Social Content】联盟项目数据看板
+# 【Affiliate】投放数据看板
 
 ## 检索别名
 
 | 类型 | 标准名称 | 别名 |
 |---|---|---|
-| 主题 | 联盟项目数据看板 | Social Content 联盟项目、橱窗号投流对照 |
+| 主题 | 【Affiliate】投放数据看板 | 联盟项目数据看板、Social Content 联盟项目、橱窗号投流对照 |
+| 看板 | 【Affiliate】运营核心数据看板 | Affiliate 运营核心、广告 ROI / GMV / 件数趋势 |
 | 指标 | 销售金额 | GMV、Gross revenue (Shop) |
 | 指标 | 广告投放 ROI | ROAS、投产比 |
 
 ## 适用范围
 
 - 业务线：`TikTok 橱窗号`
-- 适合：对照橱窗号视频的自然表现与 TikTok 广告投放，看 region、成本、ROI、销售金额 / 件数，以及投流前后件数。
+- 适合：对照橱窗号视频的自然表现与 TikTok 广告投放，看 region、成本、ROI、销售金额 / 件数，以及投流前后件数；也包含按 `dt` 看广告 ROI / 广告 GMV / 广告件数日趋势。
 - 不适合：橱窗号自然内容总览应使用[Social Content 橱窗号数据](../【Social Content】橱窗号数据/fact.md)；Makepod 店铺广告应使用[Makepod 店铺 TK 广告投放数据](../【Social Content】Makepod 店铺 TK 广告投放数据/fact.md)。不要用 GMV Max 的 `gross_revenue` 填本看板。
 - 需要澄清：需要确认是视频日明细还是汇总、看的是广告归因 GMV 还是 RPA 自然 GMV、ROI 是单行还是 SUM/SUM。
 
@@ -27,11 +28,17 @@
 - 必要过滤：已关联到广告、且 `spend = 0` 且广告 GMV = 0 的行去掉。未投流视频保留，广告字段保持空值。
 - 不包含：Makepod 店铺过滤；按广告名是否含「联盟」圈数；用 `username` / `identity_id` 做 join。
 
-- Dashboard：[【Social Content】联盟项目数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content-affiliate-project/)（id=134，slug `social-content-affiliate-project`）
+- Dashboard：[【Affiliate】投放数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content-affiliate-project/)（id=134，slug `social-content-affiliate-project`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_project`（id=299），主时间列 `dt`
 - Superset chart：`727`（联盟项目视频日报，raw table）；`728`（联盟项目视频汇总，aggregate）
 - 明细按 `dt × video_key` 出一行。汇总不按 `dt` 分组：`dt` 只做时间筛选，维度是 `region + account_name + published_dt + channel + video_id + video_link`，指标按所选时间段汇总
 - 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；`video_id` 展示在视频链接左边，`channel` 展示在视频 ID 左边
+
+- Dashboard：[【Affiliate】运营核心数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-core-operation/)（id=135，slug `affiliate-core-operation`）
+- 同一个 dataset（id=299），三张 `echarts_timeseries_line`：`729` 广告 ROI 趋势、`730` 广告带来 GMV 趋势、`731` 广告带来售出件数趋势
+- 横轴统一是 `dt`（`time_grain_sqla = P1D`），无 `groupby`，即全账号全视频按天汇总
+- 指标口径：ROI `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))`；GMV `SUM(ad_gmv_usd)`；件数 `SUM(ad_items)`。三张图都只看广告侧，不混 RPA、不取 `sales_*`
+- 只有一个 `dt` 时间筛选器，默认最近 30 个完整美东日。没投流的日期三条线都是空值，不补 0
 
 ## 字段
 

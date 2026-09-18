@@ -1,4 +1,4 @@
-# 【Social Content】联盟项目数据看板 排查经验
+# 【Affiliate】投放数据看板 排查经验
 
 ## 对账号不要用 username，对视频不要用广告 video_id
 

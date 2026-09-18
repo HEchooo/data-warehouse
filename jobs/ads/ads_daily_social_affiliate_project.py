@@ -1,4 +1,4 @@
-"""ADS 【Social Content】联盟项目数据看板 ETL。
+"""ADS 【Affiliate】投放数据看板 ETL。
 
 取 max、转 USD、现算 ROI，并去掉已投流但 spend 与广告 GMV 都为 0 的行。
 量级小，全表重建。
@@ -24,7 +24,7 @@ client = bigquery.Client(project=PROJECT_ID)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="构建联盟项目数据看板日报（dt × video_key），全表重建"
+        description="构建【Affiliate】投放数据看板日报（dt × video_key），全表重建"
     )
     return parser.parse_args()
 
