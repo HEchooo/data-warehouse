@@ -37,6 +37,13 @@
 - 后果：看板靠 `tiktok_item_id = video_id` 连视频，历史分区连不上，ROI / 广告 GMV / 广告件数整段为空。看起来像「那段时间没投流」，实际是缺 join key。
 - 判断方法：先查 ODS 同期 `SUM(spend)`。有 spend 但 `COUNTIF(tiktok_item_id IS NOT NULL) = 0`，就是缺回填，不是没投流。
 - 修法：`ods_tiktok_ad_daily.py --start-date/--end-date` 显式回填，再重跑 DWS / ADS。回填前必须先问用户。
+- 2026-09-18 已回填 2026-08-07 ~ 2026-09-13，629 行全部补上 `tiktok_item_id`，551 行补上 Shop 指标。
+
+## 回填广告 ODS 的两个硬限制
+
+- `/report/integrated/get/` 带 `stat_time_day` 时**单次窗口最多 30 天**，超了报 `code=40002 max time span is 30 days when use stat_time_day`。38 天要拆成两段跑，窗口不要重叠。
+- Secret Manager 的 Python 客户端默认走 gRPC，部分网络出口会拦（`503 tcp handshaker shutdown`，`bq` / `gcloud` 却正常）。`SecretManagerServiceClient(transport="rest")` 走普通 HTTPS，本地和 GCP 都通。
+- 回填后 `spend > 0` 但 `ad_gmv = 0` 的日期是真实的「投了没成交」，不是缺数。`spend` 全为 0 的日期会被零填充过滤规则去掉（例如 2026-08-23），看板上不出现。
 
 ## `/identity/get/` 的 page_size 上限是 100
 

@@ -108,7 +108,8 @@ def table_id(table_name: str = TABLE_NAME) -> str:
 
 
 def get_access_token() -> str:
-    secret_client = secretmanager.SecretManagerServiceClient()
+    # gRPC 在部分网络出口被拦（tcp handshaker shutdown），REST 走普通 HTTPS，两端都通
+    secret_client = secretmanager.SecretManagerServiceClient(transport="rest")
     name = f"projects/{PROJECT_ID}/secrets/{ACCESS_TOKEN_SECRET_ID}/versions/latest"
     return secret_client.access_secret_version(request={"name": name}).payload.data.decode("utf-8")
 
