@@ -28,7 +28,7 @@
 - 必要过滤：已关联到广告、且 `spend = 0` 且广告 GMV = 0 的行去掉。未投流视频保留，广告字段保持空值。
 - 不包含：Makepod 店铺过滤；按广告名是否含「联盟」圈数；用 `username` / `identity_id` 做 join。
 
-- Dashboard：[【Affiliate】投放数据看板](https://bi.alvinclub.ca/superset/dashboard/social-content-affiliate-project/)（id=134，slug `social-content-affiliate-project`）
+- Dashboard：[【Affiliate】投放数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-ad-delivery/)（id=134，slug `affiliate-ad-delivery`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_project`（id=299），主时间列 `dt`
 - Superset chart：`727`（联盟项目视频日报，raw table）；`728`（联盟项目视频汇总，aggregate）
 - 明细按 `dt × video_key` 出一行。汇总不按 `dt` 分组：`dt` 只做时间筛选，维度是 `region + account_name + published_dt + channel + video_id + video_link`，指标按所选时间段汇总
