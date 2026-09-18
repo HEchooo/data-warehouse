@@ -1,6 +1,6 @@
 """DWS 联盟项目视频日事实 ETL。
 
-橱窗号视频日骨架左连广告（tiktok_item_id）、ECN 归属 / 投流时间、RPA 成交。
+橱窗号视频日骨架左连广告（tiktok_item_id）、ECN 首次归属 / 投流时间、RPA 成交。
 只落可加分子分母和投流前件数。量级小，全表重建。
 """
 
@@ -245,7 +245,7 @@ def build_select_sql() -> str:
     LEFT JOIN rpa_daily r
         ON r.dt = d.dt
         AND r.video_id = v.video_id
-    LEFT JOIN `{table_id("ods_ecn_account_affiliation")}` aff
+    LEFT JOIN `{table_id("dim_ecn_account_affiliation")}` aff
         ON aff.platform = '{AFFILIATE_CHANNEL}'
         AND LOWER(LTRIM(aff.account_handle, '@')) = LOWER(LTRIM(v.account_handle, '@'))
     LEFT JOIN `{table_id("ods_ecn_video_promotion_entry")}` e

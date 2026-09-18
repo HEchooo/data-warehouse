@@ -37,7 +37,7 @@
 - Dashboard：[【Affiliate】运营核心数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-core-operation/)（id=135，slug `affiliate-core-operation`）
 - 同一个 dataset（id=299），三张 `echarts_timeseries_line`：`729` 广告 ROI 趋势、`730` 广告带来 GMV 趋势、`731` 广告带来售出件数趋势
 - 横轴统一是 `dt`（`time_grain_sqla = P1D`），按 `region` 拆线，即每个联盟地区一条线，没有跨地区合计线
-- 拆线维度用 `IFNULL(region, '(空)')`：只是图例显示用，不改 `region` 列本身的空值语义。ECN 没查到地区的行归到 `(空)` 这条线，不当成一个地区
+- 拆线维度用 `IFNULL(region, '(空)')`：只是图例显示用，不改 `region` 列本身的空值语义。从未成功绑定过地区的行归到 `(空)` 这条线，不当成一个地区
 - 指标口径：ROI `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))`；GMV `SUM(ad_gmv_usd)`；件数 `SUM(ad_items)`。三张图都只看广告侧，不混 RPA、不取 `sales_*`
 - 筛选器：`dt` 时间筛选（默认最近 30 个完整美东日）、`region` 多选。没投流的日期三条线都是空值，不补 0
 
@@ -46,7 +46,7 @@
 | 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
 |---|---|---|---|---|---|
 | 统计日 | `dt` | 自然日 | 骨架按 `America/Toronto` 切日，只出已结束的美东日。广告指标源表按广告主时区 `Etc/GMT+5` 切日，夏令时期间两边可能差 1 小时，按日历日字符串对齐，不对齐到小时 | 无 | 不聚合 |
-| region | `region` | 账号 | ECN `account-affiliation` 的 `affiliation_label`（联盟美国 / 联盟墨西哥）。入参用内部 `account_handle`。查过但 404 / 非联盟标签时保持空值，不补「未知」 | 按目标地区过滤 | 不聚合 |
+| region | `region` | 账号 | `dim_ecn_account_affiliation.affiliation_label`（联盟美国 / 联盟墨西哥）。ECN 首次成功绑定后不再改；封号后上游删除不影响。从未绑上过才保持空值，不补「未知」 | 按目标地区过滤 | 不聚合 |
 | 账号名称 | `account_name` | 账号 | `dim_video` / 账号快照的 `display_name`，不是广告 `identity_id` | 按目标账号过滤 | 不聚合 |
 | 账号 handle | `account_handle` | 账号 | 内部 `username`，只作展示和 ECN 入参，不当 join key | 按目标账号过滤 | 不聚合 |
 | 视频发布日期 | `published_dt` | 视频 | `dim_video.published_dt` | 无 | 不聚合 |
@@ -78,9 +78,10 @@
 | 时区 | 本表 `dt` 用 `America/Toronto`。广告源是 `Etc/GMT+5`（不含夏令时），RPA `stats_date` 是 Shop 后台日（历史店铺曾是 MX），`ads_first_sent_at` 是 UTC。跨源按日历日对齐，可能错位 1 小时到 1 天 |
 | `fetched_at` | RPA 源表是无时区 `DATETIME`，和 UTC 的 `ads_first_sent_at` 比较时按 UTC 解释；边界附近可能落到相邻一次快照 |
 | 汇率 | `decom.currency_conversion_dict` 只有当前快照。缺币种时美元金额保持空值 |
-| ECN 404 / 409 | 是业务结果，ODS 落「查过但没有」，任务不失败。region / 投流时间 / 投流前件数保持空 |
+| ECN 404 / 409 | 是业务结果，ODS 落「查过但没有」，任务不失败。投流时间 / 投流前件数保持空。region 改读维表：曾经绑成功过的账号继续有地区，从未绑上过的才空 |
+| 封号删号 | ECN 删掉账号后 ODS 当天会变空。`dim_ecn_account_affiliation` 只插入未见过的成功绑定，已有地区不覆盖、不删除。接口已经 404 的账号，按确认名单补维表，不写回 ODS |
 | 省略 DWD | 广告日报已是报表粒度；affiliation / promotion-entry 是实体快照，没有去重和多源打平需求 |
-| 省略 DIM | 视频 ID 映射只服务本看板，DWS 直接 join `dim_video` |
+| affiliation 建 DIM | 绑定后地区不变，且源会随封号删除；不能每次只读 ODS 当天快照。视频 ID 仍直接 join 已有 `dim_video` |
 
 ## 已落地字段
 
@@ -96,11 +97,12 @@
 ## 依赖
 
 - 原始层：`decom.ods_tiktok_ad_daily`（扩了 `tiktok_item_id`、identity、Shop GMV / 件数）；`decom.ods_ecn_account_affiliation`；`decom.ods_ecn_video_promotion_entry`
+- 维表层：`decom.dim_ecn_account_affiliation`（账号首次联盟地区，只增不改）
 - 事实层：`decom.dws_social_affiliate_project_video_daily`（只固化可加分子分母和投流前件数；max / ROI / 美元 / 看板过滤在 ADS）
 - 报表层：`decom.ads_daily_social_affiliate_project`
 - 其他上游：`decom.dim_video`、`decom.dws_social_creator_snapshot_daily`、`decom.dws_social_video_state_daily_v2`、`videos.tiktok_shop_rpa_video_stats_snapshots`、`decom.currency_conversion_dict`
-- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`
-- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/ods/ods_ecn_video_promotion_entry.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`
+- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/dim/dim_ecn_account_affiliation.py`、`jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`
+- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/dim/dim_ecn_account_affiliation.sql`、`ddl/ods/ods_ecn_video_promotion_entry.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口
 - 凭据：TikTok token 用 Secret Manager `prod-ads-runner-tiktok-access-token`。ECN 读未跟踪文件 `env/ecn.json`（模板 `env/ecn.json.example`），不入库
 - 规则：`docs/rules/video-mapping.md` 橱窗号一节、`docs/rules/layering.md`
@@ -110,6 +112,7 @@
 ```bash
 python3 jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py
 python3 jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py
+python3 jobs/dim/dim_ecn_account_affiliation.py
 python3 jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py
 python3 jobs/dws/dws_social_affiliate_project_video_daily.py
 python3 jobs/ads/ads_daily_social_affiliate_project.py

@@ -897,6 +897,18 @@
       "schedule_group": "ods_ecn_account_affiliation"
     },
     {
+      "layer": "DIM",
+      "table_name": "dim_ecn_account_affiliation",
+      "stage": "DIM",
+      "name": "DIM ECN 账号联盟归属 ETL",
+      "script": "jobs/dim/dim_ecn_account_affiliation.py",
+      "enabled": true,
+      "depends_on": [
+        "ods_ecn_account_affiliation"
+      ],
+      "schedule_group": "dim_ecn_account_affiliation"
+    },
+    {
       "layer": "ODS",
       "table_name": "ods_ecn_video_promotion_entry",
       "stage": "ODS",
@@ -918,7 +930,7 @@
       "enabled": true,
       "depends_on": [
         "ods_tiktok_ad_daily",
-        "ods_ecn_account_affiliation",
+        "dim_ecn_account_affiliation",
         "ods_ecn_video_promotion_entry",
         "dim_video",
         "dws_social_creator_snapshot_daily",

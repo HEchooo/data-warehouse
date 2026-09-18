@@ -14,9 +14,16 @@
 
 ## ECN 的 404 / 409 不是任务失败
 
-- affiliation 查不到或不是美墨联盟：落一行空 `affiliation_label`，region 保持空。
+- affiliation 查不到或不是美墨联盟：ODS 落一行空 `affiliation_label`。看板 region 读 `dim_ecn_account_affiliation`：曾经绑成功过的账号继续用首次地区，从未绑上过才空。
 - promotion-entry 尚未投流：落一行空 `ads_first_sent_at`，广告字段保持空，投流前件数也保持空。
 - ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。
+
+## 账号被封后 ECN 会删掉，当天接口再也给不出地区
+
+- 现象：橱窗号封禁后，`account-affiliation` 变成 404，ODS 整表覆盖，`affiliation_label` 变空，两个 Affiliate 看板的 region 跟着丢。
+- 原因：绑定一次之后地区不会变，但 ODS 只保存当天接口结果，源删了等于历史也没了。
+- 修法：成功绑定写入 `dim_ecn_account_affiliation`，只插新账号、不改已有地区。DWS / 看板只读这张维表。
+- 接口已经 404 的账号，按业务确认名单补进维表，不改 ODS。ODS 继续留当天 404，用来判断「上游现在已经没有这个账号了」。
 
 ## 没投流不要用当天 RPA 顶「投流前件数」
 
