@@ -36,9 +36,10 @@
 
 - Dashboard：[【Affiliate】运营核心数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-core-operation/)（id=135，slug `affiliate-core-operation`）
 - 同一个 dataset（id=299），三张 `echarts_timeseries_line`：`729` 广告 ROI 趋势、`730` 广告带来 GMV 趋势、`731` 广告带来售出件数趋势
-- 横轴统一是 `dt`（`time_grain_sqla = P1D`），无 `groupby`，即全账号全视频按天汇总
+- 横轴统一是 `dt`（`time_grain_sqla = P1D`），按 `region` 拆线，即每个联盟地区一条线，没有跨地区合计线
+- 拆线维度用 `IFNULL(region, '(空)')`：只是图例显示用，不改 `region` 列本身的空值语义。ECN 没查到地区的行归到 `(空)` 这条线，不当成一个地区
 - 指标口径：ROI `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))`；GMV `SUM(ad_gmv_usd)`；件数 `SUM(ad_items)`。三张图都只看广告侧，不混 RPA、不取 `sales_*`
-- 只有一个 `dt` 时间筛选器，默认最近 30 个完整美东日。没投流的日期三条线都是空值，不补 0
+- 筛选器：`dt` 时间筛选（默认最近 30 个完整美东日）、`region` 多选。没投流的日期三条线都是空值，不补 0
 
 ## 字段
 

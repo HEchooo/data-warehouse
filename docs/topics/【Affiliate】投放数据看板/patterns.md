@@ -30,6 +30,14 @@
 - 看板时间筛选会按 `order_by_cols` 重写排序。写成 `["dt ", false]` 时，后端按字符串列名 `dt ` 去找，找不到就报这个错。
 - 排序必须用不带空格的物理列：`order_by_cols = ['["dt", false]']`，`query_context.queries[0].orderby = [["dt", false]]`。两处都要改。
 
+## 广告扩展列只对回填后的分区有效，历史分区 join 不上视频
+
+- `tiktok_item_id`、`shop_gross_revenue_by_order_submission`、`shop_total_items_purchased` 是后加进 `ods_tiktok_ad_daily` 的列。
+- 2026-09-14 之前的分区这三列全空（实测 629 行全空），但 `spend` 有真实值，钱是花了的。
+- 后果：看板靠 `tiktok_item_id = video_id` 连视频，历史分区连不上，ROI / 广告 GMV / 广告件数整段为空。看起来像「那段时间没投流」，实际是缺 join key。
+- 判断方法：先查 ODS 同期 `SUM(spend)`。有 spend 但 `COUNTIF(tiktok_item_id IS NOT NULL) = 0`，就是缺回填，不是没投流。
+- 修法：`ods_tiktok_ad_daily.py --start-date/--end-date` 显式回填，再重跑 DWS / ADS。回填前必须先问用户。
+
 ## `/identity/get/` 的 page_size 上限是 100
 
 - 报表 `/report/integrated/get/` 可以 `page_size=1000`。identity 接口传 1000 会报 `code=40002 page_size: number must be most 100`。
