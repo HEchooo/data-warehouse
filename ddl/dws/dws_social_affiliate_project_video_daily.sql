@@ -27,3 +27,13 @@ CREATE TABLE IF NOT EXISTS `my-project-8584-jetonai.decom.dws_social_affiliate_p
 )
 PARTITION BY dt
 CLUSTER BY channel, creator_id, video_key;
+
+-- 2026-09-20 首次投放日、累计投放次数，以及 CPM/CPC/CPS/播放点击率/详情页转化率的分子分母。
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_daily`
+    ADD COLUMN IF NOT EXISTS first_ad_dt DATE,
+    ADD COLUMN IF NOT EXISTS ad_run_cnt INT64,
+    ADD COLUMN IF NOT EXISTS impressions INT64,
+    ADD COLUMN IF NOT EXISTS clicks INT64,
+    ADD COLUMN IF NOT EXISTS ad_purchases FLOAT64,
+    ADD COLUMN IF NOT EXISTS video_play_actions INT64,
+    ADD COLUMN IF NOT EXISTS onsite_on_web_detail INT64;

@@ -1,7 +1,7 @@
 """DWS 联盟项目视频日事实 ETL。
 
 橱窗号视频日骨架左连广告（tiktok_item_id）、ECN 首次归属 / 投流时间、RPA 成交。
-只落可加分子分母和投流前件数。量级小，全表重建。
+只落可加分子分母、投流前件数、首次投放日和累计投放次数。量级小，全表重建。
 """
 
 import argparse
@@ -110,10 +110,61 @@ def build_select_sql() -> str:
             SUM(IFNULL(spend, 0)) AS spend,
             SUM(shop_gross_revenue_by_order_submission) AS ad_gmv,
             SUM(shop_total_items_purchased) AS ad_items,
+            SUM(shop_total_purchase_by_order_submission) AS ad_purchases,
+            SUM(impressions) AS impressions,
+            SUM(clicks) AS clicks,
+            SUM(video_play_actions) AS video_play_actions,
+            SUM(onsite_on_web_detail) AS onsite_on_web_detail,
             ANY_VALUE(currency) AS ad_currency
         FROM `{table_id("ods_tiktok_ad_daily")}`
         WHERE tiktok_item_id IS NOT NULL
         GROUP BY dt, tiktok_item_id
+    ),
+    -- 有消耗的连续日历日算一次投放；中间断一天就算新的一次。
+    ad_spend_days AS (
+        SELECT DISTINCT
+            tiktok_item_id AS video_id,
+            dt
+        FROM `{table_id("ods_tiktok_ad_daily")}`
+        WHERE tiktok_item_id IS NOT NULL
+            AND IFNULL(spend, 0) > 0
+    ),
+    ad_run_marked AS (
+        SELECT
+            video_id,
+            dt,
+            DATE_SUB(dt, INTERVAL ROW_NUMBER() OVER (PARTITION BY video_id ORDER BY dt) DAY) AS grp
+        FROM ad_spend_days
+    ),
+    ad_runs AS (
+        SELECT
+            video_id,
+            MIN(dt) AS run_start,
+            DENSE_RANK() OVER (PARTITION BY video_id ORDER BY MIN(dt)) AS run_seq
+        FROM ad_run_marked
+        GROUP BY video_id, grp
+    ),
+    -- 本表全量重建，首次投放日取全历史最早有消耗日，不是窗口内 MIN。
+    video_first_ad AS (
+        SELECT
+            video_id,
+            MIN(run_start) AS first_ad_dt
+        FROM ad_runs
+        GROUP BY video_id
+    ),
+    -- 截止当天已经开始了几次投放。还没投过保持空。
+    video_run_as_of AS (
+        SELECT
+            d.dt,
+            v.video_id,
+            MAX(r.run_seq) AS ad_run_cnt
+        FROM date_spine d
+        INNER JOIN affiliate_video v
+            ON d.video_key = v.video_key
+        LEFT JOIN ad_runs r
+            ON r.video_id = v.video_id
+            AND r.run_start <= d.dt
+        GROUP BY d.dt, v.video_id
     ),
     -- RPA 一天多次抓取，按统计日 × 视频 × 商品保留最后一次；无商品名的行也留下。
     latest_rpa AS (
@@ -212,9 +263,19 @@ def build_select_sql() -> str:
         aff.affiliation_label AS region,
         e.ads_first_sent_at,
         IFNULL(ad.has_ad, FALSE) AS has_ad,
+        CASE
+            WHEN fa.first_ad_dt IS NULL OR d.dt < fa.first_ad_dt THEN NULL
+            ELSE fa.first_ad_dt
+        END AS first_ad_dt,
+        runs.ad_run_cnt,
         ad.spend,
         ad.ad_gmv,
         ad.ad_items,
+        ad.ad_purchases,
+        ad.impressions,
+        ad.clicks,
+        ad.video_play_actions,
+        ad.onsite_on_web_detail,
         ad.ad_currency,
         r.rpa_gmv,
         r.rpa_items,
@@ -242,6 +303,11 @@ def build_select_sql() -> str:
     LEFT JOIN ad_daily ad
         ON ad.dt = d.dt
         AND ad.video_id = v.video_id
+    LEFT JOIN video_first_ad fa
+        ON fa.video_id = v.video_id
+    LEFT JOIN video_run_as_of runs
+        ON runs.dt = d.dt
+        AND runs.video_id = v.video_id
     LEFT JOIN rpa_daily r
         ON r.dt = d.dt
         AND r.video_id = v.video_id
@@ -265,8 +331,16 @@ def validate(staging_table: str) -> None:
                 COUNT(DISTINCT CONCAT(CAST(dt AS STRING), '|', video_key)) AS unique_key_count,
                 COUNTIF(dt IS NULL OR video_key IS NULL) AS null_key_count,
                 COUNTIF(channel IS NULL OR channel = '') AS null_channel_count,
-                COUNTIF(spend < 0 OR ad_gmv < 0 OR rpa_gmv < 0) AS negative_amount_count,
-                COUNTIF(ad_items < 0 OR rpa_items < 0 OR items_before_ads < 0) AS negative_item_count
+                COUNTIF(spend < 0 OR ad_gmv < 0 OR rpa_gmv < 0 OR ad_purchases < 0) AS negative_amount_count,
+                COUNTIF(ad_items < 0 OR rpa_items < 0 OR items_before_ads < 0) AS negative_item_count,
+                COUNTIF(
+                    impressions < 0
+                    OR clicks < 0
+                    OR video_play_actions < 0
+                    OR onsite_on_web_detail < 0
+                ) AS negative_funnel_count,
+                COUNTIF(IFNULL(spend, 0) > 0 AND first_ad_dt IS NULL) AS missing_first_ad_count,
+                COUNTIF(IFNULL(spend, 0) > 0 AND IFNULL(ad_run_cnt, 0) < 1) AS missing_run_cnt_count
             FROM `{staging_table}`
             """
         ).result()
@@ -283,6 +357,12 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("联盟项目视频事实校验失败：存在负金额")
     if result.negative_item_count:
         raise RuntimeError("联盟项目视频事实校验失败：存在负件数")
+    if result.negative_funnel_count:
+        raise RuntimeError("联盟项目视频事实校验失败：存在负漏斗次数")
+    if result.missing_first_ad_count:
+        raise RuntimeError("联盟项目视频事实校验失败：有消耗的行缺首次投放日")
+    if result.missing_run_cnt_count:
+        raise RuntimeError("联盟项目视频事实校验失败：有消耗的行缺累计投放次数")
 
 
 def run() -> None:
