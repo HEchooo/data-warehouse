@@ -1,7 +1,7 @@
 """ADS 【Affiliate】投放数据看板 ETL。
 
-取 max、转 USD、现算 ROI，并去掉已投流但 spend 与广告 GMV 都为 0 的行。
-量级小，全表重建。
+取 max、转 USD、现算 ROI / CPM / CPC / CPS / 广告投放后带来播放点击率 / 广告投放后带来详情页购买转化率，
+并去掉已投流但 spend 与广告 GMV 都为 0 的行。量级小，全表重建。
 """
 
 import argparse
@@ -72,10 +72,17 @@ def build_select_sql() -> str:
             d.rpa_gmv,
             d.rpa_gmv * IF(UPPER(d.rpa_currency) = 'USD', 1, rr.usd_rate) AS rpa_gmv_usd,
             d.ad_items,
+            d.ad_purchases,
             d.rpa_items,
             d.items_before_ads,
             d.view_increment,
             d.like_increment,
+            d.impressions,
+            d.clicks,
+            d.video_play_actions,
+            d.onsite_on_web_detail,
+            d.first_ad_dt,
+            d.ad_run_cnt,
             d.ad_currency,
             d.rpa_currency,
             d.has_ad
@@ -124,12 +131,24 @@ def build_select_sql() -> str:
         rpa_gmv_usd,
         sales_amount_usd,
         ad_items,
+        ad_purchases,
         rpa_items,
         sales_items,
         items_before_ads,
         sales_items - items_before_ads - IFNULL(ad_items, 0) AS organic_items_after_ads,
         view_increment,
         like_increment,
+        first_ad_dt,
+        ad_run_cnt,
+        impressions,
+        clicks,
+        video_play_actions,
+        onsite_on_web_detail,
+        SAFE_DIVIDE(spend, impressions) * 1000 AS cpm,
+        SAFE_DIVIDE(spend, clicks) AS cpc,
+        SAFE_DIVIDE(spend, ad_purchases) AS cps,
+        SAFE_DIVIDE(clicks, video_play_actions) AS play_click_rate,
+        SAFE_DIVIDE(ad_purchases, clicks) AS detail_purchase_cvr,
         SAFE_DIVIDE(ad_gmv_usd, spend) AS roi,
         ad_currency,
         rpa_currency,
@@ -148,6 +167,19 @@ def validate(staging_table: str) -> None:
                 COUNTIF(dt IS NULL OR video_key IS NULL) AS null_key_count,
                 COUNTIF(channel IS NULL OR channel = '') AS null_channel_count,
                 COUNTIF(spend > 0 AND ad_gmv_usd > 0 AND roi IS NULL) AS broken_roi_count,
+                COUNTIF(spend > 0 AND impressions > 0 AND cpm IS NULL) AS broken_cpm_count,
+                COUNTIF(spend > 0 AND clicks > 0 AND cpc IS NULL) AS broken_cpc_count,
+                COUNTIF(spend > 0 AND ad_purchases > 0 AND cps IS NULL) AS broken_cps_count,
+                COUNTIF(
+                    clicks > 0
+                    AND video_play_actions > 0
+                    AND play_click_rate IS NULL
+                ) AS broken_play_click_rate_count,
+                COUNTIF(
+                    ad_purchases > 0
+                    AND clicks > 0
+                    AND detail_purchase_cvr IS NULL
+                ) AS broken_detail_cvr_count,
                 COUNTIF(
                     IFNULL(spend, 0) = 0
                     AND IFNULL(ad_gmv, 0) = 0
@@ -168,6 +200,16 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("联盟项目看板日报校验失败：channel 存在空值")
     if result.broken_roi_count:
         raise RuntimeError("联盟项目看板日报校验失败：有消耗有广告 GMV 的行算不出 ROI")
+    if result.broken_cpm_count:
+        raise RuntimeError("联盟项目看板日报校验失败：有消耗有展示的行算不出 CPM")
+    if result.broken_cpc_count:
+        raise RuntimeError("联盟项目看板日报校验失败：有消耗有点击的行算不出 CPC")
+    if result.broken_cps_count:
+        raise RuntimeError("联盟项目看板日报校验失败：有消耗有成交笔数的行算不出 CPS")
+    if result.broken_play_click_rate_count:
+        raise RuntimeError("联盟项目看板日报校验失败：有点击有广告播放的行算不出广告投放后带来播放点击率")
+    if result.broken_detail_cvr_count:
+        raise RuntimeError("联盟项目看板日报校验失败：有成交有点击的行算不出广告投放后带来详情页购买转化率")
     if result.zero_fill_count:
         raise RuntimeError("联盟项目看板日报校验失败：仍有 spend 与广告 GMV 都为 0 的已投流行")
 

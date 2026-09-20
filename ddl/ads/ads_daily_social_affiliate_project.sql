@@ -35,3 +35,18 @@ CLUSTER BY creator_id, video_key;
 -- 2026-09-17 透传视频渠道，供看板区分 youtube / tiktok / ins。
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_project`
     ADD COLUMN IF NOT EXISTS channel STRING;
+
+-- 2026-09-20 首次投放日、累计投放次数，以及广告漏斗率。率值只给明细行；汇总必须 SUM/SUM。
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_project`
+    ADD COLUMN IF NOT EXISTS first_ad_dt DATE,
+    ADD COLUMN IF NOT EXISTS ad_run_cnt INT64,
+    ADD COLUMN IF NOT EXISTS impressions INT64,
+    ADD COLUMN IF NOT EXISTS clicks INT64,
+    ADD COLUMN IF NOT EXISTS ad_purchases FLOAT64,
+    ADD COLUMN IF NOT EXISTS video_play_actions INT64,
+    ADD COLUMN IF NOT EXISTS onsite_on_web_detail INT64,
+    ADD COLUMN IF NOT EXISTS cpm FLOAT64,
+    ADD COLUMN IF NOT EXISTS cpc FLOAT64,
+    ADD COLUMN IF NOT EXISTS cps FLOAT64,
+    ADD COLUMN IF NOT EXISTS play_click_rate FLOAT64,
+    ADD COLUMN IF NOT EXISTS detail_purchase_cvr FLOAT64;

@@ -37,6 +37,11 @@
 - 看板时间筛选会按 `order_by_cols` 重写排序。写成 `["dt ", false]` 时，后端按字符串列名 `dt ` 去找，找不到就报这个错。
 - 排序必须用不带空格的物理列：`order_by_cols = ['["dt", false]']`，`query_context.queries[0].orderby = [["dt", false]]`。两处都要改。
 
+## 可空日期不要标成时间列
+
+- `first_ad_dt` 很多行是空的。标成 temporal / `is_dttm` 后，table 会先转成毫秒时间戳再格式化，空值会把图表打成 `Unexpected error`。
+- 看板上用 `CAST(first_ad_dt AS STRING)` 展示，并且不要放进 `temporal_columns_lookup`。`dt` / `published_dt` 不会空，可以继续当时间列。
+
 ## 广告扩展列只对回填后的分区有效，历史分区 join 不上视频
 
 - `tiktok_item_id`、`shop_gross_revenue_by_order_submission`、`shop_total_items_purchased` 是后加进 `ods_tiktok_ad_daily` 的列。
@@ -51,6 +56,17 @@
 - `/report/integrated/get/` 带 `stat_time_day` 时**单次窗口最多 30 天**，超了报 `code=40002 max time span is 30 days when use stat_time_day`。38 天要拆成两段跑，窗口不要重叠。
 - Secret Manager 的 Python 客户端默认走 gRPC，部分网络出口会拦（`503 tcp handshaker shutdown`，`bq` / `gcloud` 却正常）。`SecretManagerServiceClient(transport="rest")` 走普通 HTTPS，本地和 GCP 都通。
 - 回填后 `spend > 0` 但 `ad_gmv = 0` 的日期是真实的「投了没成交」，不是缺数。`spend` 全为 0 的日期会被零填充过滤规则去掉（例如 2026-08-23），看板上不出现。
+
+## 投放次数只能用日消耗切段，切不到几点开停
+
+- 没有计划 `schedule_start_time`，ECN `ads_first_sent_at` 又几乎是空的。
+- 现口径：有消耗的连续日历日算一次。9/19 投一天、9/21 再投，就是第 1 次和第 2 次。
+- 同一天里停了再开、当天投了几小时，都看不出来。
+
+## 广告投放后带来详情页购买转化率是购买数 / 点击数
+
+- 分母是目标页点击 `clicks`，分子是成交笔数 `ad_purchases`。不是进详情页之后的转化。
+- 不要用站外像素 `product_details_page_browse`（橱窗号实测全 0），也不要用站内详情页浏览 `onsite_on_web_detail` 当这一列的分母。
 
 ## `/identity/get/` 的 page_size 上限是 100
 

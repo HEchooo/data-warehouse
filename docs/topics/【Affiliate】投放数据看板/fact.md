@@ -8,6 +8,8 @@
 | 看板 | 【Affiliate】运营核心数据看板 | Affiliate 运营核心、广告 ROI / GMV / 件数趋势 |
 | 指标 | 销售金额 | GMV、Gross revenue (Shop) |
 | 指标 | 广告投放 ROI | ROAS、投产比 |
+| 指标 | 广告投放后带来播放点击率 | 播放点击率 |
+| 指标 | 广告投放后带来详情页购买转化率 | 详情页购买转化率 |
 
 ## 适用范围
 
@@ -31,7 +33,7 @@
 - Dashboard：[【Affiliate】投放数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-ad-delivery/)（id=134，slug `affiliate-ad-delivery`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_project`（id=299），主时间列 `dt`
 - Superset chart：`727`（联盟项目视频日报，raw table）；`728`（联盟项目视频汇总，aggregate）
-- 明细按 `dt × video_key` 出一行。汇总不按 `dt` 分组：`dt` 只做时间筛选，维度是 `region + account_name + published_dt + channel + video_id + video_link`，指标按所选时间段汇总
+- 明细按 `dt × video_key` 出一行。汇总不按 `dt` 分组：`dt` 只做时间筛选，维度是 `region + account_name + published_dt + first_ad_dt + channel + video_id + video_link`，指标按所选时间段汇总
 - 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；`video_id` 展示在视频链接左边，`channel` 展示在视频 ID 左边
 
 - Dashboard：[【Affiliate】运营核心数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-core-operation/)（id=135，slug `affiliate-core-operation`）
@@ -51,11 +53,18 @@
 | 账号 handle | `account_handle` | 账号 | 内部 `username`，只作展示和 ECN 入参，不当 join key | 按目标账号过滤 | 不聚合 |
 | 视频发布日期 | `published_dt` | 视频 | `dim_video.published_dt` | 无 | 不聚合 |
 | 渠道 | `channel` | 视频 | `dim_video.channel` 枚举 `youtube / tiktok / ins`。当前左表只收 `tiktok-affiliate` 橱窗号，看板值实际都是 `tiktok` | 按目标渠道过滤 | 不聚合 |
-| 视频 ID | `video_id` | 视频 | `dim_video.video_id`，等于广告 `tiktok_item_id`。看板展示在视频链接左边 | 按目标视频过滤 | 不聚合 |
+| 视频 ID | `video_id` | 视频 | 内库 `videos.videos.id`，经 `dim_video.video_id` 透出，等于广告 `tiktok_item_id`。看板列名是「视频 ID」 | 按目标视频过滤 | 不聚合 |
+| 首次广告投放日期 | `first_ad_dt` | 视频 | 该视频第一次出现 `spend > 0` 的日历日。当天还没投过保持空，不拿 ECN `ads_first_sent_at` 顶 | 无 | 视频级属性，同一视频跨天重复出现；汇总用 `MIN` |
+| 累计投放次数 | `ad_run_cnt` | 视频 | 截止当天，有消耗的连续日历日算一次投放，中间断一天就算新的一次。例如 9/19 投一天、9/21 再投，则 9/19=1、9/21=2。还没投过保持空，不补 0 | 无 | 截止当天的累计值，不可跨天求和；汇总用 `MAX` |
 | 视频链接文案 | `video_url` | 视频 | 固定字符串 `video_url` | 无 | 不聚合 |
 | 视频链接 | `video_link` | 视频 | `dim_video.video_link`，看板超链接指向这里 | 按目标视频过滤 | 不聚合 |
 | 广告投放 ROI | `roi` | 视频 | `广告 GMV / spend`，倍数。分子只用广告侧 Shop GMV，不用 RPA、不用接口 `onsite_shopping_roas` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))` |
 | 广告投放成本 | `spend` | 视频 | 当日该视频下全部广告 `spend` 之和，广告主账户货币（当前 USD） | 无 | 可加 |
+| 广告 CPM | `cpm` | 视频 | `spend / impressions × 1000`。没有展示时保持空 | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(spend), SUM(impressions)) * 1000` |
+| 广告 CPC | `cpc` | 视频 | `spend / clicks`，点击是目标页点击。没有点击时保持空 | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(spend), SUM(clicks))` |
+| 广告 CPS | `cps` | 视频 | `spend / ad_purchases`，分母是成交笔数 `shop_total_purchase_by_order_submission`，不是件数。没有成交时保持空 | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(spend), SUM(ad_purchases))` |
+| 广告投放后带来播放点击率 | `play_click_rate` | 视频 | `clicks / video_play_actions`，广告接口 Clicks (destination) / Video views，0–1。不是自然播放 `view_increment`，也不是 `clicks / impressions`。没有广告播放时保持空 | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(clicks), SUM(video_play_actions))` |
+| 广告投放后带来详情页购买转化率 | `detail_purchase_cvr` | 视频 | `ad_purchases / clicks`，广告接口购买数 / 点击数，0–1。分子是成交笔数 `shop_total_purchase_by_order_submission`，分母是目标页点击。没有点击时保持空。不要用站内详情页浏览 `onsite_on_web_detail`，也不要用站外像素 `product_details_page_browse` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(ad_purchases), SUM(clicks))` |
 | 广告 GMV | `ad_gmv` / `ad_gmv_usd` | 视频 | API `shop_gross_revenue_by_order_submission`（后台 Gross revenue (Shop)），按视频汇总。`ad_gmv_usd` 经汇率字典转美元，缺币种保持空值，不按 1 折算 | 无 | `ad_gmv_usd` 可加；原币跨币种不可加 |
 | RPA GMV | `rpa_gmv` / `rpa_gmv_usd` | 视频 | TikTok Shop 后台 RPA 视频成交，按 `stats_date × tiktok_video_id` 跨商品求和（含无商品名的行）。`rpa_gmv_usd` 转美元规则同上 | 无 | `rpa_gmv_usd` 可加；原币跨币种不可加 |
 | 销售金额 | `sales_amount_usd` | 视频 | 行级 `GREATEST(广告 GMV 美元, RPA GMV 美元)`；一侧为空时用另一侧，两侧都空则空 | 无 | 可按已取 max 的行求和；不能先分别汇总两套 GMV 再取 max 来对账 |
@@ -73,7 +82,9 @@
 |------|------|
 | 左表 | 橱窗号视频。广告名有没有「联盟」无关 |
 | Join | 只用 `ods_tiktok_ad_daily.tiktok_item_id = dim_video.video_id`（`channel = tiktok`）。禁止 `username` / `display_name` / `identity_id` |
-| 广告 `video_id` | 接口该字段实测全空，作废 |
+| 广告 `video_id` | 接口该字段实测全空，作废。看板上的视频 ID 用 `dim_video.video_id` |
+| 投放次数 | 没有计划开关时间，只能用日消耗切段：相邻有消耗日算同一次，断一天算新的一次。同一天里停了再开看不出来 |
+| 漏斗新列 | `video_play_actions` 是 2026-09-20 后加的，2026-08-07 ~ 2026-09-16 已回填；这一列为空时广告投放后带来播放点击率也空。广告投放后带来详情页购买转化率只用已有的购买数和点击数，不依赖详情页浏览列 |
 | 零填充行 | 已连上广告且 spend、广告 GMV 都为 0 的行，接口会吐全零填充，看板去掉。未投流行的空广告字段不要补 0 再滤掉 |
 | 时区 | 本表 `dt` 用 `America/Toronto`。广告源是 `Etc/GMT+5`（不含夏令时），RPA `stats_date` 是 Shop 后台日（历史店铺曾是 MX），`ads_first_sent_at` 是 UTC。跨源按日历日对齐，可能错位 1 小时到 1 天 |
 | `fetched_at` | RPA 源表是无时区 `DATETIME`，和 UTC 的 `ads_first_sent_at` 比较时按 UTC 解释；边界附近可能落到相邻一次快照 |
@@ -85,14 +96,14 @@
 
 ## 已落地字段
 
-需求 1–14 全部落到 `ads_daily_social_affiliate_project`。两套 GMV / 两套件数先入库，看板上的销售金额、销售件数取 max 后的展示列。
+需求 1–14 以及首次投放日、累计投放次数、广告 CPM / CPC / CPS、广告投放后带来播放点击率、广告投放后带来详情页购买转化率全部落到 `ads_daily_social_affiliate_project`。两套 GMV / 两套件数先入库，看板上的销售金额、销售件数取 max 后的展示列。
 
 ## 关联
 
-- 一个视频当天可能对应多条广告，DWS 按 `dt × video_id` 把 spend / 广告 GMV / 广告件数加总后再左连。
+- 一个视频当天可能对应多条广告，DWS 按 `dt × video_id` 把 spend / 广告 GMV / 广告件数 / 展示 / 点击 / 播放加总后再左连。
 - 视频维度 RPA 按商品出多行，本表在 DWS 已按视频收口，不能再拿橱窗号视频商品 DWS 直接当件数（那张表丢掉了无商品名的行）。
-- ROI、销售金额的 max、投流后自然件数都是行级派生值，看板汇总不得对 `roi` 求平均。
-- 汇总表：ROI 用 `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))`；可加列 `SUM`；投流前件数是视频级快照，用 `MAX` 不 `SUM`；投流后自然件数现算 `SUM(sales_items) - MAX(items_before_ads) - IFNULL(SUM(ad_items), 0)`，投流前件数为空时保持空。不得 `SUM(organic_items_after_ads)`。
+- ROI、销售金额的 max、投流后自然件数、CPM / CPC / CPS / 广告投放后带来播放点击率 / 广告投放后带来详情页购买转化率都是行级派生值，看板汇总不得对这些率求平均。
+- 汇总表：ROI 用 `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))`；CPM / CPC / CPS / 广告投放后带来播放点击率 / 广告投放后带来详情页购买转化率同样先 `SUM` 分子分母再除；可加列 `SUM`；投流前件数是视频级快照，用 `MAX` 不 `SUM`；累计投放次数用 `MAX`；首次投放日用 `MIN`；投流后自然件数现算 `SUM(sales_items) - MAX(items_before_ads) - IFNULL(SUM(ad_items), 0)`，投流前件数为空时保持空。不得 `SUM(organic_items_after_ads)`。
 
 ## 依赖
 
@@ -118,6 +129,6 @@ python3 jobs/dws/dws_social_affiliate_project_video_daily.py
 python3 jobs/ads/ads_daily_social_affiliate_project.py
 ```
 
-TikTok 广告 ODS 默认只重刷最近 4 天。更早分区的 `tiktok_item_id` / Shop 指标需要显式 `--start-date` / `--end-date` 回填，回填前必须先问。
+TikTok 广告 ODS 默认只重刷最近 4 天。2026-08-07 ~ 2026-09-16 已回填 `video_play_actions` / `onsite_on_web_detail`。更早分区如果再缺列，需要显式 `--start-date` / `--end-date`，回填前必须先问。接口带 `stat_time_day` 时单次最多 30 天，更长窗口要拆开、不要重叠。
 
 ECN 凭据读 `env/ecn.json`（未跟踪）。两个 ODS 已打开；网关偶发 502 时脚本会退避重试。
