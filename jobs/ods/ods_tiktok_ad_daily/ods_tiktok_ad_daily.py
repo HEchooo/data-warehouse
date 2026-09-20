@@ -55,6 +55,8 @@ REPORT_METRICS = [
     "total_onsite_shopping_value",  # Total complete payment value (onsite)
     "shop_total_items_purchased",  # Items purchased (Shop)
     "shop_total_purchase_by_order_submission",  # Purchases by order submission（笔数）
+    "video_play_actions",  # Video views，广告播放次数，不含重播
+    "onsite_on_web_detail",  # 站内商品详情页浏览；站外 product_details_page_browse 橱窗号实测全 0
     "campaign_id",
     "campaign_name",
     "adgroup_id",
@@ -79,7 +81,13 @@ FLOAT_METRICS = [
     "total_onsite_shopping_value",
     "shop_total_purchase_by_order_submission",
 ]
-INT_METRICS = ["impressions", "clicks", "shop_total_items_purchased"]
+INT_METRICS = [
+    "impressions",
+    "clicks",
+    "shop_total_items_purchased",
+    "video_play_actions",
+    "onsite_on_web_detail",
+]
 AD_FIELDS = [
     "ad_id",
     "adgroup_id",

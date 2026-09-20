@@ -65,3 +65,9 @@ ALTER TABLE `my-project-8584-jetonai.decom.ods_tiktok_ad_daily`
     ADD COLUMN IF NOT EXISTS total_onsite_shopping_value FLOAT64,
     ADD COLUMN IF NOT EXISTS shop_total_items_purchased INT64,
     ADD COLUMN IF NOT EXISTS shop_total_purchase_by_order_submission FLOAT64;
+
+-- 2026-09-20 联盟看板漏斗：广告播放次数、站内商品详情页浏览。
+-- product_details_page_browse 是站外像素，橱窗号实测全 0，不要用。
+ALTER TABLE `my-project-8584-jetonai.decom.ods_tiktok_ad_daily`
+    ADD COLUMN IF NOT EXISTS video_play_actions INT64,
+    ADD COLUMN IF NOT EXISTS onsite_on_web_detail INT64;
