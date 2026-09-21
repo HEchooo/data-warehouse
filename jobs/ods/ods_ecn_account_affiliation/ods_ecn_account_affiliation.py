@@ -1,7 +1,8 @@
-"""ODS ECN 账号联盟归属快照 ETL。
+"""ODS ECN 账号联盟归属 ETL。
 
 GET /api/v1/open-api/account-affiliation
-404 / 409 落空标签，不当失败。凭据读 env/ecn.json，不入库。
+只补维表里还没有地区的账号；已绑定不再请求。404 / 409 不当失败，下次再查。
+凭据读 env/ecn.json，不入库。
 """
 
 import json
@@ -18,12 +19,16 @@ import requests
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ods_ecn_account_affiliation"
+DIM_TABLE_NAME = "dim_ecn_account_affiliation"
 CREATOR_SNAPSHOT_TABLE_NAME = "dws_social_creator_snapshot_daily"
 AFFILIATE_USAGE_TYPE = "tiktok-affiliate"
 PLATFORM = "tiktok"
 API_PATH = "/api/v1/open-api/account-affiliation"
 BUSINESS_STATUS = {404, 409}
 RETRY_STATUS = {502, 503, 504}
+BATCH_SIZE = 50
+SLEEP_SECONDS = 0.2
+HANDLE_KEY = "LOWER(LTRIM({alias}.account_handle, '@'))"
 SCHEMA = [
     bigquery.SchemaField("platform", "STRING"),
     bigquery.SchemaField("account_handle", "STRING"),
@@ -45,12 +50,25 @@ def table_id(table_name: str = TABLE_NAME) -> str:
     return f"{PROJECT_ID}.{DATASET_ID}.{table_name}"
 
 
-def target_table_exists() -> bool:
+def target_table_exists(name: str = TABLE_NAME) -> bool:
     try:
-        client.get_table(table_id())
+        client.get_table(table_id(name))
         return True
     except NotFound:
         return False
+
+
+def ensure_table() -> None:
+    if target_table_exists():
+        return
+    table = bigquery.Table(table_id(), schema=SCHEMA)
+    table.clustering_fields = ["platform", "account_handle"]
+    client.create_table(table)
+    logging.info("已创建空表 %s", TABLE_NAME)
+
+
+def handle_key(alias: str) -> str:
+    return HANDLE_KEY.format(alias=alias)
 
 
 def load_ecn_config() -> tuple[str, str]:
@@ -75,35 +93,35 @@ def load_ecn_config() -> tuple[str, str]:
     return host, key
 
 
-def list_affiliate_handles() -> list[str]:
+def list_unbound_handles() -> list[str]:
+    dim_join = ""
+    where_missing = ""
+    if target_table_exists(DIM_TABLE_NAME):
+        dim_join = f"""
+        LEFT JOIN `{table_id(DIM_TABLE_NAME)}` dim
+            ON dim.platform = '{PLATFORM}'
+            AND {handle_key("dim")} = {handle_key("s")}
+        """
+        where_missing = "AND dim.account_handle IS NULL"
     rows = client.query(
         f"""
-        SELECT DISTINCT account_handle
-        FROM `{table_id(CREATOR_SNAPSHOT_TABLE_NAME)}`
-        WHERE channel = '{PLATFORM}'
-            AND usage_type = '{AFFILIATE_USAGE_TYPE}'
-            AND dt = (
+        SELECT DISTINCT s.account_handle
+        FROM `{table_id(CREATOR_SNAPSHOT_TABLE_NAME)}` s
+        {dim_join}
+        WHERE s.channel = '{PLATFORM}'
+            AND s.usage_type = '{AFFILIATE_USAGE_TYPE}'
+            AND s.dt = (
                 SELECT MAX(dt)
                 FROM `{table_id(CREATOR_SNAPSHOT_TABLE_NAME)}`
                 WHERE channel = '{PLATFORM}'
             )
-            AND NULLIF(account_handle, '') IS NOT NULL
+            AND NULLIF(s.account_handle, '') IS NOT NULL
+            {where_missing}
         """
     ).result()
     handles = [row.account_handle for row in rows]
-    if not handles:
-        raise RuntimeError("没有橱窗号账号，无法查询联盟归属")
-    logging.info("待查询橱窗号: %d 个", len(handles))
+    logging.info("待查询无联盟地区的橱窗号: %d 个", len(handles))
     return handles
-
-
-def error_code(payload) -> str | None:
-    if not isinstance(payload, dict):
-        return None
-    detail = payload.get("detail")
-    if isinstance(detail, dict):
-        return detail.get("code")
-    return None
 
 
 def parse_json(response: requests.Response) -> dict:
@@ -126,7 +144,7 @@ def get_with_retry(session: requests.Session, url: str, params: dict) -> request
     return response
 
 
-def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict:
+def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict | None:
     response = get_with_retry(
         session,
         f"{host}{API_PATH}",
@@ -134,64 +152,60 @@ def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict
     )
     payload = parse_json(response)
     if response.status_code == 200:
+        label = payload.get("affiliation_label")
+        if not label:
+            return None
+        fetched_at = datetime.now(timezone.utc).isoformat()
         return {
             "platform": PLATFORM,
             "account_handle": handle,
             "account_identifier": payload.get("account_identifier"),
             "affiliation": payload.get("affiliation"),
-            "affiliation_label": payload.get("affiliation_label"),
+            "affiliation_label": label,
             "ai_kol_id": payload.get("ai_kol_id"),
             "binding_source": payload.get("binding_source"),
             "http_status": 200,
             "error_code": None,
+            "fetched_at": fetched_at,
+            "update_time": fetched_at,
         }
     if response.status_code in BUSINESS_STATUS:
-        return {
-            "platform": PLATFORM,
-            "account_handle": handle,
-            "account_identifier": handle,
-            "affiliation": None,
-            "affiliation_label": None,
-            "ai_kol_id": None,
-            "binding_source": None,
-            "http_status": response.status_code,
-            "error_code": error_code(payload),
-        }
+        return None
     raise RuntimeError(
         f"ECN account-affiliation 失败: handle={handle} status={response.status_code}"
     )
 
 
-def validate(staging_table: str) -> None:
+def validate(table_name: str, label: str, require_labels: bool = False) -> None:
     result = list(
         client.query(
             f"""
             SELECT
                 COUNT(*) AS row_count,
-                COUNT(DISTINCT CONCAT(platform, '|', account_handle)) AS unique_key_count,
-                COUNTIF(platform IS NULL OR account_handle IS NULL) AS null_key_count
-            FROM `{staging_table}`
+                COUNT(DISTINCT CONCAT(platform, '|', {handle_key("t")})) AS unique_key_count,
+                COUNTIF(platform IS NULL OR account_handle IS NULL) AS null_key_count,
+                COUNTIF(http_status = 200 AND (affiliation_label IS NULL OR affiliation_label = '')) AS missing_label_count
+            FROM `{table_name}` t
             """
         ).result()
     )[0]
-    if result.row_count == 0:
-        raise RuntimeError("ECN 账号联盟归属校验失败：staging 无数据")
     if result.row_count != result.unique_key_count:
-        raise RuntimeError("ECN 账号联盟归属校验失败：platform + account_handle 不唯一")
+        raise RuntimeError(f"ECN 账号联盟归属校验失败：{label} platform + account_handle 不唯一")
     if result.null_key_count:
-        raise RuntimeError("ECN 账号联盟归属校验失败：主键字段存在空值")
+        raise RuntimeError(f"ECN 账号联盟归属校验失败：{label} 主键字段存在空值")
+    if require_labels and result.missing_label_count:
+        raise RuntimeError(f"ECN 账号联盟归属校验失败：{label} 200 响应缺少 affiliation_label")
 
 
-def replace_table(rows: list[dict]) -> None:
+def upsert_rows(rows: list[dict]) -> None:
+    if not rows:
+        return
     target_table = table_id()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     staging_table = f"{target_table}_tmp_{run_id}"
+    changed_table = f"{target_table}_changed_{run_id}"
     target_dropped = False
-
-    if not target_table_exists():
-        table = bigquery.Table(target_table, schema=SCHEMA)
-        table.clustering_fields = ["platform", "account_handle"]
-        client.create_table(table)
+    ensure_table()
 
     try:
         client.query(
@@ -206,33 +220,70 @@ def replace_table(rows: list[dict]) -> None:
                 write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
             ),
         ).result()
-        validate(staging_table)
-        if target_table_exists():
-            client.query(f"DROP TABLE `{target_table}`").result()
-            target_dropped = True
-        client.query(f"ALTER TABLE `{staging_table}` RENAME TO {TABLE_NAME}").result()
+        validate(staging_table, "staging", require_labels=True)
+        client.query(
+            f"""
+            CREATE TABLE `{changed_table}`
+            CLUSTER BY platform, account_handle AS
+            SELECT t.*
+            FROM `{target_table}` t
+            LEFT JOIN `{staging_table}` s
+                ON t.platform = s.platform
+                AND {handle_key("t")} = {handle_key("s")}
+            WHERE s.account_handle IS NULL
+            UNION ALL
+            SELECT * FROM `{staging_table}`
+            """
+        ).result()
+        validate(changed_table, "changed")
+        client.query(f"DROP TABLE `{target_table}`").result()
+        target_dropped = True
+        client.query(f"ALTER TABLE `{changed_table}` RENAME TO {TABLE_NAME}").result()
     except Exception:
         if target_dropped:
-            logging.error("目标表已删除但换名未完成，staging 表保留待恢复: %s", staging_table)
+            logging.error("目标表已删除但换名未完成，changed 表保留待恢复: %s", changed_table)
         else:
-            client.query(f"DROP TABLE IF EXISTS `{staging_table}`").result()
+            client.query(f"DROP TABLE IF EXISTS `{changed_table}`").result()
         raise
-    logging.info("%s 刷新完成, rows=%d", TABLE_NAME, len(rows))
+    finally:
+        client.query(f"DROP TABLE IF EXISTS `{staging_table}`").result()
+    logging.info("%s 写入 %d 条绑定", TABLE_NAME, len(rows))
 
 
 def run() -> None:
     host, api_key = load_ecn_config()
+    ensure_table()
+    handles = list_unbound_handles()
+    if not handles:
+        logging.info("%s 无需补充", TABLE_NAME)
+        return
+
     session = requests.Session()
     session.headers["X-API-Key"] = api_key
-    fetched_at = datetime.now(timezone.utc).isoformat()
-    rows = []
-    for handle in list_affiliate_handles():
-        row = fetch_affiliation(session, host, handle)
-        row["fetched_at"] = fetched_at
-        row["update_time"] = fetched_at
-        rows.append(row)
-        time.sleep(0.2)
-    replace_table(rows)
+    batch: list[dict] = []
+    failed: list[str] = []
+    matched = 0
+    try:
+        for index, handle in enumerate(handles, start=1):
+            try:
+                row = fetch_affiliation(session, host, handle)
+            except Exception as exc:
+                logging.warning("查询失败，本轮跳过 handle=%s err=%s", handle, exc)
+                failed.append(handle)
+                row = None
+            if row:
+                batch.append(row)
+                matched += 1
+            if index % BATCH_SIZE == 0 or index == len(handles):
+                upsert_rows(batch)
+                batch = []
+                logging.info("已查询 %d/%d，命中地区 %d", index, len(handles), matched)
+            time.sleep(SLEEP_SECONDS)
+    finally:
+        session.close()
+
+    if failed:
+        raise RuntimeError(f"ECN account-affiliation 有 {len(failed)} 条失败，已写入成功行，下次只补缺")
 
 
 if __name__ == "__main__":
