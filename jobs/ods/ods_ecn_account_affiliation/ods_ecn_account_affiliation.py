@@ -1,8 +1,8 @@
 """ODS ECN 账号联盟归属 ETL。
 
 GET /api/v1/open-api/account-affiliation
-只补维表里还没有地区的账号；已绑定不再请求。404 / 409 不当失败，下次再查。
-凭据读 env/ecn.json，不入库。
+每天拉全部橱窗号：200 写入地区 + 橱窗状态，404 / 409 不落新行、不改已有行。
+维表地区仍只首次绑定；本表保留最近一次成功响应。凭据读 env/ecn.json，不入库。
 """
 
 import json
@@ -19,7 +19,6 @@ import requests
 PROJECT_ID = "my-project-8584-jetonai"
 DATASET_ID = "decom"
 TABLE_NAME = "ods_ecn_account_affiliation"
-DIM_TABLE_NAME = "dim_ecn_account_affiliation"
 CREATOR_SNAPSHOT_TABLE_NAME = "dws_social_creator_snapshot_daily"
 AFFILIATE_USAGE_TYPE = "tiktok-affiliate"
 PLATFORM = "tiktok"
@@ -41,7 +40,17 @@ SCHEMA = [
     bigquery.SchemaField("error_code", "STRING"),
     bigquery.SchemaField("fetched_at", "TIMESTAMP"),
     bigquery.SchemaField("update_time", "TIMESTAMP"),
+    bigquery.SchemaField("tiktok_showcase_status", "STRING"),
+    bigquery.SchemaField("tiktok_showcase_status_label", "STRING"),
+    bigquery.SchemaField("tiktok_showcase_status_reason", "STRING"),
+    bigquery.SchemaField("tiktok_showcase_status_updated_at", "TIMESTAMP"),
 ]
+STATUS_COLUMNS = (
+    ("tiktok_showcase_status", "STRING"),
+    ("tiktok_showcase_status_label", "STRING"),
+    ("tiktok_showcase_status_reason", "STRING"),
+    ("tiktok_showcase_status_updated_at", "TIMESTAMP"),
+)
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -60,11 +69,19 @@ def target_table_exists(name: str = TABLE_NAME) -> bool:
 
 def ensure_table() -> None:
     if target_table_exists():
+        ensure_columns()
         return
     table = bigquery.Table(table_id(), schema=SCHEMA)
     table.clustering_fields = ["platform", "account_handle"]
     client.create_table(table)
     logging.info("已创建空表 %s", TABLE_NAME)
+
+
+def ensure_columns() -> None:
+    for name, field_type in STATUS_COLUMNS:
+        client.query(
+            f"ALTER TABLE `{table_id()}` ADD COLUMN IF NOT EXISTS {name} {field_type}"
+        ).result()
 
 
 def handle_key(alias: str) -> str:
@@ -93,21 +110,11 @@ def load_ecn_config() -> tuple[str, str]:
     return host, key
 
 
-def list_unbound_handles() -> list[str]:
-    dim_join = ""
-    where_missing = ""
-    if target_table_exists(DIM_TABLE_NAME):
-        dim_join = f"""
-        LEFT JOIN `{table_id(DIM_TABLE_NAME)}` dim
-            ON dim.platform = '{PLATFORM}'
-            AND {handle_key("dim")} = {handle_key("s")}
-        """
-        where_missing = "AND dim.account_handle IS NULL"
+def list_affiliate_handles() -> list[str]:
     rows = client.query(
         f"""
         SELECT DISTINCT s.account_handle
         FROM `{table_id(CREATOR_SNAPSHOT_TABLE_NAME)}` s
-        {dim_join}
         WHERE s.channel = '{PLATFORM}'
             AND s.usage_type = '{AFFILIATE_USAGE_TYPE}'
             AND s.dt = (
@@ -116,11 +123,10 @@ def list_unbound_handles() -> list[str]:
                 WHERE channel = '{PLATFORM}'
             )
             AND NULLIF(s.account_handle, '') IS NOT NULL
-            {where_missing}
         """
     ).result()
     handles = [row.account_handle for row in rows]
-    logging.info("待查询无联盟地区的橱窗号: %d 个", len(handles))
+    logging.info("待查询橱窗号: %d 个", len(handles))
     return handles
 
 
@@ -168,6 +174,12 @@ def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict
             "error_code": None,
             "fetched_at": fetched_at,
             "update_time": fetched_at,
+            "tiktok_showcase_status": payload.get("tiktok_showcase_status"),
+            "tiktok_showcase_status_label": payload.get("tiktok_showcase_status_label"),
+            "tiktok_showcase_status_reason": payload.get("tiktok_showcase_status_reason"),
+            "tiktok_showcase_status_updated_at": payload.get(
+                "tiktok_showcase_status_updated_at"
+            ),
         }
     if response.status_code in BUSINESS_STATUS:
         return None
@@ -253,9 +265,9 @@ def upsert_rows(rows: list[dict]) -> None:
 def run() -> None:
     host, api_key = load_ecn_config()
     ensure_table()
-    handles = list_unbound_handles()
+    handles = list_affiliate_handles()
     if not handles:
-        logging.info("%s 无需补充", TABLE_NAME)
+        logging.info("%s 没有橱窗号", TABLE_NAME)
         return
 
     session = requests.Session()

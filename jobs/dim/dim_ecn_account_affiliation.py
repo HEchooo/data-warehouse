@@ -1,6 +1,7 @@
 """DIM ECN 账号联盟归属 ETL。
 
-ODS 只补还没有地区的账号。本表只插入尚未见过的成功绑定，已有地区永不覆盖。
+地区只插入尚未见过的成功绑定，已有地区永不覆盖。
+橱窗状态随 ODS 最近一次 200 更新，供按封禁日还原历史是否活跃。
 """
 
 import logging
@@ -20,7 +21,13 @@ SCHEMA = [
     bigquery.SchemaField("affiliation_label", "STRING"),
     bigquery.SchemaField("first_bound_at", "TIMESTAMP"),
     bigquery.SchemaField("update_time", "TIMESTAMP"),
+    bigquery.SchemaField("tiktok_showcase_status", "STRING"),
+    bigquery.SchemaField("tiktok_showcase_status_updated_at", "TIMESTAMP"),
 ]
+STATUS_COLUMNS = (
+    ("tiktok_showcase_status", "STRING"),
+    ("tiktok_showcase_status_updated_at", "TIMESTAMP"),
+)
 HANDLE_KEY = "LOWER(LTRIM({alias}.account_handle, '@'))"
 # 接口已经 404、但业务确认过地区的账号。只在维表还没有时补上，不覆盖已有绑定。
 MANUAL_US_HANDLES = (
@@ -76,11 +83,19 @@ def target_table_exists() -> bool:
 
 def ensure_table() -> None:
     if target_table_exists():
+        ensure_columns()
         return
     table = bigquery.Table(table_id(), schema=SCHEMA)
     table.clustering_fields = ["platform", "account_handle"]
     client.create_table(table)
     logging.info("已创建空表 %s", TABLE_NAME)
+
+
+def ensure_columns() -> None:
+    for name, field_type in STATUS_COLUMNS:
+        client.query(
+            f"ALTER TABLE `{table_id()}` ADD COLUMN IF NOT EXISTS {name} {field_type}"
+        ).result()
 
 
 def handle_key(alias: str) -> str:
@@ -91,73 +106,110 @@ def handles_sql(handles: tuple[str, ...]) -> str:
     return ", ".join(f"'{handle}'" for handle in handles)
 
 
-def new_bindings_sql() -> str:
+def bound_sql() -> str:
     return f"""
-    WITH
     -- 当天接口已绑上的标签优先；接口 404 的账号用人工确认过的地区补上。
-    bound AS (
-        SELECT * EXCEPT(rn)
+    SELECT * EXCEPT(rn)
+    FROM (
+        SELECT
+            platform,
+            account_handle,
+            affiliation,
+            affiliation_label,
+            first_bound_at,
+            ROW_NUMBER() OVER (
+                PARTITION BY platform, {handle_key("src")}
+                ORDER BY priority, first_bound_at DESC
+            ) AS rn
         FROM (
             SELECT
                 platform,
                 account_handle,
                 affiliation,
                 affiliation_label,
-                first_bound_at,
-                ROW_NUMBER() OVER (
-                    PARTITION BY platform, {handle_key("src")}
-                    ORDER BY priority, first_bound_at DESC
-                ) AS rn
-            FROM (
-                SELECT
-                    platform,
-                    account_handle,
-                    affiliation,
-                    affiliation_label,
-                    fetched_at AS first_bound_at,
-                    0 AS priority
-                FROM `{table_id(ODS_TABLE_NAME)}` ods
-                WHERE NULLIF(platform, '') IS NOT NULL
-                    AND NULLIF(account_handle, '') IS NOT NULL
-                    AND NULLIF(affiliation_label, '') IS NOT NULL
+                fetched_at AS first_bound_at,
+                0 AS priority
+            FROM `{table_id(ODS_TABLE_NAME)}` ods
+            WHERE NULLIF(platform, '') IS NOT NULL
+                AND NULLIF(account_handle, '') IS NOT NULL
+                AND NULLIF(affiliation_label, '') IS NOT NULL
 
-                UNION ALL
+            UNION ALL
 
-                SELECT
-                    'tiktok' AS platform,
-                    handle AS account_handle,
-                    'affiliate_us' AS affiliation,
-                    '联盟美国' AS affiliation_label,
-                    CURRENT_TIMESTAMP() AS first_bound_at,
-                    1 AS priority
-                FROM UNNEST([{handles_sql(MANUAL_US_HANDLES)}]) AS handle
+            SELECT
+                'tiktok' AS platform,
+                handle AS account_handle,
+                'affiliate_us' AS affiliation,
+                '联盟美国' AS affiliation_label,
+                CURRENT_TIMESTAMP() AS first_bound_at,
+                1 AS priority
+            FROM UNNEST([{handles_sql(MANUAL_US_HANDLES)}]) AS handle
 
-                UNION ALL
+            UNION ALL
 
-                SELECT
-                    'tiktok' AS platform,
-                    handle AS account_handle,
-                    'affiliate_mexico' AS affiliation,
-                    '联盟墨西哥' AS affiliation_label,
-                    CURRENT_TIMESTAMP() AS first_bound_at,
-                    1 AS priority
-                FROM UNNEST([{handles_sql(MANUAL_MX_HANDLES)}]) AS handle
-            ) src
-        )
-        WHERE rn = 1
+            SELECT
+                'tiktok' AS platform,
+                handle AS account_handle,
+                'affiliate_mexico' AS affiliation,
+                '联盟墨西哥' AS affiliation_label,
+                CURRENT_TIMESTAMP() AS first_bound_at,
+                1 AS priority
+            FROM UNNEST([{handles_sql(MANUAL_MX_HANDLES)}]) AS handle
+        ) src
     )
-    -- 维表还没有的成功绑定；已有行即使 ODS 变空也不再进入。
+    WHERE rn = 1
+    """
+
+
+def rebuilt_sql() -> str:
+    return f"""
+    WITH
+    bound AS (
+        {bound_sql()}
+    ),
+    -- 状态只取 ODS 最近一次 200，不从人工名单编造。
+    ods_status AS (
+        SELECT
+            platform,
+            account_handle,
+            tiktok_showcase_status,
+            tiktok_showcase_status_updated_at
+        FROM `{table_id(ODS_TABLE_NAME)}`
+    )
+    -- 已有地区保持不动，只刷新橱窗状态。
+    SELECT
+        dim.platform,
+        dim.account_handle,
+        dim.affiliation,
+        dim.affiliation_label,
+        dim.first_bound_at,
+        ods.tiktok_showcase_status,
+        ods.tiktok_showcase_status_updated_at,
+        CURRENT_TIMESTAMP() AS update_time
+    FROM `{table_id()}` dim
+    LEFT JOIN ods_status ods
+        ON dim.platform = ods.platform
+        AND {handle_key("dim")} = {handle_key("ods")}
+
+    UNION ALL
+
+    -- 维表还没有的成功绑定。
     SELECT
         bound.platform,
         bound.account_handle,
         bound.affiliation,
         bound.affiliation_label,
         bound.first_bound_at,
+        ods.tiktok_showcase_status,
+        ods.tiktok_showcase_status_updated_at,
         CURRENT_TIMESTAMP() AS update_time
     FROM bound
     LEFT JOIN `{table_id()}` dim
         ON dim.platform = bound.platform
         AND {handle_key("dim")} = {handle_key("bound")}
+    LEFT JOIN ods_status ods
+        ON bound.platform = ods.platform
+        AND {handle_key("bound")} = {handle_key("ods")}
     WHERE dim.account_handle IS NULL
     """
 
@@ -226,36 +278,15 @@ def run() -> None:
     ensure_table()
     target_table = table_id()
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    staging_table = f"{target_table}_tmp_{run_id}"
     changed_table = f"{target_table}_changed_{run_id}"
     target_dropped = False
 
     try:
         client.query(
             f"""
-            CREATE TABLE `{staging_table}`
-            CLUSTER BY platform, account_handle AS
-            {new_bindings_sql()}
-            """
-        ).result()
-        staging_count = list(
-            client.query(f"SELECT COUNT(*) AS row_count FROM `{staging_table}`").result()
-        )[0].row_count
-        if staging_count == 0:
-            validate_table(target_table, "目标表")
-            validate_ods_covered(target_table)
-            validate_manual_covered(target_table)
-            logging.info("%s 无新绑定，保持 %s 不变", TABLE_NAME, TABLE_NAME)
-            return
-
-        validate_table(staging_table, "staging")
-        client.query(
-            f"""
             CREATE TABLE `{changed_table}`
             CLUSTER BY platform, account_handle AS
-            SELECT * FROM `{target_table}`
-            UNION ALL
-            SELECT * FROM `{staging_table}`
+            {rebuilt_sql()}
             """
         ).result()
         validate_table(changed_table, "changed")
@@ -271,10 +302,8 @@ def run() -> None:
         else:
             client.query(f"DROP TABLE IF EXISTS `{changed_table}`").result()
         raise
-    finally:
-        client.query(f"DROP TABLE IF EXISTS `{staging_table}`").result()
 
-    logging.info("%s 刷新完成, 新增绑定=%d", TABLE_NAME, staging_count)
+    logging.info("%s 刷新完成", TABLE_NAME)
 
 
 if __name__ == "__main__":
