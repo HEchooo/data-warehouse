@@ -20,9 +20,9 @@ DIM_VIDEO_TABLE_NAME = "dim_video"
 AFFILIATE_USAGE_TYPE = "tiktok-affiliate"
 AFFILIATE_CHANNEL = "tiktok"
 INCREMENTAL_WINDOW_HOURS = 6
-# 商品成交是 T+1 抓取，统计日已落地后仍可能补进商品行，固定回看最近几天。
-# ponytail: 固定 3 天回看，RPA 若回刷更久的历史需要 --full-refresh。
-SHOP_LOOKBACK_DAYS = 3
+# 商品成交是 T+1 抓取，同一 stats_date 后面几天还会再 fetched 一次。
+# ponytail: 固定 5 天回看，RPA 若回刷更久的历史需要 --full-refresh。
+SHOP_LOOKBACK_DAYS = 5
 
 client = bigquery.Client(project=PROJECT_ID)
 
