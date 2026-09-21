@@ -1553,6 +1553,21 @@
     },
     {
       "layer": "ADS",
+      "table_name": "ads_daily_social_affiliate_funnel",
+      "stage": "ADS",
+      "name": "ADS 【Affiliate】爆款漏斗日报 ETL",
+      "script": "jobs/ads/ads_daily_social_affiliate_funnel.py",
+      "enabled": true,
+      "depends_on": [
+        "dim_ecn_account_affiliation",
+        "dim_video",
+        "dws_social_creator_snapshot_daily",
+        "dws_social_affiliate_project_video_daily"
+      ],
+      "schedule_group": "ads_daily_social_affiliate_funnel"
+    },
+    {
+      "layer": "ADS",
       "table_name": "ads_daily_tiktok_ad",
       "stage": "ADS",
       "name": "ADS Social Content TikTok 广告投放日报 ETL",

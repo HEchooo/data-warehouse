@@ -6,6 +6,7 @@
 |---|---|---|
 | 主题 | 【Affiliate】投放数据看板 | 联盟项目数据看板、Social Content 联盟项目、橱窗号投流对照 |
 | 看板 | 【Affiliate】运营核心数据看板 | Affiliate 运营核心、广告 ROI / GMV / 件数趋势 |
+| 看板 | 【Affiliate】爆款漏斗数据看板 | Affiliate 爆款漏斗、活跃联盟号漏斗 |
 | 指标 | 销售金额 | GMV、Gross revenue (Shop) |
 | 指标 | 广告投放 ROI | ROAS、投产比 |
 | 指标 | 广告投放后带来播放点击率 | 播放点击率 |
@@ -14,7 +15,7 @@
 ## 适用范围
 
 - 业务线：`TikTok 橱窗号`
-- 适合：对照橱窗号视频的自然表现与 TikTok 广告投放，看 region、成本、ROI、销售金额 / 件数，以及投流前后件数；也包含按 `dt` 看广告 ROI / 广告 GMV / 广告件数日趋势。
+- 适合：对照橱窗号视频的自然表现与 TikTok 广告投放，看 region、成本、ROI、销售金额 / 件数，以及投流前后件数；也包含按 `dt` 看广告 ROI / 广告 GMV / 广告件数日趋势，以及活跃联盟号 → 当日发布视频 → 第一次投放 ROI>2.5 的漏斗。
 - 不适合：橱窗号自然内容总览应使用[Social Content 橱窗号数据](../【Social Content】橱窗号数据/fact.md)；Makepod 店铺广告应使用[Makepod 店铺 TK 广告投放数据](../【Social Content】Makepod 店铺 TK 广告投放数据/fact.md)。不要用 GMV Max 的 `gross_revenue` 填本看板。
 - 需要澄清：需要确认是视频日明细还是汇总、看的是广告归因 GMV 还是 RPA 自然 GMV、ROI 是单行还是 SUM/SUM。
 
@@ -43,7 +44,26 @@
 - 指标口径：ROI `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))`；GMV `SUM(ad_gmv_usd)`；件数 `SUM(ad_items)`。三张图都只看广告侧，不混 RPA、不取 `sales_*`
 - 筛选器：`dt` 时间筛选（默认最近 30 个完整美东日）、`region` 多选。没投流的日期三条线都是空值，不补 0
 
+### ads_daily_social_affiliate_funnel
+
+- 表：`my-project-8584-jetonai.decom.ads_daily_social_affiliate_funnel`
+- 状态：`active`
+- 粒度：一行代表一个 `dt × region`
+- 时区：`America/Toronto`
+- 数据范围：当天快照里 `usage_type = 'tiktok-affiliate'` 的橱窗号，按 ECN `tiktok_showcase_status` 还原当天是否活跃，再数这些账号当天发布的视频、以及第一次投放 ROI>2.5 的视频。按 `dim_ecn_account_affiliation.affiliation_label` 拆行。
+- 必要过滤：只出已结束的美东日。发布数和爆款数都限制在当天仍活跃的联盟号。
+- 不包含：跨地区合计行；未投流视频不算爆款；lifetime ROI 或第二次及以后投放达标不算。
+
+- Dashboard：[【Affiliate】爆款漏斗数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-hit-funnel/)（id=136，slug `affiliate-hit-funnel`）
+- Superset 物理 dataset：`ads_daily_social_affiliate_funnel`（id=300），主时间列 `dt`
+- 一张 `mixed_timeseries`：`732` 柱 = 活跃联盟号，折线 = 当天发布视频数、第一次投放 ROI>2.5 的视频数。图本身不按 region 拆系列
+- 筛选器：`dt` 时间筛选（默认最近 30 个完整美东日）；`region` **单选**，默认选中第一项，一次只看一个联盟，不能多选对比
+- 快照从 2026-08-21 才有橱窗号分区，更早发布日不进这张表
+- 省略 DWS：三个计数只给这一张看板用，口径直接读已有 DIM / 账号快照 / 视频日事实
+
 ## 字段
+
+### ads_daily_social_affiliate_project
 
 | 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
 |---|---|---|---|---|---|
@@ -76,6 +96,16 @@
 | 广告投放前自然销售件数 | `items_before_ads` | 视频 | 有 `first_ad_dt` 时：RPA 源表里 `DATE(fetched_at UTC) < first_ad_dt` 的最新快照，按商品取最新再把件数加总；`fetched_at` 为空时退到 `stats_date < first_ad_dt`。广告只有日粒度，首次消耗当天的 RPA 不算投流前。没有首次消耗日、或投流前从未抓到 RPA：空，不补 0，也不用当天 RPA 顶 | 无 | 视频级快照，同一视频跨天重复出现，不可跨天求和 |
 | 广告投放后自然销售件数 | `organic_items_after_ads` | 视频 | `销售件数 - 投流前件数 - 广告件数`。投流前件数为空时本列也为空。可能为负：投流前件数是累计快照，销售件数是当日值，相减没有业务保证非负。保留负数，不 `GREATEST(..., 0)` | 无 | 不可当作可靠增量跨天求和 |
 
+### ads_daily_social_affiliate_funnel
+
+| 指标 | 字段 | 统计主体 | 口径 | 必要过滤 | 聚合限制 |
+|---|---|---|---|---|---|
+| 统计日 | `dt` | 自然日 | 骨架按 `America/Toronto` 切日，只出已结束的美东日。从橱窗号快照最早日铺到昨天；缺快照的日子沿用最近一次快照，不记 0 | 无 | 不聚合 |
+| region | `region` | 账号 | `dim_ecn_account_affiliation.affiliation_label`（联盟美国 / 联盟墨西哥）。从未绑上过保持空值，不补「未知」。看板用单选 filter 一次只看一个地区，不把各地区叠在同一张图里 | 按目标地区过滤 | 不聚合 |
+| 活跃的联盟号 | `active_account_cnt` | 账号 | 当天快照里的 `tiktok-affiliate` 账号，去掉当时已被封橱窗的号，按 region 计数。看 `tiktok_showcase_status`，不看 `channel_status`：`unknown` / `not_applicable` / 空（接口 404 从未拉到状态）算活跃；`permanently_banned` 且 `DATE(tiktok_showcase_status_updated_at, America/Toronto) <= dt` 算不活跃，封禁日当天不算活跃 | 按目标地区过滤 | 当天存量，不可跨天求和 |
+| 联盟号当天发布的视频数 | `published_video_cnt` | 视频 | `dim_video.published_dt = dt` 且发布账号当天仍活跃。`pre_binding` 已在 `dim_video` 排除 | 只统计活跃联盟号 | 可跨天求和 |
+| 第一次投放 ROI>2.5 的视频数 | `first_run_hit_video_cnt` | 视频 | 横轴 `dt` 是视频发布日。第一次投放 = `ad_run_cnt = 1` 的那些天，ROI = `SUM(广告 GMV 美元) / SUM(spend)`。`spend > 0` 且 ROI > 2.5 才计数。发布日当天账号必须仍活跃 | 只统计活跃联盟号里已投流的视频 | 可跨天求和；不得对 ROI 求平均后再数 |
+
 ### 数据边界
 
 | 边界 | 说明 |
@@ -89,14 +119,15 @@
 | 时区 | 本表 `dt` 用 `America/Toronto`。广告源是 `Etc/GMT+5`（不含夏令时），RPA `stats_date` 是 Shop 后台日（历史店铺曾是 MX），`first_ad_dt` 跟广告源同一套日历日。跨源按日历日对齐，可能错位 1 小时到 1 天 |
 | `fetched_at` | RPA 源表是无时区 `DATETIME`，和 `first_ad_dt` 比较时按 UTC 取日期；首次消耗当天的快照不算投流前 |
 | 汇率 | `decom.currency_conversion_dict` 只有当前快照。缺币种时美元金额保持空值 |
-| ECN 404 / 409 | 是业务结果，不落行、任务不失败，下次继续补缺。已有联盟地区不再请求。从未绑上过的账号 region 保持空 |
-| 封号删号 | 成功绑定写入后不再覆盖。`dim_ecn_account_affiliation` 只插入未见过的成功绑定，已有地区不覆盖、不删除。接口已经 404 的账号，按确认名单补维表，不写回 ODS |
+| ECN 404 / 409 | 是业务结果，不落行、任务不失败。已有联盟地区不再覆盖。橱窗状态只在 200 时更新；404 拿不到 `tiktok_showcase_status`，按空值处理（漏斗里算活跃）。从未绑上过的账号 region 保持空 |
+| 封号删号 | 成功绑定写入后地区不再覆盖。`dim_ecn_account_affiliation` 只插入未见过的成功绑定，已有地区不覆盖、不删除。橱窗状态随最近一次 200 更新。接口已经 404 的账号，按确认名单补维表地区，不写回 ODS |
 | 省略 DWD | 广告日报已是报表粒度；affiliation 是实体映射，没有去重和多源打平需求 |
-| affiliation 建 DIM | 绑定后地区不变；人工确认的 404 账号也写在维表。视频 ID 仍直接 join 已有 `dim_video` |
+| affiliation 建 DIM | 绑定后地区不变；人工确认的 404 账号也写在维表。视频 ID 仍直接 join 已有 `dim_video`。橱窗状态放同一张 DIM，因为封禁日要给漏斗还原历史活跃 |
+| 漏斗省略 DWS | `ads_daily_social_affiliate_funnel` 三个计数只给这一张看板用，直接读 DIM 状态 + 账号快照 + 已有视频日事实 |
 
 ## 已落地字段
 
-需求 1–14 以及首次投放日、累计投放次数、广告 CPM / CPC / CPS、广告投放后带来播放点击率、广告投放后带来详情页购买转化率全部落到 `ads_daily_social_affiliate_project`。两套 GMV / 两套件数先入库，看板上的销售金额、销售件数取 max 后的展示列。
+需求 1–14 以及首次投放日、累计投放次数、广告 CPM / CPC / CPS、广告投放后带来播放点击率、广告投放后带来详情页购买转化率全部落到 `ads_daily_social_affiliate_project`。两套 GMV / 两套件数先入库，看板上的销售金额、销售件数取 max 后的展示列。活跃联盟号 / 当天发布视频数 / 第一次投放 ROI>2.5 落到 `ads_daily_social_affiliate_funnel`。
 
 ## 关联
 
@@ -107,13 +138,13 @@
 
 ## 依赖
 
-- 原始层：`decom.ods_tiktok_ad_daily`（扩了 `tiktok_item_id`、identity、Shop GMV / 件数）；`decom.ods_ecn_account_affiliation`
-- 维表层：`decom.dim_ecn_account_affiliation`（账号首次联盟地区，只增不改）
+- 原始层：`decom.ods_tiktok_ad_daily`（扩了 `tiktok_item_id`、identity、Shop GMV / 件数）；`decom.ods_ecn_account_affiliation`（地区 + 最近一次橱窗状态）
+- 维表层：`decom.dim_ecn_account_affiliation`（账号首次联盟地区只增不改；橱窗状态随 ODS 200 更新）
 - 事实层：`decom.dws_social_affiliate_project_video_daily`（只固化可加分子分母和投流前件数；max / ROI / 美元 / 看板过滤在 ADS）
-- 报表层：`decom.ads_daily_social_affiliate_project`
+- 报表层：`decom.ads_daily_social_affiliate_project`；`decom.ads_daily_social_affiliate_funnel`
 - 其他上游：`decom.dim_video`、`decom.dws_social_creator_snapshot_daily`、`decom.dws_social_video_state_daily_v2`、`videos.tiktok_shop_rpa_video_stats_snapshots`、`decom.currency_conversion_dict`
-- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/dim/dim_ecn_account_affiliation.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`
-- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/dim/dim_ecn_account_affiliation.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`
+- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/dim/dim_ecn_account_affiliation.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`、`jobs/ads/ads_daily_social_affiliate_funnel.py`
+- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/dim/dim_ecn_account_affiliation.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`、`ddl/ads/ads_daily_social_affiliate_funnel.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口
 - 凭据：TikTok token 用 Secret Manager `prod-ads-runner-tiktok-access-token`。ECN 读未跟踪文件 `env/ecn.json`（模板 `env/ecn.json.example`），不入库
 - 规则：`docs/rules/video-mapping.md` 橱窗号一节、`docs/rules/layering.md`
@@ -126,8 +157,9 @@ python3 jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py
 python3 jobs/dim/dim_ecn_account_affiliation.py
 python3 jobs/dws/dws_social_affiliate_project_video_daily.py
 python3 jobs/ads/ads_daily_social_affiliate_project.py
+python3 jobs/ads/ads_daily_social_affiliate_funnel.py
 ```
 
 TikTok 广告 ODS 默认只重刷最近 4 天。2026-08-07 ~ 2026-09-16 已回填 `video_play_actions` / `onsite_on_web_detail`。更早分区如果再缺列，需要显式 `--start-date` / `--end-date`，回填前必须先问。接口带 `stat_time_day` 时单次最多 30 天，更长窗口要拆开、不要重叠。
 
-ECN 凭据读 `env/ecn.json`（未跟踪）。联盟地区只补缺，每 50 条写入一次；网关偶发 502 时脚本会退避重试。已停用 `promotion-entry`，投流前件数改切 `first_ad_dt`。
+ECN 凭据读 `env/ecn.json`（未跟踪）。每天拉全部橱窗号刷新橱窗状态，404 不改已有 ODS 行；维表地区只插入新账号。每 50 条写入一次；网关偶发 502 时脚本会退避重试。已停用 `promotion-entry`，投流前件数改切 `first_ad_dt`。

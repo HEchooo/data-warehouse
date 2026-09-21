@@ -20,8 +20,15 @@
 ## 账号被封后不要靠当天接口重刷地区
 
 - 现象：橱窗号封禁后，`account-affiliation` 变成 404。旧逻辑整表覆盖会把 `affiliation_label` 变空，两个 Affiliate 看板的 region 跟着丢。
-- 现口径：已有成功绑定不再请求、不再覆盖。`dim_ecn_account_affiliation` 只插新账号。
-- 接口已经 404 的账号，按业务确认名单补进维表，不改 ODS。
+- 现口径：每天仍会请求全部橱窗号以刷新 `tiktok_showcase_status`。404 / 409 不落新行、不改已有 ODS 行。`dim_ecn_account_affiliation` 地区只插新账号，橱窗状态只在 200 时更新。
+- 接口已经 404 的账号，按业务确认名单补进维表地区，不改 ODS。漏斗里没有橱窗状态的账号按活跃计。
+- 橱窗活不活看 `tiktok_showcase_status`，不看 `channel_status`：`permanently_banned` 为封禁，封禁时间用 `tiktok_showcase_status_updated_at`；`unknown` / `not_applicable` 为活跃。
+
+## 漏斗缺快照日要沿用最近一次快照，不能记 0
+
+- `dws_social_creator_snapshot_daily` 橱窗号分区从 2026-08-21 才有，中间 2026-08-29 缺一天。
+- 若按当天精确匹配，活跃联盟号会掉成 0，当天发布的视频（包括唯一一条第一次投放 ROI>2.5 的 `tiktok:7679375949170789652`）也会从漏斗消失。
+- 现口径：每个 `dt` 取 `<= dt` 的最近一次橱窗号快照。更早的 `published_dt` 仍然不进这张表。
 
 ## 没投流不要用当天 RPA 顶「投流前件数」
 
