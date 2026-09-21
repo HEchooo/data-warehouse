@@ -37,3 +37,7 @@ ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_da
     ADD COLUMN IF NOT EXISTS ad_purchases FLOAT64,
     ADD COLUMN IF NOT EXISTS video_play_actions INT64,
     ADD COLUMN IF NOT EXISTS onsite_on_web_detail INT64;
+
+-- 2026-09-20 投流前件数改切首次消耗日，不再存 ECN 发送时间。
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_daily`
+    DROP COLUMN IF EXISTS ads_first_sent_at;

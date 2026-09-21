@@ -1,6 +1,6 @@
 """DWS 联盟项目视频日事实 ETL。
 
-橱窗号视频日骨架左连广告（tiktok_item_id）、ECN 首次归属 / 投流时间、RPA 成交。
+橱窗号视频日骨架左连广告（tiktok_item_id）、ECN 账号归属、RPA 成交。
 只落可加分子分母、投流前件数、首次投放日和累计投放次数。量级小，全表重建。
 """
 
@@ -200,7 +200,7 @@ def build_select_sql() -> str:
         FROM latest_rpa
         GROUP BY stats_date, tiktok_video_id
     ),
-    -- 已投流视频：投流时间之前的 RPA 快照。
+    -- 已投流视频：首次有消耗日之前的 RPA 快照。广告只有日粒度，当天 RPA 不算投流前。
     rpa_before_eligible AS (
         SELECT
             s.tiktok_video_id AS video_id,
@@ -209,15 +209,14 @@ def build_select_sql() -> str:
             s.fetched_at,
             s.id
         FROM `{PROJECT_ID}.{VIDEO_SOURCE_DATASET_ID}.{RPA_SOURCE_TABLE_NAME}` s
-        INNER JOIN `{table_id("ods_ecn_video_promotion_entry")}` e
-            ON e.platform = '{AFFILIATE_CHANNEL}'
-            AND e.video_id = s.tiktok_video_id
-            AND e.ads_first_sent_at IS NOT NULL
+        INNER JOIN video_first_ad fa
+            ON fa.video_id = s.tiktok_video_id
+            AND fa.first_ad_dt IS NOT NULL
         WHERE NULLIF(s.tiktok_video_id, '') IS NOT NULL
             AND CASE
                 WHEN s.fetched_at IS NOT NULL
-                    THEN TIMESTAMP(s.fetched_at, 'UTC') < e.ads_first_sent_at
-                ELSE s.stats_date < DATE(e.ads_first_sent_at)
+                    THEN DATE(TIMESTAMP(s.fetched_at, 'UTC')) < fa.first_ad_dt
+                ELSE s.stats_date < fa.first_ad_dt
             END
     ),
     -- 每个商品取投流前最新一次，再把件数加总。
@@ -261,7 +260,6 @@ def build_select_sql() -> str:
         v.published_dt,
         v.video_link,
         aff.affiliation_label AS region,
-        e.ads_first_sent_at,
         IFNULL(ad.has_ad, FALSE) AS has_ad,
         CASE
             WHEN fa.first_ad_dt IS NULL OR d.dt < fa.first_ad_dt THEN NULL
@@ -280,7 +278,7 @@ def build_select_sql() -> str:
         r.rpa_gmv,
         r.rpa_items,
         r.rpa_currency,
-        -- 只有 ECN 有投流时间才落投流前件数；没投流或没有投流前快照保持空，不拿当天 RPA 顶。
+        -- 只有首次消耗日才落投流前件数；没投流或没有投流前快照保持空，不拿当天 RPA 顶。
         b.items_before_ads,
         CASE
             WHEN cur.day_end_views IS NULL THEN NULL
@@ -314,9 +312,6 @@ def build_select_sql() -> str:
     LEFT JOIN `{table_id("dim_ecn_account_affiliation")}` aff
         ON aff.platform = '{AFFILIATE_CHANNEL}'
         AND LOWER(LTRIM(aff.account_handle, '@')) = LOWER(LTRIM(v.account_handle, '@'))
-    LEFT JOIN `{table_id("ods_ecn_video_promotion_entry")}` e
-        ON e.platform = '{AFFILIATE_CHANNEL}'
-        AND e.video_id = v.video_id
     LEFT JOIN rpa_before b
         ON b.video_id = v.video_id
     """

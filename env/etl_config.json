@@ -909,19 +909,6 @@
       "schedule_group": "dim_ecn_account_affiliation"
     },
     {
-      "layer": "ODS",
-      "table_name": "ods_ecn_video_promotion_entry",
-      "stage": "ODS",
-      "name": "ODS ECN 视频首次投流时间快照 ETL",
-      "script": "jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py",
-      "enabled": true,
-      "depends_on": [
-        "dim_video",
-        "dws_social_creator_snapshot_daily"
-      ],
-      "schedule_group": "ods_ecn_video_promotion_entry"
-    },
-    {
       "layer": "DWS",
       "table_name": "dws_social_affiliate_project_video_daily",
       "stage": "DWS",
@@ -931,7 +918,6 @@
       "depends_on": [
         "ods_tiktok_ad_daily",
         "dim_ecn_account_affiliation",
-        "ods_ecn_video_promotion_entry",
         "dim_video",
         "dws_social_creator_snapshot_daily",
         "dws_social_video_state_daily_v2"

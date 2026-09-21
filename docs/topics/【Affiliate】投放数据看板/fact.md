@@ -54,7 +54,7 @@
 | 视频发布日期 | `published_dt` | 视频 | `dim_video.published_dt` | 无 | 不聚合 |
 | 渠道 | `channel` | 视频 | `dim_video.channel` 枚举 `youtube / tiktok / ins`。当前左表只收 `tiktok-affiliate` 橱窗号，看板值实际都是 `tiktok` | 按目标渠道过滤 | 不聚合 |
 | 视频 ID | `video_id` | 视频 | 内库 `videos.videos.id`，经 `dim_video.video_id` 透出，等于广告 `tiktok_item_id`。看板列名是「视频 ID」 | 按目标视频过滤 | 不聚合 |
-| 首次广告投放日期 | `first_ad_dt` | 视频 | 该视频第一次出现 `spend > 0` 的日历日。当天还没投过保持空，不拿 ECN `ads_first_sent_at` 顶 | 无 | 视频级属性，同一视频跨天重复出现；汇总用 `MIN` |
+| 首次广告投放日期 | `first_ad_dt` | 视频 | 该视频第一次出现 `spend > 0` 的日历日。当天还没投过保持空 | 无 | 视频级属性，同一视频跨天重复出现；汇总用 `MIN` |
 | 累计投放次数 | `ad_run_cnt` | 视频 | 截止当天，有消耗的连续日历日算一次投放，中间断一天就算新的一次。例如 9/19 投一天、9/21 再投，则 9/19=1、9/21=2。还没投过保持空，不补 0 | 无 | 截止当天的累计值，不可跨天求和；汇总用 `MAX` |
 | 视频链接文案 | `video_url` | 视频 | 固定字符串 `video_url` | 无 | 不聚合 |
 | 视频链接 | `video_link` | 视频 | `dim_video.video_link`，看板超链接指向这里 | 按目标视频过滤 | 不聚合 |
@@ -73,7 +73,7 @@
 | 广告件数 | `ad_items` | 视频 | API `shop_total_items_purchased`（Items purchased (Shop)），按视频汇总。看板「广告投放后带来销售件数」用这一列 | 无 | 可加 |
 | RPA 件数 | `rpa_items` | 视频 | RPA `items_sold` 按视频跨商品求和 | 无 | 可加 |
 | 销售件数 | `sales_items` | 视频 | 行级 `GREATEST(广告件数, RPA 件数)`；一侧为空时用另一侧，两侧都空则空 | 无 | 可按已取 max 的行求和 |
-| 广告投放前自然销售件数 | `items_before_ads` | 视频 | 有 `ads_first_sent_at` 时：RPA 源表里 `fetched_at < ads_first_sent_at` 的最新快照，按商品取最新再把件数加总；`fetched_at` 为空时退到 `stats_date`。没有投流时间、或投流前从未抓到 RPA：空，不补 0，也不用当天 RPA 顶 | 无 | 视频级快照，同一视频跨天重复出现，不可跨天求和 |
+| 广告投放前自然销售件数 | `items_before_ads` | 视频 | 有 `first_ad_dt` 时：RPA 源表里 `DATE(fetched_at UTC) < first_ad_dt` 的最新快照，按商品取最新再把件数加总；`fetched_at` 为空时退到 `stats_date < first_ad_dt`。广告只有日粒度，首次消耗当天的 RPA 不算投流前。没有首次消耗日、或投流前从未抓到 RPA：空，不补 0，也不用当天 RPA 顶 | 无 | 视频级快照，同一视频跨天重复出现，不可跨天求和 |
 | 广告投放后自然销售件数 | `organic_items_after_ads` | 视频 | `销售件数 - 投流前件数 - 广告件数`。投流前件数为空时本列也为空。可能为负：投流前件数是累计快照，销售件数是当日值，相减没有业务保证非负。保留负数，不 `GREATEST(..., 0)` | 无 | 不可当作可靠增量跨天求和 |
 
 ### 数据边界
@@ -86,13 +86,13 @@
 | 投放次数 | 没有计划开关时间，只能用日消耗切段：相邻有消耗日算同一次，断一天算新的一次。同一天里停了再开看不出来 |
 | 漏斗新列 | `video_play_actions` 是 2026-09-20 后加的，2026-08-07 ~ 2026-09-16 已回填；这一列为空时广告投放后带来播放点击率也空。广告投放后带来详情页购买转化率只用已有的购买数和点击数，不依赖详情页浏览列 |
 | 零填充行 | 已连上广告且 spend、广告 GMV 都为 0 的行，接口会吐全零填充，看板去掉。未投流行的空广告字段不要补 0 再滤掉 |
-| 时区 | 本表 `dt` 用 `America/Toronto`。广告源是 `Etc/GMT+5`（不含夏令时），RPA `stats_date` 是 Shop 后台日（历史店铺曾是 MX），`ads_first_sent_at` 是 UTC。跨源按日历日对齐，可能错位 1 小时到 1 天 |
-| `fetched_at` | RPA 源表是无时区 `DATETIME`，和 UTC 的 `ads_first_sent_at` 比较时按 UTC 解释；边界附近可能落到相邻一次快照 |
+| 时区 | 本表 `dt` 用 `America/Toronto`。广告源是 `Etc/GMT+5`（不含夏令时），RPA `stats_date` 是 Shop 后台日（历史店铺曾是 MX），`first_ad_dt` 跟广告源同一套日历日。跨源按日历日对齐，可能错位 1 小时到 1 天 |
+| `fetched_at` | RPA 源表是无时区 `DATETIME`，和 `first_ad_dt` 比较时按 UTC 取日期；首次消耗当天的快照不算投流前 |
 | 汇率 | `decom.currency_conversion_dict` 只有当前快照。缺币种时美元金额保持空值 |
-| ECN 404 / 409 | 是业务结果，ODS 落「查过但没有」，任务不失败。投流时间 / 投流前件数保持空。region 改读维表：曾经绑成功过的账号继续有地区，从未绑上过的才空 |
-| 封号删号 | ECN 删掉账号后 ODS 当天会变空。`dim_ecn_account_affiliation` 只插入未见过的成功绑定，已有地区不覆盖、不删除。接口已经 404 的账号，按确认名单补维表，不写回 ODS |
-| 省略 DWD | 广告日报已是报表粒度；affiliation / promotion-entry 是实体快照，没有去重和多源打平需求 |
-| affiliation 建 DIM | 绑定后地区不变，且源会随封号删除；不能每次只读 ODS 当天快照。视频 ID 仍直接 join 已有 `dim_video` |
+| ECN 404 / 409 | 是业务结果，不落行、任务不失败，下次继续补缺。已有联盟地区不再请求。从未绑上过的账号 region 保持空 |
+| 封号删号 | 成功绑定写入后不再覆盖。`dim_ecn_account_affiliation` 只插入未见过的成功绑定，已有地区不覆盖、不删除。接口已经 404 的账号，按确认名单补维表，不写回 ODS |
+| 省略 DWD | 广告日报已是报表粒度；affiliation 是实体映射，没有去重和多源打平需求 |
+| affiliation 建 DIM | 绑定后地区不变；人工确认的 404 账号也写在维表。视频 ID 仍直接 join 已有 `dim_video` |
 
 ## 已落地字段
 
@@ -107,13 +107,13 @@
 
 ## 依赖
 
-- 原始层：`decom.ods_tiktok_ad_daily`（扩了 `tiktok_item_id`、identity、Shop GMV / 件数）；`decom.ods_ecn_account_affiliation`；`decom.ods_ecn_video_promotion_entry`
+- 原始层：`decom.ods_tiktok_ad_daily`（扩了 `tiktok_item_id`、identity、Shop GMV / 件数）；`decom.ods_ecn_account_affiliation`
 - 维表层：`decom.dim_ecn_account_affiliation`（账号首次联盟地区，只增不改）
 - 事实层：`decom.dws_social_affiliate_project_video_daily`（只固化可加分子分母和投流前件数；max / ROI / 美元 / 看板过滤在 ADS）
 - 报表层：`decom.ads_daily_social_affiliate_project`
 - 其他上游：`decom.dim_video`、`decom.dws_social_creator_snapshot_daily`、`decom.dws_social_video_state_daily_v2`、`videos.tiktok_shop_rpa_video_stats_snapshots`、`decom.currency_conversion_dict`
-- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/dim/dim_ecn_account_affiliation.py`、`jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`
-- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/dim/dim_ecn_account_affiliation.sql`、`ddl/ods/ods_ecn_video_promotion_entry.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`
+- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/dim/dim_ecn_account_affiliation.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`
+- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/dim/dim_ecn_account_affiliation.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口
 - 凭据：TikTok token 用 Secret Manager `prod-ads-runner-tiktok-access-token`。ECN 读未跟踪文件 `env/ecn.json`（模板 `env/ecn.json.example`），不入库
 - 规则：`docs/rules/video-mapping.md` 橱窗号一节、`docs/rules/layering.md`
@@ -124,11 +124,10 @@
 python3 jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py
 python3 jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py
 python3 jobs/dim/dim_ecn_account_affiliation.py
-python3 jobs/ods/ods_ecn_video_promotion_entry/ods_ecn_video_promotion_entry.py
 python3 jobs/dws/dws_social_affiliate_project_video_daily.py
 python3 jobs/ads/ads_daily_social_affiliate_project.py
 ```
 
 TikTok 广告 ODS 默认只重刷最近 4 天。2026-08-07 ~ 2026-09-16 已回填 `video_play_actions` / `onsite_on_web_detail`。更早分区如果再缺列，需要显式 `--start-date` / `--end-date`，回填前必须先问。接口带 `stat_time_day` 时单次最多 30 天，更长窗口要拆开、不要重叠。
 
-ECN 凭据读 `env/ecn.json`（未跟踪）。两个 ODS 已打开；网关偶发 502 时脚本会退避重试。
+ECN 凭据读 `env/ecn.json`（未跟踪）。联盟地区只补缺，每 50 条写入一次；网关偶发 502 时脚本会退避重试。已停用 `promotion-entry`，投流前件数改切 `first_ad_dt`。

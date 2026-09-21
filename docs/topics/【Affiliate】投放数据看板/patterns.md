@@ -14,22 +14,27 @@
 
 ## ECN 的 404 / 409 不是任务失败
 
-- affiliation 查不到或不是美墨联盟：ODS 落一行空 `affiliation_label`。看板 region 读 `dim_ecn_account_affiliation`：曾经绑成功过的账号继续用首次地区，从未绑上过才空。
-- promotion-entry 尚未投流：落一行空 `ads_first_sent_at`，广告字段保持空，投流前件数也保持空。
-- ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。
+- affiliation 查不到或不是美墨联盟：不落新行，下次继续补。看板 region 读 `dim_ecn_account_affiliation`：曾经绑成功过的账号继续用首次地区，从未绑上过才空。
+- ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。不要对 ECN 开高并发。
 
-## 账号被封后 ECN 会删掉，当天接口再也给不出地区
+## 账号被封后不要靠当天接口重刷地区
 
-- 现象：橱窗号封禁后，`account-affiliation` 变成 404，ODS 整表覆盖，`affiliation_label` 变空，两个 Affiliate 看板的 region 跟着丢。
-- 原因：绑定一次之后地区不会变，但 ODS 只保存当天接口结果，源删了等于历史也没了。
-- 修法：成功绑定写入 `dim_ecn_account_affiliation`，只插新账号、不改已有地区。DWS / 看板只读这张维表。
-- 接口已经 404 的账号，按业务确认名单补进维表，不改 ODS。ODS 继续留当天 404，用来判断「上游现在已经没有这个账号了」。
+- 现象：橱窗号封禁后，`account-affiliation` 变成 404。旧逻辑整表覆盖会把 `affiliation_label` 变空，两个 Affiliate 看板的 region 跟着丢。
+- 现口径：已有成功绑定不再请求、不再覆盖。`dim_ecn_account_affiliation` 只插新账号。
+- 接口已经 404 的账号，按业务确认名单补进维表，不改 ODS。
 
 ## 没投流不要用当天 RPA 顶「投流前件数」
 
-- 列名是投流前自然销售，没有 `ads_first_sent_at` 时这列不适用。
+- 列名是投流前自然销售，没有 `first_ad_dt` 时这列不适用。
 - 曾经用当天 `rpa_items` 兜底，同一视频跨天数字会跟着当天成交变，看起来像口径错了。
-- 现口径：只有投流前快照才落数；没投流或没有投流前快照保持空，不补 0。空投流前件数时「投流后自然件数」也保持空。
+- 现口径：只有首次消耗日之前的 RPA 快照才落数；没投流或没有投流前快照保持空，不补 0。空投流前件数时「投流后自然件数」也保持空。
+- 不要用 ECN `ads_first_sent_at`：534 条视频里只有 9 条有值，真正有消耗的 84 条里 76 条 ECN 是空的，而且同一批发送时间精确到同一毫秒。
+
+## 投放次数只能用日消耗切段，切不到几点开停
+
+- 没有计划 `schedule_start_time`。
+- 现口径：有消耗的连续日历日算一次。9/19 投一天、9/21 再投，就是第 1 次和第 2 次。
+- 同一天里停了再开、当天投了几小时，都看不出来。
 
 ## 看板 `Unknown column used in orderby: dt`
 
@@ -57,16 +62,17 @@
 - Secret Manager 的 Python 客户端默认走 gRPC，部分网络出口会拦（`503 tcp handshaker shutdown`，`bq` / `gcloud` 却正常）。`SecretManagerServiceClient(transport="rest")` 走普通 HTTPS，本地和 GCP 都通。
 - 回填后 `spend > 0` 但 `ad_gmv = 0` 的日期是真实的「投了没成交」，不是缺数。`spend` 全为 0 的日期会被零填充过滤规则去掉（例如 2026-08-23），看板上不出现。
 
-## 投放次数只能用日消耗切段，切不到几点开停
-
-- 没有计划 `schedule_start_time`，ECN `ads_first_sent_at` 又几乎是空的。
-- 现口径：有消耗的连续日历日算一次。9/19 投一天、9/21 再投，就是第 1 次和第 2 次。
-- 同一天里停了再开、当天投了几小时，都看不出来。
-
 ## 广告投放后带来详情页购买转化率是购买数 / 点击数
 
 - 分母是目标页点击 `clicks`，分子是成交笔数 `ad_purchases`。不是进详情页之后的转化。
 - 不要用站外像素 `product_details_page_browse`（橱窗号实测全 0），也不要用站内详情页浏览 `onsite_on_web_detail` 当这一列的分母。
+
+## Chart 的 `datasource_id` 空了看板会一直转圈
+
+- 现象：【Affiliate】投放数据看板一直转圈。点进 chart 显示 `Missing dataset / The dataset linked to this chart may have been deleted.`
+- 根因：dataset `299` 还在，chart `params` / `query_context` 里也还是 `299__table`，但 `slices.datasource_id` 是空的。Dashboard bootstrap 按独立关系字段重装 `form_data.datasource`，变成 `None__table`。
+- 修法：`PUT /api/v1/chart/{id}` 写回 `datasource_id=299`、`datasource_type=table`。727 / 728 都要补。
+- 验收不能只看单个 chart：`GET /api/v1/dashboard/134/charts` 的 `form_data.datasource` 必须是 `299__table`。
 
 ## `/identity/get/` 的 page_size 上限是 100
 
