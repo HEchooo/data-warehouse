@@ -1,6 +1,6 @@
 """ADS 【Affiliate】爆款漏斗 ETL。
 
-按 dt × region 出活跃联盟号、当天发布视频数、第一次投放 ROI>2.5 的视频数。量级小，全表重建。
+按 dt × region 出活跃联盟号、当天发布视频数、在投 / 当天新开投视频数、第一次投放 ROI>2.5 的视频数。量级小，全表重建。
 """
 
 import argparse
@@ -127,17 +127,29 @@ def build_select_sql() -> str:
         WHERE is_active
         GROUP BY dt, region
     ),
-    -- 活跃联盟号当天发布的视频。
+    -- 视频级首次消耗日。DWS 在首次消耗前的行会把 first_ad_dt 置空，MIN 忽略空值。
+    video_first_ad AS (
+        SELECT
+            video_key,
+            MIN(first_ad_dt) AS first_ad_dt
+        FROM `{table_id(VIDEO_DAILY_TABLE_NAME)}`
+        GROUP BY video_key
+    ),
+    -- 活跃联盟号当天发布的视频；在投 = 后来有过消耗；新增 = 发布当天就开投。
     published_video AS (
         SELECT
             v.published_dt AS dt,
             a.region,
-            COUNT(DISTINCT v.video_key) AS published_video_cnt
+            COUNT(DISTINCT v.video_key) AS published_video_cnt,
+            COUNT(DISTINCT IF(fa.first_ad_dt IS NOT NULL, v.video_key, NULL)) AS advertised_video_cnt,
+            COUNT(DISTINCT IF(fa.first_ad_dt = v.published_dt, v.video_key, NULL)) AS new_ad_video_cnt
         FROM `{table_id(DIM_VIDEO_TABLE_NAME)}` v
         INNER JOIN daily_creator a
             ON a.creator_id = v.creator_id
             AND a.dt = v.published_dt
             AND a.is_active
+        LEFT JOIN video_first_ad fa
+            ON fa.video_key = v.video_key
         WHERE v.channel = '{AFFILIATE_CHANNEL}'
             AND v.published_dt IS NOT NULL
         GROUP BY 1, 2
@@ -178,6 +190,8 @@ def build_select_sql() -> str:
         s.region,
         IFNULL(a.active_account_cnt, 0) AS active_account_cnt,
         IFNULL(p.published_video_cnt, 0) AS published_video_cnt,
+        IFNULL(p.advertised_video_cnt, 0) AS advertised_video_cnt,
+        IFNULL(p.new_ad_video_cnt, 0) AS new_ad_video_cnt,
         IFNULL(h.first_run_hit_video_cnt, 0) AS first_run_hit_video_cnt,
         CURRENT_TIMESTAMP() AS update_time
     FROM spine s
@@ -203,9 +217,14 @@ def validate(staging_table: str) -> None:
                 COUNTIF(dt IS NULL) AS null_dt_count,
                 COUNTIF(active_account_cnt IS NULL) AS null_account_count,
                 COUNTIF(published_video_cnt IS NULL) AS null_published_count,
+                COUNTIF(advertised_video_cnt IS NULL) AS null_advertised_count,
+                COUNTIF(new_ad_video_cnt IS NULL) AS null_new_ad_count,
                 COUNTIF(first_run_hit_video_cnt IS NULL) AS null_hit_count,
+                COUNTIF(advertised_video_cnt > published_video_cnt) AS advertised_over_published_count,
+                COUNTIF(new_ad_video_cnt > advertised_video_cnt) AS new_ad_over_advertised_count,
+                COUNTIF(first_run_hit_video_cnt > advertised_video_cnt) AS hit_over_advertised_count,
                 COUNTIF(first_run_hit_video_cnt > published_video_cnt) AS hit_over_published_count,
-                COUNTIF(dt >= CURRENT_DATE('{TORONTO_TZ}')) AS future_dt_count
+                COUNTIF(dt >= CURRENT_DATE('{TORONTO_TZ}')) AS future_dt_count,
             FROM `{staging_table}`
             """
         ).result()
@@ -216,8 +235,20 @@ def validate(staging_table: str) -> None:
         raise RuntimeError("联盟爆款漏斗校验失败：dt 和 region 不唯一")
     if result.null_dt_count:
         raise RuntimeError("联盟爆款漏斗校验失败：dt 存在空值")
-    if result.null_account_count or result.null_published_count or result.null_hit_count:
+    if (
+        result.null_account_count
+        or result.null_published_count
+        or result.null_advertised_count
+        or result.null_new_ad_count
+        or result.null_hit_count
+    ):
         raise RuntimeError("联盟爆款漏斗校验失败：计数存在空值")
+    if result.advertised_over_published_count:
+        raise RuntimeError("联盟爆款漏斗校验失败：在投视频数超过当天发布数")
+    if result.new_ad_over_advertised_count:
+        raise RuntimeError("联盟爆款漏斗校验失败：当天新开投视频数超过在投视频数")
+    if result.hit_over_advertised_count:
+        raise RuntimeError("联盟爆款漏斗校验失败：爆款视频数超过在投视频数")
     if result.hit_over_published_count:
         raise RuntimeError("联盟爆款漏斗校验失败：爆款视频数超过当天发布数")
     if result.future_dt_count:

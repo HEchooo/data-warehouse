@@ -12,3 +12,9 @@ PARTITION BY dt;
 -- 2026-09-21 按联盟地区拆行，粒度改为 dt × region。
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_funnel`
     ADD COLUMN IF NOT EXISTS region STRING;
+
+-- 2026-09-21 发布日队列：在投视频 / 当天新开投视频。
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_funnel`
+    ADD COLUMN IF NOT EXISTS advertised_video_cnt INT64;
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_funnel`
+    ADD COLUMN IF NOT EXISTS new_ad_video_cnt INT64;

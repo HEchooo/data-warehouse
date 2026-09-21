@@ -50,16 +50,17 @@
 - 状态：`active`
 - 粒度：一行代表一个 `dt × region`
 - 时区：`America/Toronto`
-- 数据范围：当天快照里 `usage_type = 'tiktok-affiliate'` 的橱窗号，按 ECN `tiktok_showcase_status` 还原当天是否活跃，再数这些账号当天发布的视频、以及第一次投放 ROI>2.5 的视频。按 `dim_ecn_account_affiliation.affiliation_label` 拆行。
-- 必要过滤：只出已结束的美东日。发布数和爆款数都限制在当天仍活跃的联盟号。
-- 不包含：跨地区合计行；未投流视频不算爆款；lifetime ROI 或第二次及以后投放达标不算。
+- 数据范围：当天快照里 `usage_type = 'tiktok-affiliate'` 的橱窗号，按 ECN `tiktok_showcase_status` 还原当天是否活跃，再数这些账号当天发布的视频、后来有过消耗的视频、发布当天就开投的视频、以及第一次投放 ROI>2.5 的视频。按 `dim_ecn_account_affiliation.affiliation_label` 拆行。
+- 必要过滤：只出已结束的美东日。发布数、在投数、当天新开投数和爆款数都限制在当天仍活跃的联盟号。
+- 不包含：跨地区合计行；未投流视频不算在投、不算当天新开投、不算爆款；lifetime ROI 或第二次及以后投放达标不算。
 
 - Dashboard：[【Affiliate】爆款漏斗数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-hit-funnel/)（id=136，slug `affiliate-hit-funnel`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_funnel`（id=300），主时间列 `dt`
 - 一张 `mixed_timeseries`：`732` 柱 = 活跃联盟号，折线 = 当天发布视频数、第一次投放 ROI>2.5 的视频数。图本身不按 region 拆系列
+- 一张 `echarts_timeseries_line`：`734` 在投广告视频数、新增投放广告视频数。横轴同样是 `dt`（视频发布日），图本身不按 region 拆系列
 - 筛选器：`dt` 时间筛选（默认最近 30 个完整美东日）；`region` **单选**，默认选中第一项，一次只看一个联盟，不能多选对比
 - 快照从 2026-08-21 才有橱窗号分区，更早发布日不进这张表
-- 省略 DWS：三个计数只给这一张看板用，口径直接读已有 DIM / 账号快照 / 视频日事实
+- 省略 DWS：五个计数只给这一张看板用，口径直接读已有 DIM / 账号快照 / 视频日事实
 
 ## 字段
 
@@ -104,6 +105,8 @@
 | region | `region` | 账号 | `dim_ecn_account_affiliation.affiliation_label`（联盟美国 / 联盟墨西哥）。从未绑上过保持空值，不补「未知」。看板用单选 filter 一次只看一个地区，不把各地区叠在同一张图里 | 按目标地区过滤 | 不聚合 |
 | 活跃的联盟号 | `active_account_cnt` | 账号 | 当天快照里的 `tiktok-affiliate` 账号，去掉当时已被封橱窗的号，按 region 计数。看 `tiktok_showcase_status`，不看 `channel_status`：`unknown` / `not_applicable` / 空（接口 404 从未拉到状态）算活跃；`permanently_banned` 且 `DATE(tiktok_showcase_status_updated_at, America/Toronto) <= dt` 算不活跃，封禁日当天不算活跃 | 按目标地区过滤 | 当天存量，不可跨天求和 |
 | 联盟号当天发布的视频数 | `published_video_cnt` | 视频 | `dim_video.published_dt = dt` 且发布账号当天仍活跃。`pre_binding` 已在 `dim_video` 排除 | 只统计活跃联盟号 | 可跨天求和 |
+| 在投广告的视频数 | `advertised_video_cnt` | 视频 | 横轴 `dt` 是视频发布日。当天发布、后来有过 `spend > 0` 的视频数，用 DWS `first_ad_dt IS NOT NULL`。发布日当天账号必须仍活跃 | 只统计活跃联盟号里已投流的视频 | 可跨天求和 |
+| 新增投放广告的视频数 | `new_ad_video_cnt` | 视频 | 横轴 `dt` 是视频发布日。当天发布且当天就开始投：`first_ad_dt = published_dt`。发布日当天账号必须仍活跃 | 只统计活跃联盟号里当天开投的视频 | 可跨天求和 |
 | 第一次投放 ROI>2.5 的视频数 | `first_run_hit_video_cnt` | 视频 | 横轴 `dt` 是视频发布日。第一次投放 = `ad_run_cnt = 1` 的那些天，ROI = `SUM(广告 GMV 美元) / SUM(spend)`。`spend > 0` 且 ROI > 2.5 才计数。发布日当天账号必须仍活跃 | 只统计活跃联盟号里已投流的视频 | 可跨天求和；不得对 ROI 求平均后再数 |
 
 ### 数据边界
@@ -123,11 +126,11 @@
 | 封号删号 | 成功绑定写入后地区不再覆盖。`dim_ecn_account_affiliation` 只插入未见过的成功绑定，已有地区不覆盖、不删除。橱窗状态随最近一次 200 更新。接口已经 404 的账号，按确认名单补维表地区，不写回 ODS |
 | 省略 DWD | 广告日报已是报表粒度；affiliation 是实体映射，没有去重和多源打平需求 |
 | affiliation 建 DIM | 绑定后地区不变；人工确认的 404 账号也写在维表。视频 ID 仍直接 join 已有 `dim_video`。橱窗状态放同一张 DIM，因为封禁日要给漏斗还原历史活跃 |
-| 漏斗省略 DWS | `ads_daily_social_affiliate_funnel` 三个计数只给这一张看板用，直接读 DIM 状态 + 账号快照 + 已有视频日事实 |
+| 漏斗省略 DWS | `ads_daily_social_affiliate_funnel` 五个计数只给这一张看板用，直接读 DIM 状态 + 账号快照 + 已有视频日事实 |
 
 ## 已落地字段
 
-需求 1–14 以及首次投放日、累计投放次数、广告 CPM / CPC / CPS、广告投放后带来播放点击率、广告投放后带来详情页购买转化率全部落到 `ads_daily_social_affiliate_project`。两套 GMV / 两套件数先入库，看板上的销售金额、销售件数取 max 后的展示列。活跃联盟号 / 当天发布视频数 / 第一次投放 ROI>2.5 落到 `ads_daily_social_affiliate_funnel`。
+需求 1–14 以及首次投放日、累计投放次数、广告 CPM / CPC / CPS、广告投放后带来播放点击率、广告投放后带来详情页购买转化率全部落到 `ads_daily_social_affiliate_project`。两套 GMV / 两套件数先入库，看板上的销售金额、销售件数取 max 后的展示列。活跃联盟号 / 当天发布视频数 / 在投广告视频数 / 新增投放视频数 / 第一次投放 ROI>2.5 落到 `ads_daily_social_affiliate_funnel`。
 
 ## 关联
 
