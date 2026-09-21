@@ -34,8 +34,8 @@
 - Dashboard：[【Affiliate】投放数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-ad-delivery/)（id=134，slug `affiliate-ad-delivery`）
 - Superset 物理 dataset：`ads_daily_social_affiliate_project`（id=299），主时间列 `dt`
 - Superset chart：`727`（联盟项目视频日报，raw table）；`728`（联盟项目视频汇总，aggregate）
-- 明细按 `dt × video_key` 出一行。汇总不按 `dt` 分组：`dt` 只做时间筛选，维度是 `region + account_name + published_dt + first_ad_dt + channel + video_id + video_link`，指标按所选时间段汇总
-- 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；`video_id` 展示在视频链接左边，`channel` 展示在视频 ID 左边
+- 明细按 `dt × video_key` 出一行。汇总不按 `dt` 分组：`dt` 只做时间筛选，维度是 `region + account_name + published_dt + first_ad_dt + channel + video_id + video_link + ecn_detail_url`，指标按所选时间段汇总
+- 视频链接列单元格文字是 `video_url`，href 指向 `video_link`；ECN 后台详情链接列单元格文字是 `ecn_detail_url`，href 指向 `ecn_detail_url`；`video_id` 展示在视频链接左边，`channel` 展示在视频 ID 左边
 
 - Dashboard：[【Affiliate】运营核心数据看板](https://bi.alvinclub.ca/superset/dashboard/affiliate-core-operation/)（id=135，slug `affiliate-core-operation`）
 - 同一个 dataset（id=299），三张 `echarts_timeseries_line`：`729` 广告 ROI 趋势、`730` 广告带来 GMV 趋势、`731` 广告带来售出件数趋势
@@ -79,6 +79,7 @@
 | 累计投放次数 | `ad_run_cnt` | 视频 | 截止当天，有消耗的连续日历日算一次投放，中间断一天就算新的一次。例如 9/19 投一天、9/21 再投，则 9/19=1、9/21=2。还没投过保持空，不补 0 | 无 | 截止当天的累计值，不可跨天求和；汇总用 `MAX` |
 | 视频链接文案 | `video_url` | 视频 | 固定字符串 `video_url` | 无 | 不聚合 |
 | 视频链接 | `video_link` | 视频 | `dim_video.video_link`，看板超链接指向这里 | 按目标视频过滤 | 不聚合 |
+| ECN 后台详情链接 | `ecn_detail_url` | 视频 | `ods_ecn_video_publication_owner.task_id` 生成的 ECN 任务详情页 URL；未成功映射 `task_id` 的视频为空，不补默认链接 | 按目标视频过滤 | 不聚合 |
 | 广告投放 ROI | `roi` | 视频 | `广告 GMV / spend`，倍数。分子只用广告侧 Shop GMV，不用 RPA、不用接口 `onsite_shopping_roas` | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(ad_gmv_usd), SUM(spend))` |
 | 广告投放成本 | `spend` | 视频 | 当日该视频下全部广告 `spend` 之和，广告主账户货币（当前 USD） | 无 | 可加 |
 | 广告 CPM | `cpm` | 视频 | `spend / impressions × 1000`。没有展示时保持空 | 无 | 不可求和或平均；汇总须用 `SAFE_DIVIDE(SUM(spend), SUM(impressions)) * 1000` |
@@ -141,13 +142,13 @@
 
 ## 依赖
 
-- 原始层：`decom.ods_tiktok_ad_daily`（扩了 `tiktok_item_id`、identity、Shop GMV / 件数）；`decom.ods_ecn_account_affiliation`（地区 + 最近一次橱窗状态）
+- 原始层：`decom.ods_tiktok_ad_daily`（扩了 `tiktok_item_id`、identity、Shop GMV / 件数）；`decom.ods_ecn_account_affiliation`（地区 + 最近一次橱窗状态）；`decom.ods_ecn_video_publication_owner`（`platform × video_id → task_id`，只补缺失映射）
 - 维表层：`decom.dim_ecn_account_affiliation`（账号首次联盟地区只增不改；橱窗状态随 ODS 200 更新）
-- 事实层：`decom.dws_social_affiliate_project_video_daily`（只固化可加分子分母和投流前件数；max / ROI / 美元 / 看板过滤在 ADS）
+- 事实层：`decom.dws_social_affiliate_project_video_daily`（只固化可加分子分母、投流前件数和 `ecn_task_id`；max / ROI / 美元 / 看板过滤在 ADS）
 - 报表层：`decom.ads_daily_social_affiliate_project`；`decom.ads_daily_social_affiliate_funnel`
 - 其他上游：`decom.dim_video`、`decom.dws_social_creator_snapshot_daily`、`decom.dws_social_video_state_daily_v2`、`videos.tiktok_shop_rpa_video_stats_snapshots`、`decom.currency_conversion_dict`
-- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/dim/dim_ecn_account_affiliation.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`、`jobs/ads/ads_daily_social_affiliate_funnel.py`
-- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/dim/dim_ecn_account_affiliation.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`、`ddl/ads/ads_daily_social_affiliate_funnel.sql`
+- 脚本：`jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py`、`jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py`、`jobs/ods/ods_ecn_video_publication_owner/ods_ecn_video_publication_owner.py`、`jobs/dim/dim_ecn_account_affiliation.py`、`jobs/dws/dws_social_affiliate_project_video_daily.py`、`jobs/ads/ads_daily_social_affiliate_project.py`、`jobs/ads/ads_daily_social_affiliate_funnel.py`
+- DDL：`ddl/ods/ods_tiktok_ad_daily.sql`、`ddl/ods/ods_ecn_account_affiliation.sql`、`ddl/ods/ods_ecn_video_publication_owner.sql`、`ddl/dim/dim_ecn_account_affiliation.sql`、`ddl/dws/dws_social_affiliate_project_video_daily.sql`、`ddl/ads/ads_daily_social_affiliate_project.sql`、`ddl/ads/ads_daily_social_affiliate_funnel.sql`
 - 编排：`env/etl_config.json` 中的独立表级入口
 - 凭据：TikTok token 用 Secret Manager `prod-ads-runner-tiktok-access-token`。ECN 读未跟踪文件 `env/ecn.json`（模板 `env/ecn.json.example`），不入库
 - 规则：`docs/rules/video-mapping.md` 橱窗号一节、`docs/rules/layering.md`
@@ -157,6 +158,7 @@
 ```bash
 python3 jobs/ods/ods_tiktok_ad_daily/ods_tiktok_ad_daily.py
 python3 jobs/ods/ods_ecn_account_affiliation/ods_ecn_account_affiliation.py
+python3 jobs/ods/ods_ecn_video_publication_owner/ods_ecn_video_publication_owner.py
 python3 jobs/dim/dim_ecn_account_affiliation.py
 python3 jobs/dws/dws_social_affiliate_project_video_daily.py
 python3 jobs/ads/ads_daily_social_affiliate_project.py
@@ -165,4 +167,4 @@ python3 jobs/ads/ads_daily_social_affiliate_funnel.py
 
 TikTok 广告 ODS 默认只重刷最近 4 天。2026-08-07 ~ 2026-09-16 已回填 `video_play_actions` / `onsite_on_web_detail`。更早分区如果再缺列，需要显式 `--start-date` / `--end-date`，回填前必须先问。接口带 `stat_time_day` 时单次最多 30 天，更长窗口要拆开、不要重叠。
 
-ECN 凭据读 `env/ecn.json`（未跟踪）。每天拉全部橱窗号刷新橱窗状态，404 不改已有 ODS 行；维表地区只插入新账号。每 50 条写入一次；网关偶发 502 时脚本会退避重试。已停用 `promotion-entry`，投流前件数改切 `first_ad_dt`。
+ECN 凭据读 `env/ecn.json`（未跟踪）。账号归属每天拉全部橱窗号刷新状态，视频归属只拉没有非空 `task_id` 的 video_id；404 / 409 不落行，下次继续补缺。每 50 条写入一次；网关偶发 502 时脚本会退避重试。已停用 `promotion-entry`，投流前件数改切 `first_ad_dt`。

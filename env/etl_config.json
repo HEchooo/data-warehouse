@@ -909,6 +909,18 @@
       "schedule_group": "dim_ecn_account_affiliation"
     },
     {
+      "layer": "ODS",
+      "table_name": "ods_ecn_video_publication_owner",
+      "stage": "ODS",
+      "name": "ODS ECN 外部视频归属 ETL",
+      "script": "jobs/ods/ods_ecn_video_publication_owner/ods_ecn_video_publication_owner.py",
+      "enabled": true,
+      "depends_on": [
+        "dws_social_creator_snapshot_daily"
+      ],
+      "schedule_group": "ods_ecn_video_publication_owner"
+    },
+    {
       "layer": "DWS",
       "table_name": "dws_social_affiliate_project_video_daily",
       "stage": "DWS",
@@ -920,7 +932,8 @@
         "dim_ecn_account_affiliation",
         "dim_video",
         "dws_social_creator_snapshot_daily",
-        "dws_social_video_state_daily_v2"
+        "dws_social_video_state_daily_v2",
+        "ods_ecn_video_publication_owner"
       ],
       "schedule_group": "dws_social_affiliate_project_video_daily"
     },

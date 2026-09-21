@@ -41,3 +41,7 @@ ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_da
 -- 2026-09-20 投流前件数改切首次消耗日，不再存 ECN 发送时间。
 ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_daily`
     DROP COLUMN IF EXISTS ads_first_sent_at;
+
+-- 2026-09-21 透传 ECN 视频生成任务 ID，供 ADS 生成后台详情链接。
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_daily`
+    ADD COLUMN IF NOT EXISTS ecn_task_id STRING;

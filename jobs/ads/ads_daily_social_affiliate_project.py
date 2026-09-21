@@ -18,6 +18,7 @@ TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "ads_daily_social_affiliate_project"
 SOURCE_TABLE_NAME = "dws_social_affiliate_project_video_daily"
 CURRENCY_DICT_TABLE_NAME = "currency_conversion_dict"
+ECN_WEB_BASE_URL = "http://34.55.116.212/echo-matrix"
 
 client = bigquery.Client(project=PROJECT_ID)
 
@@ -66,6 +67,7 @@ def build_select_sql() -> str:
             d.video_key,
             d.published_dt,
             d.video_link,
+            d.ecn_task_id,
             d.spend,
             d.ad_gmv,
             d.ad_gmv * IF(UPPER(d.ad_currency) = 'USD', 1, ar.usd_rate) AS ad_gmv_usd,
@@ -124,6 +126,10 @@ def build_select_sql() -> str:
         published_dt,
         'video_url' AS video_url,
         video_link,
+        CASE
+            WHEN NULLIF(ecn_task_id, '') IS NULL THEN NULL
+            ELSE CONCAT('{ECN_WEB_BASE_URL}/dashboard/video-tasks/', ecn_task_id)
+        END AS ecn_detail_url,
         spend,
         ad_gmv,
         ad_gmv_usd,

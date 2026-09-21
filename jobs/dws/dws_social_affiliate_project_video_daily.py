@@ -70,11 +70,15 @@ def build_select_sql() -> str:
             v.channel,
             v.published_dt,
             v.video_link,
+            owner.task_id AS ecn_task_id,
             a.account_name,
             a.account_handle
         FROM `{table_id("dim_video")}` v
         INNER JOIN affiliate_creator a
             ON v.creator_id = a.creator_id
+        LEFT JOIN `{table_id("ods_ecn_video_publication_owner")}` owner
+            ON owner.platform = '{AFFILIATE_CHANNEL}'
+            AND owner.video_id = v.video_id
         WHERE v.channel = '{AFFILIATE_CHANNEL}'
     ),
     -- 日历骨架：有播放状态的日子，并上有广告的日子。
@@ -259,6 +263,7 @@ def build_select_sql() -> str:
         v.video_key,
         v.published_dt,
         v.video_link,
+        v.ecn_task_id,
         aff.affiliation_label AS region,
         IFNULL(ad.has_ad, FALSE) AS has_ad,
         CASE
