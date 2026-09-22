@@ -54,3 +54,7 @@ ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_project`
 -- 2026-09-21 ECN 后台详情链接，未映射到 task_id 的视频保持空值。
 ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_project`
     ADD COLUMN IF NOT EXISTS ecn_detail_url STRING;
+
+-- 2026-09-22 ECN AI 博主名称。
+ALTER TABLE `my-project-8584-jetonai.decom.ads_daily_social_affiliate_project`
+    ADD COLUMN IF NOT EXISTS ai_kol_name STRING;

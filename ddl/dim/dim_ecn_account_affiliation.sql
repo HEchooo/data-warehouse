@@ -14,3 +14,7 @@ CLUSTER BY platform, account_handle;
 ALTER TABLE `my-project-8584-jetonai.decom.dim_ecn_account_affiliation`
     ADD COLUMN IF NOT EXISTS tiktok_showcase_status STRING,
     ADD COLUMN IF NOT EXISTS tiktok_showcase_status_updated_at TIMESTAMP;
+
+-- 2026-09-22 最近一次成功响应中的 ECN AI 博主名称。
+ALTER TABLE `my-project-8584-jetonai.decom.dim_ecn_account_affiliation`
+    ADD COLUMN IF NOT EXISTS ai_kol_name STRING;

@@ -258,6 +258,7 @@ def build_select_sql() -> str:
         v.channel,
         v.creator_id,
         v.account_name,
+        aff.ai_kol_name,
         v.account_handle,
         v.video_id,
         v.video_key,

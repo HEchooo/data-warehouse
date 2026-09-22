@@ -21,3 +21,7 @@ ALTER TABLE `my-project-8584-jetonai.decom.ods_ecn_account_affiliation`
     ADD COLUMN IF NOT EXISTS tiktok_showcase_status_label STRING,
     ADD COLUMN IF NOT EXISTS tiktok_showcase_status_reason STRING,
     ADD COLUMN IF NOT EXISTS tiktok_showcase_status_updated_at TIMESTAMP;
+
+-- 2026-09-22 透传 account-affiliation 返回的 ECN AI 博主名称。
+ALTER TABLE `my-project-8584-jetonai.decom.ods_ecn_account_affiliation`
+    ADD COLUMN IF NOT EXISTS ai_kol_name STRING;

@@ -45,3 +45,7 @@ ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_da
 -- 2026-09-21 透传 ECN 视频生成任务 ID，供 ADS 生成后台详情链接。
 ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_daily`
     ADD COLUMN IF NOT EXISTS ecn_task_id STRING;
+
+-- 2026-09-22 透传 ECN 账号 AI 博主名称，供 Affiliate ADS 展示。
+ALTER TABLE `my-project-8584-jetonai.decom.dws_social_affiliate_project_video_daily`
+    ADD COLUMN IF NOT EXISTS ai_kol_name STRING;

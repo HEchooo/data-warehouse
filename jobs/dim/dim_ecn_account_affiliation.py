@@ -1,7 +1,7 @@
 """DIM ECN 账号联盟归属 ETL。
 
 地区只插入尚未见过的成功绑定，已有地区永不覆盖。
-橱窗状态随 ODS 最近一次 200 更新，供按封禁日还原历史是否活跃。
+AI 博主名称与橱窗状态随 ODS 最近一次 200 更新。
 """
 
 import logging
@@ -19,12 +19,14 @@ SCHEMA = [
     bigquery.SchemaField("account_handle", "STRING"),
     bigquery.SchemaField("affiliation", "STRING"),
     bigquery.SchemaField("affiliation_label", "STRING"),
+    bigquery.SchemaField("ai_kol_name", "STRING"),
     bigquery.SchemaField("first_bound_at", "TIMESTAMP"),
     bigquery.SchemaField("update_time", "TIMESTAMP"),
     bigquery.SchemaField("tiktok_showcase_status", "STRING"),
     bigquery.SchemaField("tiktok_showcase_status_updated_at", "TIMESTAMP"),
 ]
-STATUS_COLUMNS = (
+ENSURE_COLUMNS = (
+    ("ai_kol_name", "STRING"),
     ("tiktok_showcase_status", "STRING"),
     ("tiktok_showcase_status_updated_at", "TIMESTAMP"),
 )
@@ -92,7 +94,7 @@ def ensure_table() -> None:
 
 
 def ensure_columns() -> None:
-    for name, field_type in STATUS_COLUMNS:
+    for name, field_type in ENSURE_COLUMNS:
         client.query(
             f"ALTER TABLE `{table_id()}` ADD COLUMN IF NOT EXISTS {name} {field_type}"
         ).result()
@@ -167,22 +169,24 @@ def rebuilt_sql() -> str:
     bound AS (
         {bound_sql()}
     ),
-    -- 状态只取 ODS 最近一次 200，不从人工名单编造。
+    -- AI 博主名称和橱窗状态只取 ODS 最近一次 200，不从人工名单编造。
     ods_status AS (
         SELECT
             platform,
             account_handle,
+            ai_kol_name,
             tiktok_showcase_status,
             tiktok_showcase_status_updated_at
         FROM `{table_id(ODS_TABLE_NAME)}`
     )
-    -- 已有地区保持不动，只刷新橱窗状态。
+    -- 已有地区保持不动，只刷新 AI 博主名称和橱窗状态。
     SELECT
         dim.platform,
         dim.account_handle,
         dim.affiliation,
         dim.affiliation_label,
         dim.first_bound_at,
+        COALESCE(NULLIF(ods.ai_kol_name, ''), dim.ai_kol_name) AS ai_kol_name,
         ods.tiktok_showcase_status,
         ods.tiktok_showcase_status_updated_at,
         CURRENT_TIMESTAMP() AS update_time
@@ -200,6 +204,7 @@ def rebuilt_sql() -> str:
         bound.affiliation,
         bound.affiliation_label,
         bound.first_bound_at,
+        ods.ai_kol_name,
         ods.tiktok_showcase_status,
         ods.tiktok_showcase_status_updated_at,
         CURRENT_TIMESTAMP() AS update_time
@@ -239,20 +244,26 @@ def validate_ods_covered(dim_table: str) -> None:
     missing = list(
         client.query(
             f"""
-            SELECT COUNT(*) AS missing_count
+            SELECT
+                COUNTIF(dim.account_handle IS NULL) AS missing_count,
+                COUNTIF(
+                    NULLIF(ods.ai_kol_name, '') IS NOT NULL
+                    AND dim.ai_kol_name IS DISTINCT FROM ods.ai_kol_name
+                ) AS ai_kol_name_mismatch_count
             FROM `{table_id(ODS_TABLE_NAME)}` ods
             LEFT JOIN `{dim_table}` dim
                 ON dim.platform = ods.platform
                 AND {handle_key("dim")} = {handle_key("ods")}
             WHERE NULLIF(ods.affiliation_label, '') IS NOT NULL
-                AND dim.account_handle IS NULL
             """
         ).result()
-    )[0].missing_count
-    if missing:
+    )[0]
+    if missing.missing_count:
         raise RuntimeError(
-            f"ECN 账号联盟归属维表校验失败：ODS 成功绑定有 {missing} 条未落入维表"
+            f"ECN 账号联盟归属维表校验失败：ODS 成功绑定有 {missing.missing_count} 条未落入维表"
         )
+    if missing.ai_kol_name_mismatch_count:
+        raise RuntimeError("ECN 账号联盟归属维表校验失败：ai_kol_name 未从 ODS 透传")
 
 
 def validate_manual_covered(dim_table: str) -> None:

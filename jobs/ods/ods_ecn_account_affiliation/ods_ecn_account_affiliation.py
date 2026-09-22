@@ -1,7 +1,7 @@
 """ODS ECN 账号联盟归属 ETL。
 
 GET /api/v1/open-api/account-affiliation
-每天拉全部橱窗号：200 写入地区 + 橱窗状态，404 / 409 不落新行、不改已有行。
+每天拉全部橱窗号：200 写入地区、ai_kol_name + 橱窗状态，404 / 409 不落新行、不改已有行。
 维表地区仍只首次绑定；本表保留最近一次成功响应。凭据读 env/ecn.json，不入库。
 """
 
@@ -35,6 +35,7 @@ SCHEMA = [
     bigquery.SchemaField("affiliation", "STRING"),
     bigquery.SchemaField("affiliation_label", "STRING"),
     bigquery.SchemaField("ai_kol_id", "STRING"),
+    bigquery.SchemaField("ai_kol_name", "STRING"),
     bigquery.SchemaField("binding_source", "STRING"),
     bigquery.SchemaField("http_status", "INTEGER"),
     bigquery.SchemaField("error_code", "STRING"),
@@ -78,7 +79,7 @@ def ensure_table() -> None:
 
 
 def ensure_columns() -> None:
-    for name, field_type in STATUS_COLUMNS:
+    for name, field_type in STATUS_COLUMNS + (("ai_kol_name", "STRING"),):
         client.query(
             f"ALTER TABLE `{table_id()}` ADD COLUMN IF NOT EXISTS {name} {field_type}"
         ).result()
@@ -169,6 +170,7 @@ def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict
             "affiliation": payload.get("affiliation"),
             "affiliation_label": label,
             "ai_kol_id": payload.get("ai_kol_id"),
+            "ai_kol_name": payload.get("ai_kol_name"),
             "binding_source": payload.get("binding_source"),
             "http_status": 200,
             "error_code": None,
@@ -196,7 +198,8 @@ def validate(table_name: str, label: str, require_labels: bool = False) -> None:
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT CONCAT(platform, '|', {handle_key("t")})) AS unique_key_count,
                 COUNTIF(platform IS NULL OR account_handle IS NULL) AS null_key_count,
-                COUNTIF(http_status = 200 AND (affiliation_label IS NULL OR affiliation_label = '')) AS missing_label_count
+                COUNTIF(http_status = 200 AND (affiliation_label IS NULL OR affiliation_label = '')) AS missing_label_count,
+                COUNTIF(http_status = 200 AND NULLIF(TRIM(ai_kol_name), '') IS NULL) AS missing_ai_kol_name_count
             FROM `{table_name}` t
             """
         ).result()
@@ -207,6 +210,11 @@ def validate(table_name: str, label: str, require_labels: bool = False) -> None:
         raise RuntimeError(f"ECN 账号联盟归属校验失败：{label} 主键字段存在空值")
     if require_labels and result.missing_label_count:
         raise RuntimeError(f"ECN 账号联盟归属校验失败：{label} 200 响应缺少 affiliation_label")
+    if require_labels and result.missing_ai_kol_name_count:
+        logging.warning(
+            "ECN account-affiliation 当前响应缺少 ai_kol_name：%d 条；本字段允许为空，不阻断账号归属更新",
+            result.missing_ai_kol_name_count,
+        )
 
 
 def upsert_rows(rows: list[dict]) -> None:
