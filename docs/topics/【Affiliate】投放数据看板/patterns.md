@@ -81,6 +81,13 @@
 - 修法：`PUT /api/v1/chart/{id}` 写回 `datasource_id=299`、`datasource_type=table`。727 / 728 都要补。
 - 验收不能只看单个 chart：`GET /api/v1/dashboard/134/charts` 的 `form_data.datasource` 必须是 `299__table`。
 
+## 看板播放量是 0，ECN 详情页却有 views
+
+- 现象：汇总或最近几天的日报里某条视频「播放量」是 0，点 `ecn_detail_url` 却能看到几十上百 views。例：`7674588645512285448`，ECN 任务 `898481ac-5a60-4f53-8b39-4cd018431293` 显示 81 views。
+- 看板「播放量」是 `SUM(view_increment)`，只加所选日期里的新增播放。ECN 页面是这条视频的累计播放。
+- 先看日末累计，不要只看增量。这条视频 `video_stats_log` 最后一次采集是 2026-09-15，`view_count = 83`；日末状态之后沿用 83。全历史增量加总也是 83。2026-09-16 及之后每天增量都是 0，这段日期筛出来就是 0。
+- 81 和 83 是同一件累计播放，差在采集时点。播放量显示 0 不是没采到。
+
 ## `/identity/get/` 的 page_size 上限是 100
 
 - 报表 `/report/integrated/get/` 可以 `page_size=1000`。identity 接口传 1000 会报 `code=40002 page_size: number must be most 100`。
