@@ -1,1 +1,0 @@
-@.agents/skills/bigquery-safe-table-change/SKILL.md
