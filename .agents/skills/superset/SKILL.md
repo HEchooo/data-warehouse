@@ -1,6 +1,6 @@
 ---
 name: superset
-description: 通过 Superset REST API 直接创建或修改 dataset、chart、dashboard 与 dashboard filter。只要用户提到用代码操作 Superset、创建或修改 dataset/chart/dashboard/filter、排查这些对象的 API/权限/路径问题，就使用这个 skill。这个 skill 只依赖 `SKILL.md` 里的执行协议，不依赖项目脚本，也不要退回浏览器 UI 自动化。
+description: 通过 Superset REST API 直接创建或修改 dataset、chart、dashboard、dashboard filter 与图表说明。只要用户提到用代码操作 Superset、创建或修改 dataset/chart/dashboard/filter、给图表或字段加口径说明、排查这些对象的 API/权限/路径问题，就使用这个 skill。这个 skill 只依赖 `SKILL.md` 里的执行协议，不依赖项目脚本，也不要退回浏览器 UI 自动化。
 ---
 
 # Superset API 执行协议
@@ -9,7 +9,7 @@ description: 通过 Superset REST API 直接创建或修改 dataset、chart、da
 
 - 登录并确认身份
 - 查找、创建、修改 dataset
-- 查找、创建、修改 chart
+- 查找、创建、修改 chart，包括图表说明 `description`
 - 查找、创建、修改 dashboard
 - 查找、创建、修改 dashboard native filter
 
@@ -225,6 +225,14 @@ description: 通过 Superset REST API 直接创建或修改 dataset、chart、da
 - 如果 `table` 图表在 edit chart 页面里已经给 `all_columns[].label` 配了中文，但 dashboard 里仍显示英文列名，优先同时检查 `params` 与 `query_context` 的列配置；当前实例实测可用的修正方式是给每个 `sqlExpression` 末尾补一个空格，再回查 dashboard 展示。
 - 如果 `table` 图表展示数值字段，默认同时在 `params.column_config` 与 `query_context.form_data.column_config` 写入格式：绝对值使用 `d3NumberFormat = ".2f"`，比例 / 率 / 占比使用 `d3NumberFormat = ".2%"`。
 
+图表说明是 chart 的顶层字段 `description`，不是 `params` 或 `column_config` 里的一项。当前实例是 Superset 4.0.2，展示方式如下：
+
+- 看板上默认收起。打开图表右上角 `...`，选 `Show chart description`（中文界面是「显示图表描述」），正文出现在标题下面。
+- 写入内容是 Markdown。`GET /api/v1/chart/{id}` 只返回原始 `description`。渲染后的 HTML 在 `GET /api/v1/dashboard/{id}/charts` 的 `description_markeddown`。验收展示是否生效，回查这个字段，不要只看 chart 详情。
+- 只改说明时，`PUT /api/v1/chart/{pk}` 只传 `{"description": "..."}`。请求里没写的字段不会被清空；没传 `owners` 时保留原 owner。不要为了改说明重写 `params` 或 `query_context`。
+- 写完回查三件事：`description` 与写入一致；`params`、`query_context`、`datasource_id`、`dashboards`、`owners` 没变；dashboard charts 的 `description_markeddown` 里有渲染后的正文。
+- Dataset 列的 `description` 在这个版本不会出现在表格列头上，列头悬停只提示按住 Shift 多列排序。用户要给看看板的人看口径时，写图表说明，不要写列 Description。
+
 ### dashboard
 
 - `GET /api/v1/dashboard/`
@@ -276,7 +284,7 @@ dashboard native filter 往往不是独立一级资源，通常跟随 dashboard 
 3. 创建或修改时，同时更新展示参数与实际查询配置；对长 payload，优先先落本地文件再发请求。
 4. 如果图表使用 ECharts 系列配置，且涉及 `y_axis_title`，则在 `params` 和 `query_context.form_data` 中同时写入 `y_axis_title_margin = 20` 与 `y_axis_title_position = Top`，避免一处生效、一处仍保留旧值。
 5. 如果图表依赖固定 bucket / series 顺序，写入前先决定排序策略：优先 dataset 内排序字段，其次再考虑展示标签附带前缀；不要把“展示名隐藏”和“排序稳定”都押在 chart post-processing 上。
-6. 写入后回查 chart 详情，并核对 datasource、关键字段与查询配置是否一致。
+6. 写入后回查 chart 详情，并核对 datasource、关键字段与查询配置是否一致。如果这次只改了图表说明，按上面的图表说明验收，不要重跑查询验证。
 7. 优先调用 `POST /api/v1/chart/data`，直接传 chart 当前 `query_context` 做真实查询验证；这个实例里 `GET /api/v1/chart/{pk}/data/` 可能在 chart 已可用时仍返回 dataframe / post-processing 相关错误，不能单独作为验收依据。
 8. 如果是分桶图，除了看请求是否 `200`，还要检查返回数据里的 bucket / series 顺序是否符合预期，再结束。
 
@@ -334,3 +342,5 @@ dashboard native filter 往往不是独立一级资源，通常跟随 dashboard 
 - 把需要子查询或 join 的逻辑硬塞进 chart 自定义 SQL 字段
 - 在 filter 的 `scope.excluded` 里写 layout key 字符串，而不是数字 chart ID
 - 写接口时只带 token，不带会话 cookie 或 CSRF
+- 把口径说明写进 dataset 列的 `description`，指望 4.0.2 的表格列头显示出来
+- 只改图表说明时重写整份 `params` / `query_context`
