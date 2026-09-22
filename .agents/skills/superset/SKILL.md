@@ -129,6 +129,7 @@ description: 通过 Superset REST API 直接创建或修改 dataset、chart、da
 
 - dashboard 通常依赖 chart 已存在。
 - 如果目标是“改看板”，先分清要改的是 dashboard 自身元信息，还是其中 chart 的配置。
+- 用户没有明确要求时，创建和更新 dashboard 都不要写 `roles`。对照已有看板时只借鉴布局、筛选器和图表，不要把访问角色一起抄过来。改布局、图表或筛选器时，更新请求里也不要带 `roles`，否则一次改图会把权限再写回去。
 - 只写 `position_json` 里的 `CHART-*` 节点**不足以**让图表渲染：还必须建立 chart ↔ dashboard 的归属关系，否则前端报 `There is no chart definition associated with this component, could it have been deleted?`，看板上是一个空白容器。
   - 建立方式：`POST /api/v1/chart/` 时带 `dashboards: [<dashboard_id>]`，或事后 `PUT /api/v1/chart/{pk}` 补 `dashboards`；同时在 `params` 与 `query_context.form_data` 里写入同样的 `dashboards` 数组。
   - 先建 dashboard 再回填 chart 归属时，`POST /api/v1/dashboard/` 拿不到还不存在的 chart 关系，所以这一步必须显式补，不会自动推导。
@@ -283,8 +284,8 @@ dashboard native filter 往往不是独立一级资源，通常跟随 dashboard 
 
 1. 先确认需要挂载的 chart 已存在。
 2. 如已有同名 dashboard，先读取其元信息、布局、图表引用关系。
-3. 创建或修改时，明确是在变更标题、布局，还是在增删 chart。
-4. 写入后回查 dashboard 元信息。
+3. 创建或修改时，明确是在变更标题、布局，还是在增删 chart。用户没有明确要求时，请求体不要包含 `roles`。
+4. 写入后回查 dashboard 元信息。回查时确认 `roles` 没有被这次写入改掉。
 
 ### dashboard filter
 
@@ -327,6 +328,7 @@ dashboard native filter 往往不是独立一级资源，通常跟随 dashboard 
 - dataset 还没准备好就去创建 chart
 - chart 还没准备好就去拼 dashboard
 - 修改一个 filter 时把整份 dashboard 配置全量重写
+- 用户没明确要求时，在创建或更新 dashboard 的请求里写 `roles`，或从已有看板抄访问角色
 - 只更新 chart 的展示参数，却忽略实际查询配置是否也要同步
 - 涉及 `y_axis_title` 时，只改 `params.y_axis_title_margin` / `params.y_axis_title_position`，却漏掉 `query_context.form_data` 里的同名字段
 - 把需要子查询或 join 的逻辑硬塞进 chart 自定义 SQL 字段
