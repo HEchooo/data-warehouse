@@ -15,7 +15,7 @@
 ## ECN 的 404 / 409 不是任务失败
 
 - affiliation 查不到或不是美墨联盟：不落新行，下次继续补。看板 region 读 `dim_ecn_account_affiliation`：曾经绑成功过的账号继续用首次地区，从未绑上过才空。
-- ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。不要对 ECN 开高并发。
+- ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。2026-09-23 对 32 个不同账号做了 3 轮 32 并发只读测试，均无超时、限流或 5xx；ODS 请求并发上限设为 32，每 50 个账号完成后再批量写入。
 
 ## account-affiliation 的 `ai_kol_name` 按账号返回
 

@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,7 +27,7 @@ API_PATH = "/api/v1/open-api/account-affiliation"
 BUSINESS_STATUS = {404, 409}
 RETRY_STATUS = {502, 503, 504}
 BATCH_SIZE = 50
-SLEEP_SECONDS = 0.2
+MAX_WORKERS = 32
 HANDLE_KEY = "LOWER(LTRIM({alias}.account_handle, '@'))"
 SCHEMA = [
     bigquery.SchemaField("platform", "STRING"),
@@ -190,6 +191,12 @@ def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict
     )
 
 
+def fetch_one(host: str, api_key: str, handle: str) -> dict | None:
+    with requests.Session() as session:
+        session.headers["X-API-Key"] = api_key
+        return fetch_affiliation(session, host, handle)
+
+
 def validate(table_name: str, label: str, require_labels: bool = False) -> None:
     result = list(
         client.query(
@@ -278,29 +285,28 @@ def run() -> None:
         logging.info("%s 没有橱窗号", TABLE_NAME)
         return
 
-    session = requests.Session()
-    session.headers["X-API-Key"] = api_key
-    batch: list[dict] = []
     failed: list[str] = []
     matched = 0
-    try:
-        for index, handle in enumerate(handles, start=1):
-            try:
-                row = fetch_affiliation(session, host, handle)
-            except Exception as exc:
-                logging.warning("查询失败，本轮跳过 handle=%s err=%s", handle, exc)
-                failed.append(handle)
-                row = None
-            if row:
-                batch.append(row)
-                matched += 1
-            if index % BATCH_SIZE == 0 or index == len(handles):
-                upsert_rows(batch)
-                batch = []
-                logging.info("已查询 %d/%d，命中地区 %d", index, len(handles), matched)
-            time.sleep(SLEEP_SECONDS)
-    finally:
-        session.close()
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        for start in range(0, len(handles), BATCH_SIZE):
+            futures = {
+                pool.submit(fetch_one, host, api_key, handle): handle
+                for handle in handles[start : start + BATCH_SIZE]
+            }
+            batch: list[dict] = []
+            for future in as_completed(futures):
+                handle = futures[future]
+                try:
+                    row = future.result()
+                except Exception as exc:
+                    logging.warning("查询失败，本轮跳过 handle=%s err=%s", handle, exc)
+                    failed.append(handle)
+                    continue
+                if row:
+                    batch.append(row)
+                    matched += 1
+            upsert_rows(batch)
+            logging.info("已查询 %d/%d，命中地区 %d", min(start + BATCH_SIZE, len(handles)), len(handles), matched)
 
     if failed:
         raise RuntimeError(f"ECN account-affiliation 有 {len(failed)} 条失败，已写入成功行，下次只补缺")
