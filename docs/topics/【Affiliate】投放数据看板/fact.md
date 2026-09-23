@@ -73,7 +73,7 @@
 | 统计日 | `dt` | 自然日 | 骨架按 `America/Toronto` 切日，只出已结束的美东日。广告指标源表按广告主时区 `Etc/GMT+5` 切日，夏令时期间两边可能差 1 小时，按日历日字符串对齐，不对齐到小时 | 无 | 不聚合 |
 | region | `region` | 账号 | `dim_ecn_account_affiliation.affiliation_label`（联盟美国 / 联盟墨西哥）。ECN 首次成功绑定后不再改；封号后上游删除不影响。从未绑上过才保持空值，不补「未知」 | 按目标地区过滤 | 不聚合 |
 | 账号名称 | `account_name` | 账号 | `dim_video` / 账号快照的 `display_name`，不是广告 `identity_id` | 按目标账号过滤 | 不聚合 |
-| ECN AI 博主名称 | `ai_kol_name` | 账号 | ECN `account-affiliation` 接口的 `ai_kol_name`，按 `platform + account_handle` 关联；每次成功响应更新。2026-09-22 抽查 5 个 HTTP 200 响应及 Katerina Vale 对应账号的复测均无此字段，当前会为空；手工地区账号也保持空值 | 按目标账号过滤 | 不聚合 |
+| ECN AI 博主名称 | `ai_kol_name` | 账号 | ECN `account-affiliation` 接口的 `ai_kol_name`，按 `platform + account_handle` 关联；每次成功响应更新。2026-09-22 抽查的 5 个账号和 Katerina Vale 对应账号均无此字段；2026-09-23 该账号返回 `Vivian Lockhart`，字段按账号/时间可能为空 | 按目标账号过滤 | 不聚合 |
 | 账号 handle | `account_handle` | 账号 | 内部 `username`，只作展示和 ECN 入参，不当 join key | 按目标账号过滤 | 不聚合 |
 | 视频发布日期 | `published_dt` | 视频 | `dim_video.published_dt` | 无 | 不聚合 |
 | 渠道 | `channel` | 视频 | `dim_video.channel` 枚举 `youtube / tiktok / ins`。当前左表只收 `tiktok-affiliate` 橱窗号，看板值实际都是 `tiktok` | 按目标渠道过滤 | 不聚合 |
@@ -136,7 +136,7 @@
 
 需求 1–14 以及首次投放日、累计投放次数、广告 CPM / CPC / CPS、广告投放后带来播放点击率、广告投放后带来详情页购买转化率全部落到 `ads_daily_social_affiliate_project`。两套 GMV / 两套件数先入库，看板上的销售金额、销售件数取 max 后的展示列。活跃联盟号 / 当天发布视频数 / 在投广告视频数 / 新增投放视频数 / 第一次投放 ROI>2.5 落到 `ads_daily_social_affiliate_funnel`。
 
-本次仓库变更已把 `ai_kol_name` 接入 ODS → DIM → DWS → ADS；接口目前未返回此键，ODS 只告警、不阻断。生产表发布后，还需刷新 Superset dataset 299，并把该列加入 chart 727 / 728。当前线上 dataset 尚无此字段。
+`ai_kol_name` 已接入 ODS → DIM → DWS → ADS；ODS 对缺失值只告警、不阻断。2026-09-23 生产链路已有非空值，Superset dataset 299 已刷新；明细 chart 727 与汇总 chart 728 均在「账号名称」右侧显示「ECN AI 博主名称」，真实查询已验证。
 
 ## 关联
 

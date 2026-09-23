@@ -17,10 +17,11 @@
 - affiliation 查不到或不是美墨联盟：不落新行，下次继续补。看板 region 读 `dim_ecn_account_affiliation`：曾经绑成功过的账号继续用首次地区，从未绑上过才空。
 - ECN 网关会偶发 `502 Bad Gateway`。ODS 对 502 / 503 / 504 重试 5 次（2/4/8/16/32s）；HTML 错误页不要当 JSON 解析。不要对 ECN 开高并发。
 
-## account-affiliation 当前没有返回 `ai_kol_name`
+## account-affiliation 的 `ai_kol_name` 按账号返回
 
-- 2026-09-22 对最近成功查询的 5 个账号逐个 GET `/api/v1/open-api/account-affiliation`，均为 HTTP 200，但 JSON 都没有 `ai_kol_name`（有 `ai_kol_id`）；另用最新账号快照中的 Katerina Vale 复测，HTTP 200、账号匹配且有 `affiliation_label`，仍无 `ai_kol_name`。
-- ODS 已按 `payload.get("ai_kol_name")` 透传；目前值会为空并记录 warning，不阻断账号归属更新。ECN API 加回该字段后，后续日常采集会自动补入 ODS → DIM → DWS → ADS。
+- 2026-09-22 抽查 5 个账号和 Katerina Vale 对应账号时，接口均为 HTTP 200，但没有 `ai_kol_name`。
+- 2026-09-23 重试 Katerina Vale 对应账号，接口仍为 HTTP 200，返回 `ai_kol_name = "Vivian Lockhart"`。字段可能按账号或时间逐步出现，不能假设每个成功响应都有值。
+- ODS 已按 `payload.get("ai_kol_name")` 透传；缺字段时记录 warning，不阻断账号归属更新。直接接口响应有值后，还需日常采集写入 ODS，再沿 ODS → DIM → DWS → ADS 传递。
 
 ## 账号被封后不要靠当天接口重刷地区
 
