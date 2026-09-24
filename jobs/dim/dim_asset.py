@@ -10,6 +10,7 @@
 
 from datetime import datetime, timezone
 import logging
+import os
 from pathlib import Path
 import sys
 
@@ -23,7 +24,9 @@ V3_DATASET_ID = "v3_decom"
 TABLE_NAME = "dim_asset"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dim" / TABLE_NAME
-INCREMENTAL_WINDOW_HOURS = 6
+INCREMENTAL_WINDOW_HOURS = int(os.environ.get("ASSET_RECOVERY_WINDOW_HOURS", "6"))
+if INCREMENTAL_WINDOW_HOURS <= 0:
+    raise ValueError("ASSET_RECOVERY_WINDOW_HOURS 必须是正整数")
 
 client = bigquery.Client(project=PROJECT_ID)
 

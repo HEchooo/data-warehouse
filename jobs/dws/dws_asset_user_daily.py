@@ -11,6 +11,7 @@
 
 from datetime import date, datetime, timezone
 import logging
+import os
 from pathlib import Path
 import sys
 
@@ -25,7 +26,9 @@ TORONTO_TZ = "America/Toronto"
 TABLE_NAME = "dws_asset_user_daily"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs" / "dws" / TABLE_NAME
-INCREMENTAL_WINDOW_HOURS = 6
+INCREMENTAL_WINDOW_HOURS = int(os.environ.get("ASSET_RECOVERY_WINDOW_HOURS", "6"))
+if INCREMENTAL_WINDOW_HOURS <= 0:
+    raise ValueError("ASSET_RECOVERY_WINDOW_HOURS 必须是正整数")
 
 # 帖子详情页素材曝光事件（asset-mapping.md 之外新增的详情页曝光口径）。
 EXPOSURE_EVENT_NAMES = (
