@@ -31,6 +31,7 @@
   `v3_decom.community_post` 中存在大量已排期但尚未到当前日期的未来 `publish_time`（最远到当前日期 + 2 个月），如果周入口只按 `dim_asset.publish_dt` 推算待处理周而不加上限，会把还没到来的周也算出「本周新上线素材总数」，等于提前泄露未发布内容的排期量。
 - 处理：
   `ads_weekly_ai_fashion_asset_overview` 的 `get_week_starts_to_process` 在全量和增量两个分支都加了 `week_start_dt <= 当前周` 的上限过滤。
+- 补充：上述条件只排除未来周，当前周内未来几天的排期素材仍会提前计入。周表读取 `dim_asset` 时还需限定 `publish_time <= CURRENT_TIMESTAMP()`；2026-09-24 排查发现当前周已经存在此类提前计数。
 
 ## 5. `dim_post`/`dim_asset` 类维度表变更需要反查历史分区
 
