@@ -29,8 +29,8 @@ API_PATH = "/api/v1/open-api/videos/publication-owner"
 BUSINESS_STATUS = {404, 409}
 RETRY_STATUS = {502, 503, 504}
 BATCH_SIZE = 50
-CONCURRENCY = 32
-CIRCUIT_502_LIMIT = 3
+CONCURRENCY = 4
+CIRCUIT_FAILURE_LIMIT = 3
 _thread_local = threading.local()
 SCHEMA = [
     bigquery.SchemaField("platform", "STRING"),
@@ -47,20 +47,20 @@ client = bigquery.Client(project=PROJECT_ID)
 
 
 class GatewayCircuit:
-    def __init__(self, limit: int = CIRCUIT_502_LIMIT) -> None:
+    def __init__(self, limit: int = CIRCUIT_FAILURE_LIMIT) -> None:
         self.limit = limit
         self._n = 0
         self._lock = threading.Lock()
         self.open = False
         self.open_status = None
 
-    def note(self, status: int) -> None:
+    def note(self, status: int | None) -> None:
         with self._lock:
-            if status in RETRY_STATUS:
+            if status is None or status in RETRY_STATUS:
                 self._n += 1
                 if self._n >= self.limit:
                     self.open = True
-                    self.open_status = status
+                    self.open_status = status if status is not None else "连接失败"
             else:
                 self._n = 0
 
@@ -176,19 +176,26 @@ def get_with_retry(
     params: dict,
     circuit: GatewayCircuit,
 ) -> requests.Response:
-    circuit.raise_if_open()
-    response = session.get(url, params=params, timeout=60)
-    circuit.note(response.status_code)
-    if response.status_code not in RETRY_STATUS:
-        return response
-    circuit.raise_if_open()
-    logging.warning("ECN 返回 %s，2s 后重试 1 次", response.status_code)
-    time.sleep(2)
-    circuit.raise_if_open()
-    response = session.get(url, params=params, timeout=60)
-    circuit.note(response.status_code)
-    circuit.raise_if_open()
-    return response
+    for attempt in range(2):
+        circuit.raise_if_open()
+        try:
+            response = session.get(url, params=params, timeout=(5, 60))
+        except (requests.ConnectionError, requests.Timeout):
+            circuit.note(None)
+            circuit.raise_if_open()
+            if attempt:
+                raise
+            logging.warning("ECN 连接失败，2s 后重试 1 次")
+        else:
+            circuit.note(response.status_code)
+            if response.status_code not in RETRY_STATUS:
+                return response
+            circuit.raise_if_open()
+            if attempt:
+                return response
+            logging.warning("ECN 返回 %s，2s 后重试 1 次", response.status_code)
+        time.sleep(2)
+    raise AssertionError("ECN 重试循环未返回结果")
 
 
 def fetch_publication_owner(
