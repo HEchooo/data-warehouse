@@ -57,13 +57,13 @@
 
 ### 页面顶部：每周新上线素材数据总览（`ads_weekly_ai_fashion_asset_overview`）
 
-- 硬性条件：统计对象固定为「本周（美东时区）已上线的素材」，即 `dim_asset.publish_dt` 落在目标周内，且 `publish_time <= 当前时刻` 的素材
+- 硬性条件：统计对象固定为「本周（美东时区）新上线的素材」，即 `dim_asset.publish_dt` 落在目标周内的素材
 - 素材发布时间取 `community_post.publish_time`（素材的发布时间就是帖子的发布时间）
 - 模块只保留 `brand` / `magazine` / `star` 三个内容模块（`kol` / `video` / `other` 不进本报表）
 - 自然周：周一起、周日止（`DATE_TRUNC(dt, WEEK(MONDAY))`），美东时区
 - 有效曝光阈值：周曝光 UV > 500（脚本常量 `VALID_EXPOSURE_UV_THRESHOLD`，当前实际周曝光 UV 量级远低于该阈值，`valid_exposure_asset_count` 恒为 0 属预期）
 - 帖子状态：不过滤 `community_post.status`（含隐藏/审核中的帖子所含素材）
-- 报表只统计到当前周为止；服务端已存在排期到未来的素材（`publish_time` 在未来），未到发布时间的不计入素材数
+- 报表只统计到当前周为止；服务端已存在排期到未来的素材（`publish_time` 在未来），不提前物化尚未到来的周
 
 ### 页面中部：Top 榜单 / 页面下部：Bottom 榜单（`ads_daily_ai_fashion_asset_rankings`）
 
@@ -89,7 +89,7 @@
 |---|---|---|---|---|---|
 | 自然周 | `week_start_dt` / `week_range` | 自然周 | `week_start_dt = DATE_TRUNC(dt, WEEK(MONDAY))`（内部分区与筛选字段，不在 Superset 展示）；`week_range` 展示为 `YYYY-MM-DD ~ YYYY-MM-DD` | 无 | 不聚合 |
 | 内容模块 | `module` | 内容模块 | `brand` / `magazine` / `star` | 按目标模块过滤 | 不聚合 |
-| 本周新上线素材总数 | `new_asset_count` | 素材 | `dim_asset.publish_dt` 落在本周且 `publish_time <= 当前时刻` 的素材数 | 无 | 可跨周、跨模块求和 |
+| 本周新上线素材总数 | `new_asset_count` | 素材 | `dim_asset.publish_dt` 落在本周的素材数 | 无 | 可跨周、跨模块求和 |
 | 获得曝光素材数 | `exposed_asset_count` | 素材 | 新上线素材中本周曝光 PV > 0 的素材数 | 无 | 可跨周、跨模块求和 |
 | 有效曝光素材数 | `valid_exposure_asset_count` | 素材 | 获得曝光素材中周曝光 UV > 500 的素材数 | 无 | 可跨周、跨模块求和 |
 | 样本不足素材数 | `insufficient_sample_asset_count` | 素材 | 获得曝光素材中 `0 < 周曝光 UV <= 500` 的素材数 | 无 | 可跨周、跨模块求和 |
