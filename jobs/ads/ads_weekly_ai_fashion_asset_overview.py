@@ -6,7 +6,7 @@
 - decom.dim_asset（素材模块归属、素材上线时间）
 - decom.dws_asset_user_daily（素材曝光 / 试穿 / 负反馈用户事实）
 
-统计对象固定为「本周新上线素材」：``dim_asset.publish_dt`` 落在本周且不晚于美东今天的素材。
+统计对象固定为「本周新上线素材」：``dim_asset.publish_dt`` 落在本周，且已到具体发布时间。
 """
 
 from datetime import date, datetime, timezone
@@ -223,7 +223,7 @@ def run(week_starts: list[date]) -> None:
         FROM target_weeks w
         CROSS JOIN UNNEST([{modules_sql}]) AS module
     ),
-    -- 本周新上线素材：上线日期落在目标周内且不晚于美东今天，模块属于三类内容模块。
+    -- 本周新上线素材：上线日期落在目标周内且已到具体发布时间，模块属于三类内容模块。
     new_assets AS (
         SELECT
             w.week_start_dt,
@@ -234,7 +234,7 @@ def run(week_starts: list[date]) -> None:
         JOIN target_weeks w
             ON a.publish_dt BETWEEN w.week_start_dt AND w.week_end_dt
         WHERE a.module IN ({modules_sql})
-            AND a.publish_dt <= CURRENT_DATE('{TORONTO_TZ}')
+            AND a.publish_time <= CURRENT_TIMESTAMP()
     ),
     -- 本周新上线素材的用户级事实（曝光/试穿/负反馈），仅覆盖有行为的素材。
     fact_scoped AS (
