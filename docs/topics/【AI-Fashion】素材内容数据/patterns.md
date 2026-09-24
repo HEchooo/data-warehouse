@@ -28,9 +28,10 @@
 ## 4. 周报不能提前物化「未来周」
 
 - 现象：
-  `v3_decom.community_post` 中存在大量已排期但尚未到当前日期的未来 `publish_time`（最远到当前日期 + 2 个月），如果周入口只按 `dim_asset.publish_dt` 推算待处理周而不加上限，会把还没到来的周也算出「本周新上线素材总数」，等于提前泄露未发布内容的排期量。
+  `v3_decom.community_post` 中存在大量晚于当前日期的未来 `publish_time`（最远到当前日期 + 2 个月）。这只说明字段填了未来时间，不能据此断定发布状态。如果周入口只按 `dim_asset.publish_dt` 推算待处理周而不加上限，会把还没到来的周也算出「本周新上线素材总数」。
 - 处理：
   `ads_weekly_ai_fashion_asset_overview` 的 `get_week_starts_to_process` 在全量和增量两个分支都加了 `week_start_dt <= 当前周` 的上限过滤。
+- 仅排除未来周还不够：当前周内未来日期的素材仍会被提前计入。`new_assets` 同时要求 `publish_dt <= CURRENT_DATE('America/Toronto')`；业务确认 24 号不计入 26 号的素材，从 26 号起计入。
 
 ## 5. `dim_post`/`dim_asset` 类维度表变更需要反查历史分区
 
