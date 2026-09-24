@@ -80,10 +80,16 @@ def ensure_table() -> None:
 
 
 def ensure_columns() -> None:
-    for name, field_type in STATUS_COLUMNS + (("ai_kol_name", "STRING"),):
-        client.query(
-            f"ALTER TABLE `{table_id()}` ADD COLUMN IF NOT EXISTS {name} {field_type}"
-        ).result()
+    table = client.get_table(table_id())
+    existing = {field.name for field in table.schema}
+    missing = [
+        bigquery.SchemaField(name, field_type)
+        for name, field_type in STATUS_COLUMNS + (("ai_kol_name", "STRING"),)
+        if name not in existing
+    ]
+    if missing:
+        table.schema = list(table.schema) + missing
+        client.update_table(table, ["schema"])
 
 
 def handle_key(alias: str) -> str:
@@ -232,8 +238,6 @@ def upsert_rows(rows: list[dict]) -> None:
     staging_table = f"{target_table}_tmp_{run_id}"
     changed_table = f"{target_table}_changed_{run_id}"
     target_dropped = False
-    ensure_table()
-
     try:
         client.query(
             f"CREATE TABLE `{staging_table}` AS SELECT * FROM `{target_table}` WHERE 1 = 0"
@@ -287,13 +291,13 @@ def run() -> None:
 
     failed: list[str] = []
     matched = 0
+    rows: list[dict] = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         for start in range(0, len(handles), BATCH_SIZE):
             futures = {
                 pool.submit(fetch_one, host, api_key, handle): handle
                 for handle in handles[start : start + BATCH_SIZE]
             }
-            batch: list[dict] = []
             for future in as_completed(futures):
                 handle = futures[future]
                 try:
@@ -303,11 +307,11 @@ def run() -> None:
                     failed.append(handle)
                     continue
                 if row:
-                    batch.append(row)
+                    rows.append(row)
                     matched += 1
-            upsert_rows(batch)
             logging.info("已查询 %d/%d，命中地区 %d", min(start + BATCH_SIZE, len(handles)), len(handles), matched)
 
+    upsert_rows(rows)
     if failed:
         raise RuntimeError(f"ECN account-affiliation 有 {len(failed)} 条失败，已写入成功行，下次只补缺")
 
