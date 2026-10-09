@@ -1,0 +1,14 @@
+# 数据仓库 ETL 运行环境依赖（etl_run.py 及 jobs/ 下全部调度脚本）
+# Python 3.11+（生产机为 3.12）；本地 venv 路径见 env/etl_config.json 的 paths.local
+# Cloud Run 埋点函数 jobs/ods/ods_event_log/main.py 另有自己的 requirements.txt，不在此管理
+
+# bqstorage/pandas extras 提供 to_dataframe() 所需的 pyarrow、grpcio、db-dtypes
+google-cloud-bigquery[bqstorage,pandas]==3.39.0
+google-cloud-storage==3.9.0
+google-cloud-secret-manager==2.30.0
+requests==2.32.5
+PyJWT==2.10.1
+cryptography==46.0.3         # PyJWT 的 ES256 签名需要（iOS App Store Connect）
+
+# 仅 jobs/ods/ods_xiaohongshu_cost/ 的历史脚本需要（未纳入 etl_config.json 调度）
+mysql-connector-python
