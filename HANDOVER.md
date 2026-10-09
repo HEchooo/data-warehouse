@@ -27,15 +27,23 @@
 按顺序办，缺一项都会卡住：
 
 1. **GCP 项目权限**：`my-project-8584-jetonai`（BigQuery 数据全在 `decom` dataset）。角色清单见 [jobs/ods/ods_event_log/BI数据交接.md](./jobs/ods/ods_event_log/BI数据交接.md) 末尾，实际列的是：Artifact Registry Writer、BigQuery Admin / Data Editor / Job User、Cloud Build Editor、Cloud Datastore Owner、Cloud Run Admin / Source Developer、Cloud SQL Admin、Datastream Admin、Eventarc Developer。
-2. **生产机 SSH 权限**：`/home/echooo/sinn_project/data-warehouse`，以及该机的 `crontab -l` 编辑权限。
+2. **生产机 SSH 权限**：`/home/echooo/sinn_project/data-warehouse`，以及该机的 `crontab -l` 编辑权限。走堡垒机 `huxin@jump.valleysound.xyz:2222`，私钥随文件夹提供（`env/id_rsa`），入口脚本 `env/connect.py`。
 3. **GitHub 仓库权限**：`HEchooo/data-warehouse`（公司账号，SSH key 配置见 [env/github-auth.md](./env/github-auth.md)）。
 4. **Superset 账号**：账号密码在 `env/superset.json`（**注意：此文件当前被 git 跟踪，含真实凭据，见第 8 节风险**）。
-5. **未入库的本地凭据文件**（需要从原负责人处单独获取，仓库里没有）：
-   - `env/ecn.json`（ECN API host + key，已 gitignore）
+5. **随文件夹提供的凭据文件**：文件**都在项目文件夹内**、被 `.gitignore` 排除，拷文件夹即可带走（「仓库里没有」只指 git 历史里没有，不代表文件缺失）：
+   - `env/ecn.json`（ECN API host + key）
+   - `env/my-project-8584-jetonai-2bafc5bf74da.json`（BigQuery service account `bigquery-user@my-project-8584-jetonai.iam.gserviceaccount.com`，与生产机 `/home/echooo/sinn_project/my-project-8584-jetonai-2bafc5bf74da.json` 是同一文件）
+   - `env/id_rsa`（堡垒机私钥，**无密码短语**）
    - `jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8`（iOS App Store Connect 私钥）
-   - `jobs/ods/ods_android_download/*.json`（Android GCS / BQ service account，已 gitignore）
+   - `jobs/ods/ods_android_download/*.json`（Android GCS / BQ service account）
 6. **飞书（Lark）机器人 webhook**：`env/lark_webhook.json`。用途只有两个：4 个日报推送脚本，以及埋点链路（Cloud Run 环境变量 `LARK_ALERT_WEBHOOK`）。**全链路 ETL 失败不推飞书**，别指望它告警。
 7. **TikTok Business API 的 access token**：不在仓库，在 GCP Secret Manager 的 `prod-ads-runner-tiktok-access-token`。
+8. **本地 Python 环境**：`pip install -r requirements.txt`（依赖清单见仓库根目录）。本地 venv 路径写在 `env/etl_config.json` 的 `paths.local`，**接手后第一件事就是把这 3 个路径改成自己的**（`project_dir` / `python` / `log_dir`），否则 `PATH_MODE_OVERRIDE=local` 跑不起来。
+9. **BigQuery 认证（最容易漏的一项）**：所有脚本用 ADC 认证。生产机靠 crontab **顶部**的一行环境变量：
+   ```
+   GOOGLE_APPLICATION_CREDENTIALS="/home/echooo/sinn_project/my-project-8584-jetonai-2bafc5bf74da.json"
+   ```
+   这行不在仓库里。本地开发则在 `~/.config/gcloud` 里 `gcloud auth application-default login`，或用文件夹内的 service account：`export GOOGLE_APPLICATION_CREDENTIALS=<文件夹>/env/my-project-8584-jetonai-2bafc5bf74da.json`。**漏配不会报「认证失败」，而是脚本连不上 BigQuery 直接失败，然后拖停其后的全部任务。**
 
 ---
 
@@ -97,13 +105,17 @@
 ```
 data-warehouse/
 ├── etl_run.py              # 唯一调度入口，串行执行 etl_config.json 里的 tasks
+├── requirements.txt        # ★ Python 依赖清单（pip install -r requirements.txt）
 ├── env/
 │   ├── etl_config.json     # ★ 任务清单（143 个 task）与运行环境路径，编排的 SSOT
+│   ├── connect.py          # 堡垒机连接入口（用同目录 id_rsa）
 │   ├── cron.txt            # 生产机 crontab 内容（文档用途，改它不会自动生效）
 │   ├── superset.json       # Superset 地址与账号（含真实凭据）
 │   ├── lark_webhook.json   # 飞书机器人 webhook（含真实凭据）
 │   ├── appsflyer.json      # AppsFlyer API 配置
-│   ├── ecn.json            # ECN API 配置（已 gitignore，需单独获取）
+│   ├── ecn.json            # ECN API 配置（已 gitignore，随文件夹提供）
+│   ├── id_rsa              # 堡垒机私钥（已 gitignore，随文件夹提供）
+│   ├── my-project-8584-jetonai-2bafc5bf74da.json  # BQ service account（已 gitignore）
 │   └── github-auth.md      # 多 GitHub 账号 SSH 配置说明
 ├── jobs/                   # 各层生成逻辑，按层分目录
 │   ├── ods/  dwd/  dim/  dws/  ads/
@@ -157,7 +169,7 @@ cd /home/echooo/sinn_project/data-warehouse
 PATH_MODE_OVERRIDE=remote /usr/local/bin/python3.12 etl_run.py
 ```
 
-本地测试时把 `PATH_MODE_OVERRIDE` 改成 `local`（本地 Python 是 `/Users/sinn/Documents/work_py_venv/bin/python3.11`，路径配置见 `env/etl_config.json` 的 `paths`）。
+本地测试时把 `PATH_MODE_OVERRIDE` 改成 `local`。**`env/etl_config.json` 的 `paths.local` 里三个路径（`project_dir` / `python` / `log_dir`）是原负责人机器的绝对路径，接手人必须先改成自己的**，`python` 指向你自己的 venv（依赖见根目录 `requirements.txt`）。`paths.remote` 是生产机路径，不要动。
 
 `PATH_MODE_OVERRIDE` 优先于 `etl_config.json` 的 `path_mode`；**生产 cron 必须显式传 `remote`**，不能依赖配置文件默认值（默认值是 `local`）。
 
@@ -209,7 +221,7 @@ PATH_MODE_OVERRIDE=remote python3 jobs/ads/ads_daily_closet_overview.py
 
 按顺序查（不要一上来就怀疑数据）：
 
-1. **ETL 是否跑完**：看 `logs/etl_YYYYMMDD.log` 有没有 `ETL 全部完成`。没有就是中途失败了，往上翻找到第一个失败任务。
+1. **ETL 是否跑完**：看 `logs/etl_YYYYMMDD.log` 有没有 `ETL 全部完成`。没有就是中途失败了，往上翻找到第一个失败任务。**若是接手后第一次跑、且报错集中在连接/认证，先查 `GOOGLE_APPLICATION_CREDENTIALS` 是否配好（见第 1 节第 9 项）。**
 2. **是不是 T+0 展示问题**：脚本支持 T+0 ≠ 每张表都支持当天。检查子任务内部数据窗口和成熟度上限（如留存率要等 `dt+N`）。
 3. **筛选器范围**：Superset 的时间筛选器是否覆盖了目标日期。
 4. **区分链路**：总量 / 新增异常时，先确认自己走的是事件链路还是下载链路。
@@ -322,7 +334,11 @@ PATH_MODE_OVERRIDE=remote python3 jobs/ads/ads_daily_closet_overview.py
 | `env/lark_webhook.json` | 被 git 跟踪，含飞书机器人 webhook（等同于凭据） | 同上 |
 | `env/appsflyer.json` | 被 git 跟踪，含真实 AppsFlyer JWT token | 同样处理 |
 
-已正确处理的（供参考）：`env/ecn.json`、`jobs/ods/ods_android_download/*.json`、`jobs/ods/ods_ios_download/*.p8` 都已在 `.gitignore` 中。`jobs/ods/ods_tiktok_ad_daily` 和 `ods_tiktok_gmv_max_daily` 的 token 走 GCP Secret Manager，是正确做法。
+已正确处理的（供参考）：`env/ecn.json`、`env/id_rsa`、`env/my-project-8584-jetonai-2bafc5bf74da.json`、`jobs/ods/ods_android_download/*.json`、`jobs/ods/ods_ios_download/*.p8` 都已在 `.gitignore` 中。`jobs/ods/ods_tiktok_ad_daily` 和 `ods_tiktok_gmv_max_daily` 的 token 走 GCP Secret Manager，是正确做法。
+
+⚠️ **`env/` 下新增的未跟踪凭据文件**（`id_rsa`、`my-project-8584-jetonai-2bafc5bf74da.json`）随文件夹传递，**不要 `git add -A` 一把梭**，`.gitignore` 已覆盖，但换机器/换人后要重新确认 `git status` 里没有它们。
+
+⚠️ **`env/id_rsa` 没有密码短语**，拿到文件即可登录堡垒机。传文件夹时走加密渠道（不是微信/邮件明文），接手人接管后建议给这把 key 加密码短语或换成他自己的 key。
 
 **注意**：这些凭据已进入 git 历史，仅 `git rm` 不会从历史中移除。轮换密钥比清理历史更实际。
 
@@ -358,7 +374,7 @@ PATH_MODE_OVERRIDE=remote python3 jobs/ads/ads_daily_closet_overview.py
 
 ## 10. 建议的接手路径
 
-1. **第 1 天**：拿权限（第 1 节）→ 和原负责人确认生产机代码同步方式（第 4.2.1 节）→ 通读本文件 + `AGENTS.md` + `docs/rules/layering.md` + `docs/rules/pipeline.md`。
+1. **第 1 天**：拿权限（第 1 节）→ 本地环境三件事：`pip install -r requirements.txt`、改 `env/etl_config.json` 的 `paths.local`、配好 BigQuery 认证（`GOOGLE_APPLICATION_CREDENTIALS` 指向 `env/my-project-8584-jetonai-2bafc5bf74da.json`）→ 和原负责人确认生产机代码同步方式（第 4.2.1 节）→ 通读本文件 + `AGENTS.md` + `docs/rules/layering.md` + `docs/rules/pipeline.md`。
 2. **第 2 天**：本地跑通一轮（`PATH_MODE_OVERRIDE=local python3 etl_run.py`），对照 `logs/etl_*.log` 看每层在做什么。
 3. **第 3 天**：挑一个主题（建议从 `用增报表` 入手，链路最清晰），从 `fact.md` 倒推 SQL，读完整链路。
 4. **第 4 天起**：按第 7、8 节的清单处理遗留项和安全风险；遇到真实踩坑写回对应主题的 `patterns.md`。
