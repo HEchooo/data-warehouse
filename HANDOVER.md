@@ -28,6 +28,8 @@
 
 1. **GCP 项目权限**：`my-project-8584-jetonai`（BigQuery 数据全在 `decom` dataset）。角色清单见 [jobs/ods/ods_event_log/BI数据交接.md](./jobs/ods/ods_event_log/BI数据交接.md) 末尾，实际列的是：Artifact Registry Writer、BigQuery Admin / Data Editor / Job User、Cloud Build Editor、Cloud Datastore Owner、Cloud Run Admin / Source Developer、Cloud SQL Admin、Datastream Admin、Eventarc Developer。
 2. **生产机 SSH 权限**：`/home/echooo/sinn_project/data-warehouse`，以及该机的 `crontab -l` 编辑权限。走堡垒机 `huxin@jump.valleysound.xyz:2222`，私钥随文件夹提供（`env/id_rsa`），入口脚本 `env/connect.py`。
+   ⚠️ **必须在 GuYin 网络下连接**（公司内网 / VPN）。公网直连堡垒机会失败，`env/connect.py` 跑不通不是脚本问题，先确认网络。
+   连上堡垒机后按提示选择目标机器 `172.30.0.13`（生产机内网地址，只能从堡垒机访问，不能直连）。
 3. **GitHub 仓库权限**：`HEchooo/data-warehouse`（公司账号，SSH key 配置见 [env/github-auth.md](./env/github-auth.md)）。
 4. **Superset 账号**：账号密码在 `env/superset.json`（**注意：此文件当前被 git 跟踪，含真实凭据，见第 8 节风险**）。
 5. **随文件夹提供的凭据文件**：文件**都在项目文件夹内**、被 `.gitignore` 排除，拷文件夹即可带走（「仓库里没有」只指 git 历史里没有，不代表文件缺失）：
@@ -39,6 +41,7 @@
 6. **飞书（Lark）机器人 webhook**：`env/lark_webhook.json`。用途只有两个：4 个日报推送脚本，以及埋点链路（Cloud Run 环境变量 `LARK_ALERT_WEBHOOK`）。**全链路 ETL 失败不推飞书**，别指望它告警。
 7. **TikTok Business API 的 access token**：不在仓库，在 GCP Secret Manager 的 `prod-ads-runner-tiktok-access-token`。
 8. **本地 Python 环境**：`pip install -r requirements.txt`（依赖清单见仓库根目录）。本地 venv 路径写在 `env/etl_config.json` 的 `paths.local`，**接手后第一件事就是把这 3 个路径改成自己的**（`project_dir` / `python` / `log_dir`），否则 `PATH_MODE_OVERRIDE=local` 跑不起来。
+   ⚠️ **Python 环境以实际为准，不指定用哪个 venv。** [docs/rules/environment.md](./docs/rules/environment.md) 第 5–8 行提到的 `work_py_venv` / `family_py_venv` 是原负责人机器上的目录名，**不要照抄**：任何 Python 3.11+ 的虚拟环境都行，只要 `pip install -r requirements.txt` 装得上，并把 `paths.local.python` 指向它。生产机用的是系统 `/usr/local/bin/python3.12`，不是 venv。
 9. **BigQuery 认证（最容易漏的一项）**：所有脚本用 ADC 认证。生产机靠 crontab **顶部**的一行环境变量：
    ```
    GOOGLE_APPLICATION_CREDENTIALS="/home/echooo/sinn_project/my-project-8584-jetonai-2bafc5bf74da.json"
@@ -188,7 +191,7 @@ PATH_MODE_OVERRIDE=remote python3 jobs/ads/ads_daily_closet_overview.py
 **没有 CI/CD，也没有部署脚本。** 流程是手工同步：
 
 1. 本地改完，直接在 `main` 提交并 `git push`。
-2. SSH 上生产机，`cd /home/echooo/sinn_project/data-warehouse && git pull`。
+2. **在 GuYin 网络下**跑 `env/connect.py` → 选堡垒机 → 选 `172.30.0.13`，然后 `cd /home/echooo/sinn_project/data-warehouse && git pull`。
 3. 生产机不会自动同步，**忘记 pull 就是代码没上线**。
 
 改完代码在生产生效前，务必核对：
