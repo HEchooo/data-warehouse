@@ -1,3 +1,4 @@
+import argparse
 from datetime import date, datetime, timezone
 import logging
 from pathlib import Path
@@ -71,8 +72,21 @@ def get_target_row_count() -> int:
     return int(rows[0].row_count) if rows else 0
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="构建留存用户新增关注账号数分桶日报（dt × user_group × bucket）"
+    )
+    parser.add_argument(
+        "--full-refresh",
+        action="store_true",
+        help="按 dws_user_activity_daily 已落地日期全量重刷，而不是默认最近增量日期",
+    )
+    return parser.parse_args()
+
+
 def get_retention_user_new_follow_bucket_dates_to_process(
     window_hours: int = INCREMENTAL_WINDOW_HOURS,
+    full_refresh: bool = False,
 ) -> list[date]:
     """
     留存用户新增关注账号数分桶 ADS 只消费 dws_user_activity_daily。
@@ -80,8 +94,9 @@ def get_retention_user_new_follow_bucket_dates_to_process(
     规则：
     - 目标表不存在或为空时，按 dws_user_activity_daily 历史业务日全量初始化
     - 目标表已存在时，只读取最近 6 小时内 dws_user_activity_daily 变更的 `dt`
+    - 显式传 full_refresh 时，忽略增量窗口，按上游全部已落地日期重刷
     """
-    is_full_snapshot = (not target_table_exists()) or get_target_row_count() == 0
+    is_full_snapshot = full_refresh or (not target_table_exists()) or get_target_row_count() == 0
 
     if is_full_snapshot:
         query = f"""
@@ -316,8 +331,9 @@ if __name__ == "__main__":
     log_path = configure_logging()
     logging.info("日志文件: %s", log_path)
 
+    args = parse_args()
     start_time = datetime.now(timezone.utc)
-    dates = get_retention_user_new_follow_bucket_dates_to_process()
+    dates = get_retention_user_new_follow_bucket_dates_to_process(full_refresh=args.full_refresh)
     logging.info("待处理日期: %s", dates if dates else "[]")
 
     if not dates:
