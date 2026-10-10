@@ -153,7 +153,7 @@ cohort 为 `dt` 当日活跃的已登录用户；当日活跃与观察日活跃�
 - `dws_user_activity_daily.followed_account_count` 表示 cohort 用户在 `dt` 当天关注的去重账号数；新 chart 虽沿用“累计关注账号数”展示名，但实际按该字段分桶
 - `dws_user_activity_daily.product_detail_view_count` 表示 cohort 用户在 `dt` 当天浏览商详的去重事件次数（`event_name = 'v_product_detail'`）；用于“浏览商详次数分桶”chart
 - `dws_user_activity_daily.ai_tryon_count` 表示 cohort 用户在 `dt` 当天 `task_type IN ('QUICK_TRY_ON','TRY_ON','OUTFIT')` 的服务端任务行数；和特征对比的 `used_ai_tryon` 布尔指标不是同一个字段，不要混用
-- 生产可用性：`ads_daily_retention_user_feature` 与 `ads_daily_retention_user_new_follow_bucket` 已建表并有生产数据（后者已回刷 `2026-05-01 ~ 2026-05-25`）；`duration` / `follow` / `tryon` / `product_detail` 四张分桶表的代码、DDL 与调度已就绪，生产表尚未创建，查询前先确认表是否存在
+- 生产可用性：按 2026-10-09 交接记录，`ads_daily_retention_user_feature` 与五张分桶表均已建表并有生产数据；仓库中对应任务均已启用，不应按“生产表尚未创建”重复建表。该记录未在本次文档修订中重新查询生产验证，接管时仍须只读核对表、预期分区和最新运行结果。
 
 ## 依赖
 
