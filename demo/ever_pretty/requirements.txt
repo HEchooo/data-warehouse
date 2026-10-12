@@ -1,0 +1,7 @@
+apache-superset==4.0.2
+sqlalchemy-bigquery==1.17.3
+Pillow==12.3.0
+marshmallow==3.26.2
+numpy==1.23.5
+python-geohash==0.8.5
+setuptools==80.10.2

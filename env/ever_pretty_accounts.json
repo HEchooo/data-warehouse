@@ -1,0 +1,18 @@
+{
+  "brand": "Ever Pretty",
+  "start_date": "2026-09-01",
+  "timezone": "America/Toronto",
+  "verified_on": "2026-10-12",
+  "mapping_source": "Echo Matrix task_manager 当前启用绑定，经 BigQuery dim_video 核对；固定本次 Demo 名单，不随同名账号扩张",
+  "accounts": [
+    {"blogger_name": "UnfilteredMomFinds", "blogger_id": "e277c98c-b0d1-458c-8ad1-757aa174de02", "channel": "tiktok", "creator_id": "c0fea3a0-6d2e-4e99-a046-c1a9ec84a0f4", "account_handle": null, "note": "外部发布渠道，尚无可关联的 BigQuery 平台账号；不能把无视频 ID 的 ECN 完成记录当作已发布视频"},
+    {"blogger_name": "UnfilteredMomFinds", "blogger_id": "e277c98c-b0d1-458c-8ad1-757aa174de02", "channel": "youtube", "creator_id": "UC7pc6o4Wz4r4Us8_DVcgobw", "account_handle": "@unfilteredmomfinds"},
+    {"blogger_name": "Viviana Ricci", "blogger_id": "7986c5ba-bcd3-4bc5-ae1f-6800d1d2ac35", "channel": "tiktok", "creator_id": "-000Q3Xjm3VQj4Ut-j_URiPKUQ-0BCAsXfb8", "account_handle": "leo_s_little_world", "note": "使用2026-09-24启用的新绑定，不纳入已停用的 viviana_ricci 同名旧账号"},
+    {"blogger_name": "Harper Ellis", "blogger_id": "cc5c3c6f-8e82-4709-82ba-4dbf9f585cf9", "channel": "youtube", "creator_id": "UCp6WIWa_t36FWblHUFuo68Q", "account_handle": "@harperellis-g7i"},
+    {"blogger_name": "Life With Maddie", "blogger_id": "8ac57e42-3029-4a5c-a624-c52974d45aa9", "channel": "tiktok", "creator_id": "-0002DDCHuFl0_VPVaaCFwpy9COpNqEmqqRN", "account_handle": "life_with_maddie7x"},
+    {"blogger_name": "Nora Shapes", "blogger_id": "a10adf78-35cb-4b76-b9de-e682b5791d86", "channel": "tiktok", "creator_id": "-0002Nv-jqCcY4yy1dGU6Gz9cQORkYcD4bd0", "account_handle": "nora_shapes"},
+    {"blogger_name": "Sydney Cooper", "blogger_id": "5f1cda07-4476-42bb-9b8a-75c83475eaf0", "channel": "tiktok", "creator_id": "-00084JAhvOgDBqWbCg7Au0TxddUvPwcsVcQ", "account_handle": "sydney_cooper23a"},
+    {"blogger_name": "Mia Rivas", "blogger_id": "8be85b0b-bad0-4153-a8ba-e240beb93fb5", "channel": "youtube", "creator_id": "UCQIqMLla-rnzgagDGw1c-2A", "account_handle": "@miarivas-s6y"},
+    {"blogger_name": "Amanda Wears", "blogger_id": "b5d439ee-564a-4166-bf5d-6f0c463d8a49", "channel": "tiktok", "creator_id": "-000hGi0gqlMZqXFx5wtbS4SmOne_k867QpC", "account_handle": "amanda_wears7x"}
+  ]
+}
