@@ -141,3 +141,27 @@ python3 -c "import json;[print(t['table_name'], t['script']) for t in json.load(
 另外 `store_ids` 单次只接受一个店铺，`page_size` 上限 1000 而 30 天 campaign 级就有 1050 行，翻页必须做。
 
 回填 41 天窗口时切成 `07-18~08-16` + `08-17~08-27` 两段加总，结果与后台完全一致，切片本身不影响口径。
+
+## identity 不分类查询返回全量，不要依赖 page_info
+
+2026-10-12 只读排查发现：生产机请求 `/identity/get/` 第 1、2 页都返回同一批 102 个 identity，
+`page_info` 的四个字段均为 0。本地第 1～3 页也一致，改变 `page_size` 不改变返回数量。
+旧代码以 `len(chunk) < 100` 为唯一结束条件，会重复请求，最终可能因 `51010 Internal Time out`
+或 `40100 Request too frequent` 退出；不能只增加超时或重试次数。
+
+随后核对 TikTok [Get the identity list 官方文档](https://business-api.tiktok.com/portal/docs/get-the-identity-list/v1.3)
+（文档 ID `1740218420781057`，v1.3）：不指定 `identity_type` 时返回所有 identities；
+只有指定 `identity_type` 时 `page_info` 才可靠。`page_size` 范围 1～100 是分页参数限制，
+文档未声明不分类查询的全量列表有 100 条截断上限，也没有定义全零分页为特殊结束标记。
+因此不应把“全零时结束、非零时分页”当作当前不分类查询的契约。
+
+只读验证仅传 `advertiser_id`，返回 102 条（AUTH_CODE 34、BC_AUTH_TT 68）；另查三个类型的首页：
+AUTH_CODE 返回 34 条、总页数 1，与全量中的同类型 ID 集合一致；CUSTOMIZED_USER、TT_USER 均为空。
+本次没有逐 Business Center 核对 BC_AUTH_TT，未观察到截断，但不能证明上游在所有账户规模下均无缺陷。
+
+最终本地修复只发一次不带类型、页码和页大小的请求，不依赖 `page_info`；保留重复 ID、无效 ID、
+缺失列表的报错，超时和限流继续抛错，不做降级跳过。离线回归覆盖 0/100/102/201 条、全零/非零/
+缺失分页信息、重复 ID、超时、限流及失败不写入。此前针对分类分页的循环及总数校验已移除，避免
+根据官方声明不可靠的元数据错误分页或拒绝完整列表。若以后增加 `identity_type` 过滤，须单独实现分页。
+
+离线回归位于 `jobs/ods/ods_tiktok_ad_daily/test_identity.py`；本次未部署，生产是否生效需另行核验。

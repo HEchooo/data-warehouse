@@ -248,30 +248,37 @@ def fetch_ad_meta(session: requests.Session, ad_ids: list[str]) -> dict[str, dic
 
 
 def fetch_identities(session: requests.Session) -> dict[str, str | None]:
-    """identity_id -> username，只入库展示。返回结构是 identity_list，page_info 可能全 0。"""
-    rows, page = [], 1
-    while True:
-        response = session.get(
-            f"{TIKTOK_API_BASE}/identity/get/",
-            params={"advertiser_id": ADVERTISER_ID, "page": page, "page_size": 100},
-            timeout=60,
+    """不指定 identity_type 时一次返回全部 identity，不依赖无效的 page_info。"""
+    # 官方契约：仅指定 identity_type 时分页信息才可靠。
+    # https://business-api.tiktok.com/portal/docs/get-the-identity-list/v1.3
+    response = session.get(
+        f"{TIKTOK_API_BASE}/identity/get/",
+        params={"advertiser_id": ADVERTISER_ID},
+        timeout=60,
+    )
+    response.raise_for_status()
+    body = response.json()
+    if not isinstance(body, dict):
+        raise RuntimeError("TikTok /identity/get/ 响应不是对象")
+    if body.get("code") != 0:
+        raise RuntimeError(
+            f"TikTok /identity/get/ 返回错误: code={body.get('code')} message={body.get('message')}"
         )
-        response.raise_for_status()
-        body = response.json()
-        if body.get("code") != 0:
-            raise RuntimeError(
-                f"TikTok /identity/get/ 返回错误: code={body.get('code')} message={body.get('message')}"
-            )
-        chunk = body.get("data", {}).get("identity_list") or []
-        rows.extend(chunk)
-        if len(chunk) < 100:
-            break
-        page += 1
-    identities = {
-        identity["identity_id"]: to_str(identity.get("username"))
-        for identity in rows
-        if identity.get("identity_id")
-    }
+    data = body.get("data")
+    if not isinstance(data, dict) or not isinstance(data.get("identity_list"), list):
+        raise RuntimeError("TikTok /identity/get/ 缺少有效 identity_list")
+    identities = {}
+    for item in data["identity_list"]:
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("identity_id"), str)
+            or not item["identity_id"].strip()
+        ):
+            raise RuntimeError("TikTok /identity/get/ identity_id 缺失或无效")
+        identity_id = item["identity_id"]
+        if identity_id in identities:
+            raise RuntimeError("TikTok /identity/get/ 重复 identity")
+        identities[identity_id] = to_str(item.get("username"))
     logging.info("identity 拉取完成: %d 个", len(identities))
     return identities
 
