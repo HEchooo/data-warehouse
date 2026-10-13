@@ -11,6 +11,7 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -75,9 +76,16 @@ def thread_session(api_key: str) -> requests.Session:
     session = getattr(_thread_local, "session", None)
     if session is None:
         session = requests.Session()
-        session.headers["X-API-Key"] = api_key
         _thread_local.session = session
+    session.headers["X-API-Key"] = api_key
     return session
+
+
+def init_thread_session(api_key: str, sessions: ExitStack, lock: threading.Lock) -> None:
+    # ExitStack 由主线程在工作线程全部退出后关闭，注册回调需要串行化。
+    session = thread_session(api_key)
+    with lock:
+        sessions.callback(session.close)
 
 
 def table_id(table_name: str = TABLE_NAME) -> str:
@@ -190,10 +198,15 @@ def get_with_retry(
             circuit.note(response.status_code)
             if response.status_code not in RETRY_STATUS:
                 return response
-            circuit.raise_if_open()
+            try:
+                circuit.raise_if_open()
+            except RuntimeError:
+                response.close()
+                raise
             if attempt:
                 return response
             logging.warning("ECN 返回 %s，2s 后重试 1 次", response.status_code)
+            response.close()
         time.sleep(2)
     raise AssertionError("ECN 重试循环未返回结果")
 
@@ -318,7 +331,11 @@ def run() -> None:
     circuit = GatewayCircuit()
     failed: list[str] = []
     matched = 0
-    with ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
+    with ExitStack() as sessions, ThreadPoolExecutor(
+        max_workers=CONCURRENCY,
+        initializer=init_thread_session,
+        initargs=(api_key, sessions, threading.Lock()),
+    ) as executor:
         for start in range(0, len(video_ids), BATCH_SIZE):
             if circuit.open:
                 break

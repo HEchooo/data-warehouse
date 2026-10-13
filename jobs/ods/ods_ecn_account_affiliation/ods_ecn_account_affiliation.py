@@ -8,8 +8,10 @@ GET /api/v1/open-api/account-affiliation
 import json
 import logging
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,6 +30,7 @@ BUSINESS_STATUS = {404, 409}
 RETRY_STATUS = {502, 503, 504}
 BATCH_SIZE = 50
 MAX_WORKERS = 32
+_thread_local = threading.local()
 HANDLE_KEY = "LOWER(LTRIM({alias}.account_handle, '@'))"
 SCHEMA = [
     bigquery.SchemaField("platform", "STRING"),
@@ -147,15 +150,21 @@ def parse_json(response: requests.Response) -> dict:
 
 
 def get_with_retry(session: requests.Session, url: str, params: dict) -> requests.Response:
-    response = None
     for attempt in range(5):
-        response = session.get(url, params=params, timeout=60)
-        if response.status_code not in RETRY_STATUS:
-            return response
-        delay = 2 * (2 ** attempt)
-        logging.warning("ECN 返回 %s，%ss 后重试 %s/5", response.status_code, delay, attempt + 1)
-        time.sleep(delay)
-    return response
+        try:
+            response = session.get(url, params=params, timeout=(5, 60))
+        except (requests.ConnectionError, requests.Timeout):
+            # GET 可安全重试；连接异常最多额外尝试一次，不延长整批阻塞。
+            if attempt >= 1:
+                raise
+            logging.warning("ECN 连接失败，2s 后重试 1 次")
+        else:
+            if response.status_code not in RETRY_STATUS or attempt == 4:
+                return response
+            logging.warning("ECN 返回 %s，%ss 后重试 %s/4", response.status_code, 2 * (2 ** attempt), attempt + 1)
+            response.close()
+        time.sleep(2 * (2 ** attempt))
+    raise AssertionError("ECN 重试循环未返回结果")
 
 
 def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict | None:
@@ -197,10 +206,25 @@ def fetch_affiliation(session: requests.Session, host: str, handle: str) -> dict
     )
 
 
+def thread_session(api_key: str) -> requests.Session:
+    # 每个工作线程复用连接池，跨批次保留；避免跨线程共享可变 Session。
+    session = getattr(_thread_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        _thread_local.session = session
+    session.headers["X-API-Key"] = api_key
+    return session
+
+
+def init_thread_session(api_key: str, sessions: ExitStack, lock: threading.Lock) -> None:
+    # ExitStack 由主线程在工作线程全部退出后关闭，注册回调需要串行化。
+    session = thread_session(api_key)
+    with lock:
+        sessions.callback(session.close)
+
+
 def fetch_one(host: str, api_key: str, handle: str) -> dict | None:
-    with requests.Session() as session:
-        session.headers["X-API-Key"] = api_key
-        return fetch_affiliation(session, host, handle)
+    return fetch_affiliation(thread_session(api_key), host, handle)
 
 
 def validate(table_name: str, label: str, require_labels: bool = False) -> None:
@@ -292,7 +316,11 @@ def run() -> None:
     failed: list[str] = []
     matched = 0
     rows: list[dict] = []
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+    with ExitStack() as sessions, ThreadPoolExecutor(
+        max_workers=MAX_WORKERS,
+        initializer=init_thread_session,
+        initargs=(api_key, sessions, threading.Lock()),
+    ) as pool:
         for start in range(0, len(handles), BATCH_SIZE):
             futures = {
                 pool.submit(fetch_one, host, api_key, handle): handle
