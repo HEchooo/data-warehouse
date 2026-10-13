@@ -8,3 +8,5 @@ jobs/ods/ods_ios_download/AuthKey_ZPUB8KVQ8R.p8
 __pycache__/
 *.pyc
 .DS_Store
+
+.etl_run.lock

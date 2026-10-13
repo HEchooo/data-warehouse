@@ -131,8 +131,7 @@ def android_download(year_month: str):
     # 从 GCS 获取数据
     df = fetch_download_data(year_month)
     if df is None or df.empty:
-        logger.warning(f"没有获取到 {year_month} 的数据")
-        return
+        raise RuntimeError(f"没有获取到 {year_month} 的数据")
 
     def clean_value(val):
         return None if pd.isna(val) else val
@@ -160,8 +159,7 @@ def android_download(year_month: str):
     ]
 
     if not rows_to_insert:
-        logger.warning(f"{year_month} 没有数据")
-        return
+        raise RuntimeError(f"{year_month} 没有可写入数据")
 
     logger.info(f"准备插入 {len(rows_to_insert)} 条记录")
 
@@ -177,8 +175,7 @@ def android_download(year_month: str):
 
         errors = bigquery_client.insert_rows_json(staging_table_id, rows_to_insert)
         if errors != []:
-            logger.error(f"写入临时表时遇到错误: {errors}")
-            return
+            raise RuntimeError("Android 下载临时表写入失败")
         logger.info(f"{len(rows_to_insert)} 条记录成功写入临时表")
 
         build_android_changed_table(
@@ -205,4 +202,4 @@ if __name__ == "__main__":
         logger.info(f"执行月份: {year_month}")
         android_download(year_month)
     else:
-        logger.error("没有找到可用的数据文件")
+        raise RuntimeError("没有找到可用的数据文件")

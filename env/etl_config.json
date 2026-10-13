@@ -100,7 +100,10 @@
       "name": "DWD 下载 ETL",
       "script": "jobs/dwd/dwd_download/dwd_download.py",
       "enabled": true,
-      "depends_on": [],
+      "depends_on": [
+        "ods_ios_download",
+        "ods_android_download"
+      ],
       "schedule_group": "dwd_daily"
     },
     {
@@ -424,7 +427,8 @@
       "enabled": true,
       "depends_on": [
         "dim_column",
-        "dws_column_post_daily"
+        "dws_column_post_daily",
+        "dws_column_post_monthly"
       ],
       "schedule_group": "dws_module_post_monthly"
     },
@@ -438,7 +442,8 @@
       "depends_on": [
         "dwd_event_log",
         "dim_column",
-        "dim_post"
+        "dim_post",
+        "dws_column_interaction_monthly"
       ],
       "schedule_group": "dws_module_interaction_monthly"
     },
@@ -547,7 +552,8 @@
       "enabled": true,
       "depends_on": [
         "dwd_event_log",
-        "dim_user_first_active"
+        "dim_user_first_active",
+        "dim_post"
       ],
       "schedule_group": "dws_ai_fashion_tryon_okr_daily"
     },
@@ -559,7 +565,8 @@
       "script": "jobs/dws/dws_ai_fashion_tryon_okr_user_daily.py",
       "enabled": true,
       "depends_on": [
-        "dwd_event_log"
+        "dwd_event_log",
+        "dws_user_daily"
       ],
       "schedule_group": "dws_ai_fashion_tryon_okr_user_daily"
     },
@@ -646,9 +653,7 @@
       "name": "DWS 视频逐日播放事实 ETL",
       "script": "jobs/dws/dws_video_daily.py",
       "enabled": true,
-      "depends_on": [
-        "dim_auto_publish_video_task"
-      ],
+      "depends_on": [],
       "schedule_group": "dws_video_daily"
     },
     {
@@ -698,7 +703,8 @@
       "script": "jobs/dws/dws_registered_app_device_daily.py",
       "enabled": true,
       "depends_on": [
-        "dwd_event_log"
+        "dwd_event_log",
+        "dws_device_daily"
       ],
       "schedule_group": "dws_registered_app_device_daily"
     },
@@ -774,8 +780,7 @@
       "enabled": true,
       "depends_on": [
         "dim_video",
-        "dws_social_video_snapshot_daily_v2",
-        "dws_social_video_state_daily_v2"
+        "dws_social_video_snapshot_daily_v2"
       ],
       "schedule_group": "dws_social_creator_published_t1_daily"
     },
@@ -796,7 +801,9 @@
       "name": "DWS 橱窗号视频商品成交事实 ETL",
       "script": "jobs/dws/dws_social_affiliate_video_product_daily.py",
       "enabled": true,
-      "depends_on": [],
+      "depends_on": [
+        "dim_video"
+      ],
       "schedule_group": "dws_social_affiliate_video_product_daily"
     },
     {
@@ -843,7 +850,8 @@
       "enabled": true,
       "depends_on": [
         "dim_auto_publish_video_task",
-        "dws_social_video_state_daily_v2"
+        "dws_social_video_state_daily_v2",
+        "dim_video"
       ],
       "schedule_group": "dws_social_channel_daily_v2"
     },
@@ -916,7 +924,8 @@
       "script": "jobs/ods/ods_ecn_video_publication_owner/ods_ecn_video_publication_owner.py",
       "enabled": true,
       "depends_on": [
-        "dws_social_creator_snapshot_daily"
+        "dws_social_creator_snapshot_daily",
+        "dim_video"
       ],
       "schedule_group": "ods_ecn_video_publication_owner"
     },
@@ -1479,7 +1488,8 @@
       "enabled": true,
       "depends_on": [
         "dim_auto_publish_video_task",
-        "dws_social_video_state_daily_v2"
+        "dws_social_video_state_daily_v2",
+        "dim_video"
       ],
       "schedule_group": "ads_daily_social_content_published_day3_view_bucket_v2"
     },
@@ -1682,7 +1692,8 @@
         "dws_ai_fashion_tryon_okr_daily",
         "dws_user_activity_daily",
         "dws_user_retention_feature_daily",
-        "dws_user_daily"
+        "dws_user_daily",
+        "dws_ai_fashion_tryon_okr_user_daily"
       ],
       "schedule_group": "ads_daily_ai_fashion_tryon_okr_v2"
     },
@@ -1706,7 +1717,9 @@
       "name": "DIM dim_asset ETL",
       "script": "jobs/dim/dim_asset.py",
       "enabled": true,
-      "depends_on": [],
+      "depends_on": [
+        "dim_column"
+      ],
       "schedule_group": "dim_daily"
     },
     {

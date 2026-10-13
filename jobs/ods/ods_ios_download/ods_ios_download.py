@@ -122,6 +122,7 @@ def ios_download(start_timestamp, end_timestamp):
         start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)
     ]
 
+    failed_dates = []
     for report_date in date_range:
         # 下载销售报告
         params = {
@@ -133,7 +134,7 @@ def ios_download(start_timestamp, end_timestamp):
         }
 
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=60)
             logger.info(f"{report_date} - HTTP {response.status_code}")
 
             # 如果返回 404，说明该日期暂无数据，跳过
@@ -141,6 +142,7 @@ def ios_download(start_timestamp, end_timestamp):
                 logger.warning(f"{report_date} 暂无数据，跳过")
                 continue
 
+            response.raise_for_status()
             data = gzip.decompress(response.content).decode("utf")
 
             df = pd.read_csv(StringIO(data), delimiter="\t")
@@ -225,8 +227,7 @@ def ios_download(start_timestamp, end_timestamp):
 
                 errors = client.insert_rows_json(staging_table_id, rows_to_insert)
                 if errors != []:
-                    logger.error(f"写入临时表时遇到错误: {errors}")
-                    continue
+                    raise RuntimeError("iOS 下载临时表写入失败")
                 logger.info(f"{len(rows_to_insert)} 条记录成功写入临时表")
 
                 build_ios_changed_table(
@@ -242,6 +243,10 @@ def ios_download(start_timestamp, end_timestamp):
 
         except Exception as e:
             logger.error(f"{report_date} - {e}")
+            failed_dates.append(report_date.strftime("%Y-%m-%d"))
+
+    if failed_dates:
+        raise RuntimeError(f"iOS 下载部分日期失败: {', '.join(failed_dates)}")
 
 
 # 获取当前 UTC 时间
