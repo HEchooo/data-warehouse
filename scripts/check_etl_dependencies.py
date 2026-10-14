@@ -8,12 +8,15 @@ import ast
 import json
 from pathlib import Path
 import re
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from etl_run import SHARED_RESOURCES, task_resources
 TABLE_NAME = re.compile(r"\b(?:ods|dwd|dim|dws|ads)_[a-z0-9_]+\b")
 
 
-def referenced_tables(source: str) -> set[str]:
+def source_literals(source: str) -> list[str]:
     tree = ast.parse(source)
     docstrings = set()
     for node in ast.walk(tree):
@@ -22,24 +25,38 @@ def referenced_tables(source: str) -> set[str]:
                 value = node.body[0].value
                 if isinstance(value, ast.Constant) and isinstance(value.value, str):
                     docstrings.add(id(value))
-    refs = set()
+    literals = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings:
             text = re.sub(r"/\*.*?\*/|--[^\n]*", "", node.value, flags=re.DOTALL)
-            refs.update(TABLE_NAME.findall(text))
-    return refs
+            literals.append(text)
+    return literals
+
+
+def referenced_tables(source: str) -> set[str]:
+    return {table for text in source_literals(source) for table in TABLE_NAME.findall(text)}
 
 
 def check(root: Path = ROOT) -> list[str]:
     tasks = json.loads((root / 'env/etl_config.json').read_text())['tasks']
     managed = {task['table_name'] for task in tasks}
     errors = []
+    shared_tables = {r for values in SHARED_RESOURCES.values() for r in values
+                     if r.startswith('table:')}
     for task in tasks:
         path = root / task['script']
-        refs = referenced_tables(path.read_text(encoding='utf-8'))
+        literals = source_literals(path.read_text(encoding='utf-8'))
+        refs = {table for text in literals for table in TABLE_NAME.findall(text)}
         missing = (refs & managed) - {task['table_name']} - set(task['depends_on'])
         if missing:
             errors.append(f"{task['table_name']} 缺少直接依赖: {', '.join(sorted(missing))}")
+        # 辅助表不属于 managed DAG，却会被多个任务整表替换。
+        # 新增读写者也必须加入同一资源锁，不能仅验证业务目标表。
+        for resource in shared_tables:
+            table = resource.removeprefix('table:')
+            if any(re.search(r'\b' + re.escape(table) + r'\b', s) for s in literals):
+                if resource not in task_resources(task):
+                    errors.append(f"{task['table_name']} 缺少共享资源互斥: {resource}")
     return errors
 
 

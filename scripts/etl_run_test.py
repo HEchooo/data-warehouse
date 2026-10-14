@@ -103,17 +103,21 @@ class SchedulerTests(unittest.TestCase):
         statuses = {'bad': 'failed', 'child': 'blocked', 'good': 'success'}
         for body, accepted in [({'code': 0}, True), ({'StatusCode': 0}, True),
                                ({'code': 1}, False), ({}, False)]:
-            response = io.BytesIO(json.dumps(body).encode())
-            with patch.object(etl_run.urllib.request, 'urlopen', return_value=response) as send:
+            response = subprocess.CompletedProcess([], 0, stdout=json.dumps(body))
+            with patch.object(etl_run.subprocess, 'run', return_value=response) as send:
                 if accepted:
                     etl_run.send_failure_alert(self.config, statuses)
                 else:
                     with self.assertRaises(RuntimeError):
                         etl_run.send_failure_alert(self.config, statuses)
-                payload = json.loads(send.call_args.args[0].data)
+                request = json.loads(send.call_args.kwargs['input'])
+                payload = request['payload']
                 self.assertIn('child: blocked', payload['content']['text'])
                 self.assertNotIn('good', payload['content']['text'])
-                self.assertEqual(send.call_args.kwargs['timeout'], 15)
+                self.assertEqual(send.call_args.kwargs['timeout'], 20)
+                self.assertNotIn(request['webhook'], str(send.call_args.args))
+                self.assertTrue(send.call_args.kwargs['close_fds'])
+                self.assertNotIn('pass_fds', send.call_args.kwargs)
 
     def test_launch_error_does_not_stop_other_tasks(self):
         self.task('bad')
@@ -126,6 +130,20 @@ class SchedulerTests(unittest.TestCase):
         with patch.object(etl_run, 'run_task', side_effect=run):
             self.assertEqual(self.run_etl()[0], 1)
         self.assertTrue((self.root / 'good.ran').exists())
+
+    def test_main_ignores_repeated_signals_during_cleanup(self):
+        with patch.object(etl_run.signal, 'signal') as install, \
+                patch.object(etl_run, 'load_config', return_value=self.config), \
+                patch.object(etl_run, 'run_etl') as run:
+            def interrupt(*args):
+                handler = install.call_args_list[0].args[1]
+                handler(signal.SIGTERM, None)
+            run.side_effect = interrupt
+            with self.assertRaises(SystemExit) as caught:
+                etl_run.main()
+            self.assertEqual(caught.exception.code, 143)
+            self.assertEqual([call.args for call in install.call_args_list[-2:]],
+                             [(signal.SIGTERM, signal.SIG_IGN), (signal.SIGINT, signal.SIG_IGN)])
 
     def start_slow_runner(self):
         self.task('slow')
@@ -155,7 +173,7 @@ class SchedulerTests(unittest.TestCase):
         result, alert = self.run_etl()
         self.assertEqual(result, 0)
         self.assertFalse((self.root / 'second.ran').exists())
-        alert.assert_not_called()
+        self.assertEqual(alert.call_args.args[1], {'scheduler': 'lock_skipped'})
         (self.root / 'release').touch()
         self.assertEqual(p.wait(timeout=5), 0)
         self.run_etl()
