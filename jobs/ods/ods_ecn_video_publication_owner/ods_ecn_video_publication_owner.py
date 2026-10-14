@@ -32,6 +32,8 @@ RETRY_STATUS = {502, 503, 504}
 BATCH_SIZE = 50
 CONCURRENCY = 4
 CIRCUIT_FAILURE_LIMIT = 3
+GATEWAY_COOLDOWN_SECONDS = 45
+MAX_GATEWAY_RECOVERIES = 1
 _thread_local = threading.local()
 SCHEMA = [
     bigquery.SchemaField("platform", "STRING"),
@@ -331,6 +333,7 @@ def run() -> None:
     circuit = GatewayCircuit()
     failed: list[str] = []
     matched = 0
+    recoveries = 0
     with ExitStack() as sessions, ThreadPoolExecutor(
         max_workers=CONCURRENCY,
         initializer=init_thread_session,
@@ -340,25 +343,42 @@ def run() -> None:
             if circuit.open:
                 break
             chunk = video_ids[start : start + BATCH_SIZE]
-            futures = {
-                executor.submit(
-                    fetch_publication_owner, host, api_key, video_id, circuit
-                ): video_id
-                for video_id in chunk
-            }
-            batch: list[dict] = []
-            for future in as_completed(futures):
-                video_id = futures[future]
-                try:
-                    row = future.result()
-                except Exception as exc:
-                    logging.warning("查询失败，本轮跳过 video_id=%s err=%s", video_id, exc)
-                    failed.append(video_id)
-                    row = None
-                if row:
-                    batch.append(row)
-                    matched += 1
-            upsert_rows(batch)
+            pending = chunk
+            while pending:
+                futures = {
+                    executor.submit(
+                        fetch_publication_owner, host, api_key, video_id, circuit
+                    ): video_id
+                    for video_id in pending
+                }
+                batch: list[dict] = []
+                attempt_failed: list[str] = []
+                # 收齐所有在途结果后才能换熔断器；成功或业务性空结果不重复请求。
+                for future in as_completed(futures):
+                    video_id = futures[future]
+                    try:
+                        row = future.result()
+                    except Exception as exc:
+                        logging.warning("查询失败 video_id=%s err=%s", video_id, exc)
+                        attempt_failed.append(video_id)
+                        continue
+                    if row:
+                        batch.append(row)
+                        matched += 1
+                upsert_rows(batch)
+                if circuit.open and recoveries < MAX_GATEWAY_RECOVERIES:
+                    recoveries += 1
+                    logging.warning(
+                        "ECN 网关熔断，等待 %ss 后重试本批失败项 %d 个（恢复 %d/%d）",
+                        GATEWAY_COOLDOWN_SECONDS, len(attempt_failed),
+                        recoveries, MAX_GATEWAY_RECOVERIES,
+                    )
+                    time.sleep(GATEWAY_COOLDOWN_SECONDS)
+                    circuit = GatewayCircuit()
+                    pending = attempt_failed
+                else:
+                    failed.extend(attempt_failed)
+                    break
             logging.info(
                 "已查询 %d/%d，命中 task_id %d，并发 %d",
                 min(start + len(chunk), len(video_ids)),
